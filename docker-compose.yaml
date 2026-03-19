@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: amazon-db
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+        - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+volumes:
+  pgdata:
+    name: pgdata
+networks:
+    amazon-network:
+        name: amazon-network
+        driver: bridge

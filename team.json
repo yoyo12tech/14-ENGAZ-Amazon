@@ -1,0 +1,17 @@
+[
+  {"studentId":"55-1196","name":"Abdullah Sherif","githubUsername":"Abdullah-Sherif","service":"billing-service"},
+  {"studentId":"55-8911","name":"Adham Ismail","githubUsername":"Adham-Ismail","service":"billing-service"},
+  {"studentId":"55-5426","name":"Ahmed Alaa","githubUsername":"ahmedakls","service":"product-service"},
+  {"studentId":"55-3210","name":"Ali Walid","githubUsername":"Infinitethreads","service":"product-service"},
+  {"studentId":"55-16382","name":"Anouar Leon","githubUsername":"anouarleon20-cmd","service":"order-service"},
+  {"studentId":"55-11390","name":"Haytham Hesham","githubUsername":"Haytham-Hesham","service":"user-service"},
+  {"studentId":"55-10060","name":"Marawan","githubUsername":"TawheedJR","service":"user-service"},
+  {"studentId":"55-11828","name":"Mohab","githubUsername":"SalvadorKiwi","service":"order-service"},
+  {"studentId":"55-9970","name":"Mohamed Hefny","githubUsername":"MohamedHefny0","service":"order-service"},
+  {"studentId":"55-5544","name":"Mohamed Tamer","githubUsername":"MohamedTamer2024","service":"shipping-service"},
+  {"studentId":"55-11481","name":"Mohammad Tarek Zahran","githubUsername":"BlueBlurX","service":"billing-service"},
+  {"studentId":"55-9800","name":"Yahya Al-Azhary","githubUsername":"YahyaAlAzhary","service":"user-service"},
+  {"studentId":"55-19783","name":"Youssef Abdelshafee","githubUsername":"youssef3b4afi","service":"shipping-service"},
+  {"studentId":"55-4624","name":"Youssef Amr","githubUsername":"yoyo12tech","service":"product-service"},
+  {"studentId":"55-1645","name":"Nour","githubUsername":"Bouma11","service":"billing-service"}
+]
