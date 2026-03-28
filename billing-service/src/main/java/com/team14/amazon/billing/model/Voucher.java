@@ -1,0 +1,120 @@
+package com.team14.amazon.billing.model;
+
+import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+@Entity
+@Table(name="vouchers")
+public class Voucher {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @Column(nullable = false, unique = true)
+    private String code;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private DiscountType discountType;
+
+    @Column(nullable = false)
+    private Double discountValue;
+
+    @Column(nullable = false)
+    private Integer maxUses;
+
+    @Column(columnDefinition = "integer default 0")
+    private Integer currentUses = 0;
+
+    @Column(nullable = false)
+    private LocalDateTime expiryDate;
+
+    @Column(columnDefinition = "boolean default true")
+    private Boolean active;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(columnDefinition = "jsonb")
+    private Map<String, Object> metadata;
+
+    @OneToMany(mappedBy = "voucher")
+    private List<TransactionVoucher> transactionVoucher;
+
+    public Long getId() {
+        return this.id;
+    }
+
+    public DiscountType getDiscountType() {
+        return this.discountType;
+    }
+
+    public Double getDiscountValue() {
+        return this.discountValue;
+    }
+
+    public Integer getCurrentUses() {
+        return this.currentUses;
+    }
+
+    public Integer getMaxUses() {
+        return this.maxUses;
+    }
+
+    public String getCode() {
+        return this.code;
+    }
+
+    public Boolean getActive() {
+        return this.active;
+    }
+
+    public List<TransactionVoucher> getTransactionVoucher() {
+        return this.transactionVoucher;
+    }
+
+    public LocalDateTime getExpiryDate() {
+        return this.expiryDate;
+    }
+
+    public Map<String, Object> getMetadata() {
+        return this.metadata;
+    }
+
+
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+    public void setDiscountType(DiscountType discountType) {
+        this.discountType = discountType;
+    }
+
+    public void setDiscountValue(Double discountValue) {
+        this.discountValue = discountValue;
+    }
+
+    public void setExpiryDate(LocalDateTime expiryDate) {
+        this.expiryDate = expiryDate;
+    }
+
+    public void setMaxUses(Integer maxUses) {
+        this.maxUses = maxUses;
+    }
+
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata;
+    }
+
+    public void setTransactionVoucher(List<TransactionVoucher> transactionVoucher) {
+        this.transactionVoucher = transactionVoucher;
+    }
+}
