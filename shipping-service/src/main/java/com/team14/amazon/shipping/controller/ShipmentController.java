@@ -1,0 +1,59 @@
+package com.team14.amazon.shipping.controller;
+
+import com.team14.amazon.shipping.model.Shipment;
+import com.team14.amazon.shipping.service.ShipmentService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.Optional;
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/shipments")
+public class ShipmentController {
+
+    private final ShipmentService shipmentService;
+
+    public ShipmentController(ShipmentService shipmentService) {
+        this.shipmentService = shipmentService;
+    }
+
+
+    @GetMapping
+    public ResponseEntity<List<Shipment>> getAllShipments() {
+        return ResponseEntity.ok(shipmentService.getAllShipments());
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id) {
+        return shipmentService.getShipmentById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping
+    public ResponseEntity<?> createShipment(@RequestBody Shipment shipment) {
+        try {
+            Shipment createdShipment = shipmentService.createShipment(shipment);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdShipment);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Shipment> updateShipment(@PathVariable Long id, @RequestBody Shipment updatedShipment) {
+        return shipmentService.updateShipment(id, updatedShipment)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteShipment(@PathVariable Long id) {
+        if (shipmentService.deleteShipment(id)) {
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.notFound().build();
+    }
+}
