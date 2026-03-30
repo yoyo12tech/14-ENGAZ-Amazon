@@ -29,10 +29,10 @@ public class Shipment {
     @Column(nullable = false)
     private Status status = Status.PROCESSING;
 
-    @Column(precision = 10, scale = 7)
+    @Column
     private Double latitude;
 
-    @Column(precision = 10, scale = 7)
+    @Column
     private Double longitude;
 
     @Column
