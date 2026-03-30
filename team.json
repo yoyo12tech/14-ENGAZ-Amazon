@@ -1,6 +1,6 @@
 [
   {"studentId":"55-1196","name":"Abdullah Sherif","githubUsername":"Abdullah-Sherif","service":"billing-service"},
-  {"studentId":"55-8911","name":"Adham Ismail","githubUsername":"Adham-Ismail","service":"billing-service"},
+  {"studentId":"55-8911","name":"Adham Ismail","githubUsername":"Adham-Ismail","service":"shipping-service"},
   {"studentId":"55-5426","name":"Ahmed Alaa","githubUsername":"ahmedakls","service":"product-service"},
   {"studentId":"55-3210","name":"Ali Walid","githubUsername":"Infinitethreads","service":"product-service"},
   {"studentId":"55-16382","name":"Anouar Leon","githubUsername":"anouarleon20-cmd","service":"order-service"},
