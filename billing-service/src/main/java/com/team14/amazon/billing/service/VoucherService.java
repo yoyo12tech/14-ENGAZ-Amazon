@@ -40,6 +40,6 @@ public class VoucherService {
     }
 
     public List<Voucher> searchForActiveVouchers(){
-        voucherRepository.searchForActiveVouchers();
+        return voucherRepository.searchForActiveVouchers();
     }
 }
