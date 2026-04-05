@@ -45,6 +45,10 @@ public class TransactionVoucher {
         return appliedAt;
     }
 
+    public void setId(Long id){
+        this.id = id;
+    }
+
     public void setTransaction(Transaction transaction) {
         this.transaction = transaction;
     }

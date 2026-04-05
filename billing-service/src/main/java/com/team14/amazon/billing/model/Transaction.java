@@ -86,7 +86,9 @@ public class Transaction {
         return this.transactionVouchers;
     }
 
-
+    public void setId(Long id){
+        this.id = id;
+    }
     public void setOrderId(Long orderId) {
         this.orderId = orderId;
     }
