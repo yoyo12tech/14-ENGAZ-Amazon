@@ -60,4 +60,5 @@ public class TransactionVoucher {
     public void setDiscountApplied(Double discountApplied) {
         this.discountApplied = discountApplied;
     }
+    public void setAppliedAt(LocalDateTime appliedAt){ this.appliedAt = appliedAt;}
 }
