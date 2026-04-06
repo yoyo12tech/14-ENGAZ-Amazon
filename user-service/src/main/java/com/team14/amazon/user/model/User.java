@@ -32,17 +32,18 @@ public class User {
     private String phone;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "role", nullable = false, columnDefinition = "user_role")
     private Role role;
+
 
     public enum Role {
         CUSTOMER, ADMIN
     }
-
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "user_status")
     private Status status = Status.ACTIVE;
-
     public enum Status {
         ACTIVE, DEACTIVATED
     }
@@ -89,3 +90,4 @@ public class User {
     public List<ShippingAddress> getShippingAddresses() { return shippingAddresses; }
     public void setShippingAddresses(List<ShippingAddress> shippingAddresses) { this.shippingAddresses = shippingAddresses; }
 }
+

@@ -20,7 +20,8 @@ public class Voucher {
     private String code;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "discount_type", nullable = false, columnDefinition = "discount_type")
     private DiscountType discountType;
 
     @Column(nullable = false)
@@ -120,3 +121,4 @@ public class Voucher {
         this.transactionVoucher = transactionVoucher;
     }
 }
+
