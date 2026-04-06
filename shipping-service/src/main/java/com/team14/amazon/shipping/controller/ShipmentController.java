@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
 import java.util.List;
@@ -65,6 +66,19 @@ public class ShipmentController {
             int count = shipmentService.batchUpdateStatus(updates);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("updatedCount", count));
         } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
+
+    @GetMapping("/metadata/search")
+    public ResponseEntity<?> filterByMetadata(
+            @RequestParam String key,
+            @RequestParam String operator,
+            @RequestParam String value) {
+        try {
+            List<Shipment> results = shipmentService.filterByMetadata(key, operator, value);
+            return ResponseEntity.ok(results);
+        } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }

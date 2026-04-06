@@ -99,4 +99,28 @@ public class ShipmentService {
         shipmentRepository.saveAll(toSave);
         return toSave.size();
     }
+
+    public List<Shipment> filterByMetadata(String key, String operator, String value) {
+        return switch (operator) {
+            case "eq" -> shipmentRepository.findByMetadataEq(key, value);
+            case "gt" -> {
+                try {
+                    yield shipmentRepository.findByMetadataGt(key, Double.parseDouble(value));
+                } catch (NumberFormatException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Value must be numeric for 'gt' operator");
+                }
+            }
+            case "lt" -> {
+                try {
+                    yield shipmentRepository.findByMetadataLt(key, Double.parseDouble(value));
+                } catch (NumberFormatException e) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Value must be numeric for 'lt' operator");
+                }
+            }
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Invalid operator. Must be one of: eq, gt, lt");
+        };
+    }
 }
