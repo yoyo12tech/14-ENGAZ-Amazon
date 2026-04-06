@@ -123,4 +123,9 @@ public class ShipmentService {
                     "Invalid operator. Must be one of: eq, gt, lt");
         };
     }
+
+    public List<Shipment> getShipmentsInDateRange(LocalDateTime startDate, LocalDateTime endDate, String status) {
+        String resolvedStatus = (status == null || status.isBlank()) ? null : status;
+        return shipmentRepository.findByDateRangeAndStatus(startDate, endDate, resolvedStatus);
+    }
 }

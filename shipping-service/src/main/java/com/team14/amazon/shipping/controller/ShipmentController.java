@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
 import java.util.Map;
@@ -81,5 +82,16 @@ public class ShipmentController {
         } catch (ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Shipment>> getShipmentHistory(
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(shipmentService.getShipmentsInDateRange(
+                startDate.atStartOfDay(),
+                endDate.atTime(23, 59, 59),
+                status));
     }
 }
