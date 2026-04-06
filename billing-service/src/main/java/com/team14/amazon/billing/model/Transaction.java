@@ -27,11 +27,13 @@ public class Transaction {
     private Double amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
     private Method method;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
     private Status status;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -117,3 +119,5 @@ public class Transaction {
         this.transactionVouchers = transactionVouchers;
     }
 }
+
+

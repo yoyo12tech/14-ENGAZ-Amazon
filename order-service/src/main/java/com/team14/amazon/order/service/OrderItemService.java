@@ -5,6 +5,7 @@ import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.repository.OrderItemRepository;
 import com.team14.amazon.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
@@ -37,17 +38,29 @@ public class OrderItemService {
         return orderItemRepository.findAll();
     }
 
+    @Transactional // Ensures the update is atomic
     public OrderItem update(Long id, OrderItem updated) {
+        // 1. Fetch the original record
         OrderItem existing = orderItemRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("OrderItem not found: " + id));
-        existing.setProductId(updated.getProductId());
-        existing.setQuantity(updated.getQuantity());
-        existing.setPriceAtPurchase(updated.getPriceAtPurchase());
-        existing.setItemOrder(updated.getItemOrder());
-        existing.setMetadata(updated.getMetadata());
+
+        // 2. Only update if the value is provided (Null-Safety)
+        if (updated.getQuantity() != null) {
+            existing.setQuantity(updated.getQuantity());
+        }
+
+        if (updated.getMetadata() != null) {
+            existing.setMetadata(updated.getMetadata());
+        }
+
+        if (updated.getItemOrder() != null) {
+            existing.setItemOrder(updated.getItemOrder());
+        }
+        if (updated.getPriceAtPurchase() != null) {
+            existing.setPriceAtPurchase(updated.getPriceAtPurchase());
+        }
         return orderItemRepository.save(existing);
     }
-
     public void delete(Long id) {
         orderItemRepository.deleteById(id);
     }
