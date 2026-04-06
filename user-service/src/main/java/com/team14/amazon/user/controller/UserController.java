@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -76,6 +77,16 @@ public class UserController {
             return ResponseEntity.ok(userService.searchUsers(name, email, role));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    @PutMapping("/{id}/preferences")
+    public ResponseEntity<?> updatePreferences(@PathVariable Long id,@RequestBody Map<String, Object> preferences) {
+        try {
+            User updatedUser = userService.updateUserPreferences(id, preferences);
+            return ResponseEntity.ok(updatedUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
 }

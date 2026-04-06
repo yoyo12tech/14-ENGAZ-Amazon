@@ -5,7 +5,9 @@ import com.team14.amazon.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -95,10 +97,29 @@ public class UserService {
         }
     
         try {
-            // validate role (IMPORTANT)
             return User.Role.valueOf(role.trim().toUpperCase()).name();
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid role. Must be CUSTOMER or ADMIN.");
         }
+    }
+
+    public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {
+
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        if (user.getPreferences() == null) {
+            user.setPreferences(new HashMap<>());
+        }
+
+        Map<String, Object> existingPreferences = user.getPreferences();
+
+        for (Map.Entry<String, Object> entry : newPreferences.entrySet()) {
+            existingPreferences.put(entry.getKey(), entry.getValue());
+        }
+
+        user.setPreferences(existingPreferences);
+
+        return userRepository.save(user);
     }
 }
