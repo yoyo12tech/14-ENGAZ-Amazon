@@ -65,4 +65,17 @@ public class UserController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<?> searchUsers(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role
+    ) {
+        try {
+            return ResponseEntity.ok(userService.searchUsers(name, email, role));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
 }

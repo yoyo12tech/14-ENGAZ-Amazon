@@ -73,4 +73,32 @@ public class UserService {
         }
         return false;
     }
+
+    public List<User> searchUsers(String name, String email, String role) {
+        String normalizedName = normalize(name);
+        String normalizedEmail = normalize(email);
+        String normalizedRole = normalizeRole(role);
+    
+        return userRepository.searchUsers(normalizedName, normalizedEmail, normalizedRole);
+    }
+    
+    private String normalize(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
+        }
+        return value.trim();
+    }
+    
+    private String normalizeRole(String role) {
+        if (role == null || role.isBlank()) {
+            return null;
+        }
+    
+        try {
+            // validate role (IMPORTANT)
+            return User.Role.valueOf(role.trim().toUpperCase()).name();
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid role. Must be CUSTOMER or ADMIN.");
+        }
+    }
 }
