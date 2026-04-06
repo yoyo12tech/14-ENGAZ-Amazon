@@ -21,4 +21,18 @@ public interface UserRepository extends JpaRepository<User, Long> {
       AND (:role IS NULL OR u.role = :role)
 """, nativeQuery = true)
 List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
+
+@Query(value = """
+    SELECT
+        COUNT(o.id)                                                         AS totalOrders,
+        COUNT(CASE WHEN o.status = 'DELIVERED'  THEN 1 END)                AS completedOrders,
+        COUNT(CASE WHEN o.status = 'CANCELLED'  THEN 1 END)                AS cancelledOrders,
+        COALESCE(SUM(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS totalSpent,
+        COALESCE(AVG(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS averageOrderValue
+    FROM orders o
+    WHERE o.user_id = :userId
+""", nativeQuery = true)
+Object[] getOrderSummaryByUserId(@Param("userId") Long userId);
 }
+
+

@@ -1,5 +1,6 @@
 package com.team14.amazon.user.controller;
 
+import com.team14.amazon.user.dto.UserOrderSummaryDTO;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -85,6 +86,16 @@ public class UserController {
         try {
             User updatedUser = userService.updateUserPreferences(id, preferences);
             return ResponseEntity.ok(updatedUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/order-summary")
+    public ResponseEntity<?> getUserOrderSummary(@PathVariable Long id) {
+        try {
+            UserOrderSummaryDTO summary = userService.getUserOrderSummary(id);
+            return ResponseEntity.ok(summary);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
