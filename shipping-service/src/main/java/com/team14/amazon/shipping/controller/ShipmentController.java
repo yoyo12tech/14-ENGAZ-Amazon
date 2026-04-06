@@ -56,4 +56,10 @@ public class ShipmentController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @GetMapping("order/{orderId}/latest")
+    public Shipment getLatestShipmentForAnOrder(@PathVariable Long orderId){
+        return shipmentService.getLatestShipmentForOrder(orderId);
+    }
+
 }
