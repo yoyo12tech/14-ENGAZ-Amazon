@@ -6,6 +6,7 @@ import com.team14.amazon.billing.model.Transaction;
 import org.springframework.stereotype.Repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -21,6 +22,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     Transaction findByUserId(Long userId);
     List<Transaction> findByStatus(Status status);
     List<Transaction> findByMethod(Method method);
+    List<Transaction> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     @Query(value = "SELECT COUNT(id) > 0 FROM users WHERE id = :userId", nativeQuery = true)
     boolean checkUserExists(@Param("userId") Long userId);

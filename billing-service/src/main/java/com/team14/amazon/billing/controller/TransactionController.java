@@ -56,4 +56,11 @@ public class TransactionController {
     }
 
 //    @GetMapping
+//
+//    @GetMapping
+
+    @GetMapping("/reports/revenue")
+    public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {
+        return transactionService.getRevenueReport(startDate, endDate);
+    }
 }
