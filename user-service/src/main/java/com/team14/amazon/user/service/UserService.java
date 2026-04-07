@@ -2,7 +2,9 @@ package com.team14.amazon.user.service;
 
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -72,5 +74,14 @@ public class UserService {
             return true;
         }
         return false;
+    }
+
+    public List<User> findUsersByPreference(String key, String value) {
+        if (key == null || key.trim().isEmpty() || value == null || value.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must not be blank");
+        }
+        return userRepository.findAll().stream()
+                .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
+                .toList();
     }
 }

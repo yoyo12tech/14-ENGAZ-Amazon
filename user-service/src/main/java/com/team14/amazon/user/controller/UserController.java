@@ -65,4 +65,9 @@ public class UserController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @GetMapping("/preferences/search")
+    public ResponseEntity<List<User>> searchByPreference(@RequestParam String key, @RequestParam String value) {
+        return ResponseEntity.ok(userService.findUsersByPreference(key, value));
+    }
 }
