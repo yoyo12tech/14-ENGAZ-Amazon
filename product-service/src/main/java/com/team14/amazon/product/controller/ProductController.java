@@ -13,7 +13,7 @@ import com.team14.amazon.product.service.ProductReviewService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.Map;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,4 +66,22 @@ public class ProductController {
         }
         return ResponseEntity.notFound().build();
     }
+
+
+
+
+    // S2-F2: Update product specifications (JSONB partial update)
+    @PutMapping("/{id}/specifications")
+    public ResponseEntity<?> updateSpecifications(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> specifications) {
+        return productService.updateSpecifications(id, specifications)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+
+
+
+
 }
