@@ -4,7 +4,8 @@ import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.repository.ProductRepository;
 import org.springframework.stereotype.Service;
-
+import java.util.HashMap;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -65,6 +66,18 @@ public class ProductService {
             existingProduct.setSpecifications(updatedProduct.getSpecifications());
 
             return productRepository.save(existingProduct);
+        });
+    }
+    // S2-F2: JSONB partial update — merge incoming specs into existing map
+    public Optional<Product> updateSpecifications(Long id, Map<String, Object> incomingSpecs) {
+        return productRepository.findById(id).map(product -> {
+            Map<String, Object> existing = product.getSpecifications();
+            if (existing == null) {
+                existing = new HashMap<>();
+            }
+            existing.putAll(incomingSpecs); // add new keys, overwrite matching keys
+            product.setSpecifications(existing);
+            return productRepository.save(product);
         });
     }
 
