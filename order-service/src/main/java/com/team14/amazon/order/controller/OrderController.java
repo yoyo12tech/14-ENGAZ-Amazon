@@ -45,4 +45,11 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/deliver")
+    public ResponseEntity<Order> markAsDelivered(@PathVariable Long id) {
+        return ResponseEntity.ok(orderService.markAsDelivered(id));
+    }
+
+
 }
