@@ -2,7 +2,9 @@ package com.team14.amazon.shipping.service;
 
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -61,5 +63,18 @@ public class ShipmentService {
             return true;
         }
         return false;
+    }
+
+    public Shipment createShipment(Long orderId, Shipment shipment){
+        if(!shipmentRepository.existsOrderById(orderId)){
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "The Order does not exist!");
+        }
+        shipment.setOrderId(orderId);
+        shipment.setStatus(Shipment.Status.PROCESSING);
+        shipment.setLastUpdate(LocalDateTime.now());
+
+        return shipmentRepository.save(shipment);
     }
 }
