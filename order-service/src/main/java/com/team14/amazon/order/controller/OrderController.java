@@ -45,4 +45,13 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/search")
+    public List<Order> searchOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam String startDate,
+            @RequestParam String endDate
+    ) {
+        return orderService.search(status, startDate, endDate);
+    }
 }
