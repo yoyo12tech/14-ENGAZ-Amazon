@@ -45,4 +45,10 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/pending/contains-product/{productId}")
+    public ResponseEntity<Boolean> checkPendingOrdersForProduct(@PathVariable Long productId) {
+        boolean hasPending = orderService.hasPendingOrdersWithProduct(productId);
+        return ResponseEntity.ok(hasPending);
+    }
 }

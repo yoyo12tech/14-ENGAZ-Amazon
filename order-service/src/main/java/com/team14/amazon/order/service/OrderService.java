@@ -3,6 +3,7 @@ package com.team14.amazon.order.service;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
+import com.team14.amazon.order.model.OrderStatus;
 
 import java.util.List;
 import java.util.Optional;
@@ -42,5 +43,9 @@ public class OrderService {
 
     public void delete(Long id) {
         orderRepository.deleteById(id);
+    }
+
+    public boolean hasPendingOrdersWithProduct(Long productId) {
+        return orderRepository.existsByStatusAndOrderItemsProductId(OrderStatus.PENDING, productId);
     }
 }

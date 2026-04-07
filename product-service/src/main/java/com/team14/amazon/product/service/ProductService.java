@@ -104,9 +104,7 @@ public class ProductService {
         productRepository.save(product);
     }
 
-    // Placeholder method to represent the pending order check. 
-    // You must replace this with your actual order checking logic!
+
     private boolean checkPendingOrders(Long productId) {
-        // e.g., return orderClient.hasPendingOrdersContaining(productId);
-        return false; 
+        return orderService.hasPendingOrdersWithProduct(productId); 
     }
