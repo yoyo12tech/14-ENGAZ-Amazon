@@ -66,4 +66,11 @@ public class ProductController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    @PutMapping("/{id}/discontinue")
+    public ResponseEntity<Void> discontinueProduct(@PathVariable Long id) {
+        productService.discontinueProduct(id);
+        // Returns status code 200 indicating successful transaction
+        return ResponseEntity.ok().build(); 
+    }
 }
