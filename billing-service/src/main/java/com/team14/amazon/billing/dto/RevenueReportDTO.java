@@ -1,4 +1,4 @@
-package com.team14.amazon.billing.model;
+package com.team14.amazon.billing.dto;
 
 public record RevenueReportDTO(
         Double totalRevenue,
