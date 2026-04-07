@@ -88,4 +88,13 @@ public class ProductService {
         }
         return false;
     }
+    // S2-F1: Search products by optional category and price range
+    // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
+    public List<Product> searchProducts(String category, Double minPrice, Double maxPrice) {
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
+        }
+        return productRepository.searchProducts(category, minPrice, maxPrice);
+    }
+
 }
