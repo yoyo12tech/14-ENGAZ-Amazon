@@ -2,7 +2,10 @@ package com.team14.amazon.order.service;
 
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.repository.OrderRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -43,4 +46,13 @@ public class OrderService {
     public void delete(Long id) {
         orderRepository.deleteById(id);
     }
+
+    @Transactional(readOnly = true)
+    public List<Order> searchByMetadata(String key, String value) {
+        if (key == null || key.isBlank() || value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must be provided");
+        }
+        return orderRepository.findByMetadata(key, value);
+    }
+
 }
