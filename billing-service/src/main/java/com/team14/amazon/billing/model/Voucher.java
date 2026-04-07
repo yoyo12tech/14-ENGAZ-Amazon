@@ -109,6 +109,8 @@ public class Voucher {
         this.expiryDate = expiryDate;
     }
 
+    public void setCurrentUses(Integer currentUsers){this.currentUses= currentUsers; }
+
     public void setMaxUses(Integer maxUses) {
         this.maxUses = maxUses;
     }
