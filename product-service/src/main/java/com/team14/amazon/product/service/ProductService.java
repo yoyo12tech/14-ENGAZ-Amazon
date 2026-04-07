@@ -9,6 +9,11 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+import org.springframework.http.HttpStatus;
+
 @Service
 public class ProductService {
 
@@ -76,3 +81,32 @@ public class ProductService {
         return false;
     }
 }
+
+
+
+@Transactional
+    public void discontinueProduct(Long id) {
+        // 1. Find product – throws 404 if not found
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+
+        // 2. Check no pending orders contain this product — throws 400 if not
+        // NOTE: You will need to inject an OrderService, OrderRepository, or FeignClient 
+        // depending on your architecture to actually perform this check.
+        boolean hasPendingOrders = checkPendingOrders(id); // Placeholder method
+        
+        if (hasPendingOrders) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot discontinue product: It is currently part of a pending order.");
+        }
+
+        // 3. Update status and save
+        product.setStatus(ProductStatus.INACTIVE);
+        productRepository.save(product);
+    }
+
+    // Placeholder method to represent the pending order check. 
+    // You must replace this with your actual order checking logic!
+    private boolean checkPendingOrders(Long productId) {
+        // e.g., return orderClient.hasPendingOrdersContaining(productId);
+        return false; 
+    }
