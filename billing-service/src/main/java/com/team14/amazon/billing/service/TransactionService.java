@@ -4,7 +4,7 @@ import com.team14.amazon.billing.model.Method;
 import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.repository.TransactionRepository;
-import com.team14.amazon.billing.model.UserTransactionSummaryDTO;
+import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;

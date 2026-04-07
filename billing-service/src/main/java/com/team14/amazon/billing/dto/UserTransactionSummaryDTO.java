@@ -1,4 +1,4 @@
-package com.team14.amazon.billing.model;
+package com.team14.amazon.billing.dto;
 
 import java.util.Map;
 
