@@ -66,7 +66,6 @@ public class OrderService {
         double averageOrderValue = deliveredOrders > 0 ? totalRevenue / deliveredOrders : 0.0;
         double completionRate = totalOrders > 0 ? (deliveredOrders * 100.0) / totalOrders : 0.0;
 
-        // ✅ Use the constructor directly
         return new OrderAnalyticsDTO(totalOrders, deliveredOrders, cancelledOrders,
                 totalRevenue, averageOrderValue, completionRate);
     }

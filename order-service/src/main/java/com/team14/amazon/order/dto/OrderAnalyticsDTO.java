@@ -56,10 +56,8 @@ public class OrderAnalyticsDTO {
     public void setCompletionRate(double completionRate) {
         this.completionRate = completionRate;
     }
-    // ✅ No-args constructor (needed by frameworks like Jackson)
     public OrderAnalyticsDTO() {}
 
-    // ✅ All-args constructor for convenience
     public OrderAnalyticsDTO(long totalOrders, long deliveredOrders, long cancelledOrders,
                              double totalRevenue, double averageOrderValue, double completionRate) {
         this.totalOrders = totalOrders;
