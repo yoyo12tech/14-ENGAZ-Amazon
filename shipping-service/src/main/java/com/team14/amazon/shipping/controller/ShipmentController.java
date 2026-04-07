@@ -42,6 +42,11 @@ public class ShipmentController {
         }
     }
 
+    @DeleteMapping("/purge")
+    public ResponseEntity<Integer> purgeOldShipments(@RequestParam int olderThanDays) {
+        return ResponseEntity.ok(shipmentService.purgeShipments(olderThanDays));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<Shipment> updateShipment(@PathVariable Long id, @RequestBody Shipment updatedShipment) {
         return shipmentService.updateShipment(id, updatedShipment)
@@ -56,4 +61,6 @@ public class ShipmentController {
         }
         return ResponseEntity.notFound().build();
     }
+
+
 }
