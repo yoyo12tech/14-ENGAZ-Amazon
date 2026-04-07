@@ -1,13 +1,10 @@
 package com.team14.amazon.billing.service;
 
-import com.team14.amazon.billing.model.Method;
-import com.team14.amazon.billing.model.Status;
-import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.repository.TransactionRepository;
-import com.team14.amazon.billing.model.RevenueReportDTO;
-import com.team14.amazon.billing.model.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -15,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.time.LocalDateTime;
@@ -123,7 +121,7 @@ public class TransactionService {
         }
 
         return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);}
-    
+
     public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
         Status status = null;
         if (statusStr != null && !statusStr.trim().isEmpty()) {
@@ -159,5 +157,50 @@ public class TransactionService {
         }
 
         return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
+    }
+
+    @Transactional(readOnly = true)
+    public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
+
+        // Step 1 - Find transaction by ID, throw 404 if not found
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND, "Transaction not found with id: " + transactionId));
+
+        // Step 2 - Map each TransactionVoucher entry into a plain map,
+        //          accessing the linked Voucher for code and discountType
+        List<Map<String, Object>> appliedVouchers = transaction.getTransactionVouchers()
+                .stream()
+                .map(tv -> {
+                    Map<String, Object> entry = new LinkedHashMap<>();
+                    entry.put("voucherCode", tv.getVoucher().getCode());
+                    entry.put("discountType", tv.getVoucher().getDiscountType());
+                    entry.put("discountApplied", tv.getDiscountApplied());
+                    entry.put("appliedAt", tv.getAppliedAt());
+                    return entry;
+                })
+                .toList();
+
+        // Step 3 - Calculate totalDiscount as sum of all discountApplied values
+        Double totalDiscount = appliedVouchers.stream()
+                .mapToDouble(entry -> (Double) entry.get("discountApplied"))
+                .sum();
+
+        // Step 4 - Calculate finalAmount
+        Double finalAmount = transaction.getAmount() - totalDiscount;
+
+        // Step 5 - Build and return the TransactionDetailsDTO
+        return new TransactionDetailsDTO(
+                transaction.getId(),
+                transaction.getOrderId(),
+                transaction.getUserId(),
+                transaction.getAmount(),
+                transaction.getMethod(),
+                transaction.getStatus(),
+                transaction.getTransactionDetails(),
+                appliedVouchers,
+                totalDiscount,
+                finalAmount
+        );
     }
 }

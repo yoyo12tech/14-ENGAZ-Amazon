@@ -1,9 +1,6 @@
 package com.team14.amazon.billing.controller;
 
-import com.team14.amazon.billing.model.Status;
-import com.team14.amazon.billing.model.Transaction;
-import com.team14.amazon.billing.model.RevenueReportDTO;
-import com.team14.amazon.billing.model.UserTransactionSummaryDTO;
+import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.service.TransactionService;
 import org.springframework.web.bind.annotation.*;
 
@@ -63,5 +60,11 @@ public class TransactionController {
     @GetMapping("/reports/revenue")
     public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {
         return transactionService.getRevenueReport(startDate, endDate);
+    }
+
+    // GET /api/transactions/{transactionId}/details
+    @GetMapping("/{transactionId}/details")
+    public TransactionDetailsDTO getTransactionDetails(@PathVariable Long transactionId) {
+        return transactionService.getTransactionDetails(transactionId);
     }
 }
