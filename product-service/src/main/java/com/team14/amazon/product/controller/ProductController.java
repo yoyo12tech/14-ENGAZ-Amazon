@@ -1,21 +1,13 @@
 package com.team14.amazon.product.controller;
 
-
 import com.team14.amazon.product.model.Product;
-import com.team14.amazon.product.model.ProductReview;
-
-import com.team14.amazon.product.service.ProductService;
 import com.team14.amazon.product.service.ProductReviewService;
-
-
-
-
+import com.team14.amazon.product.service.ProductService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/products")
@@ -28,7 +20,6 @@ public class ProductController {
         this.productService = productService;
         this.reviewService = reviewService;
     }
-
 
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
@@ -65,5 +56,19 @@ public class ProductController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // S2-F1: Search products by category and price range
+    @GetMapping("/search")
+    public ResponseEntity<?> searchProducts(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice) {
+        try {
+            List<Product> results = productService.searchProducts(category, minPrice, maxPrice);
+            return ResponseEntity.ok(results);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 }
