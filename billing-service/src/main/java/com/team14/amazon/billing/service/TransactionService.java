@@ -4,11 +4,16 @@ import com.team14.amazon.billing.model.Method;
 import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.repository.TransactionRepository;
+import com.team14.amazon.billing.model.RevenueReportDTO;
 import com.team14.amazon.billing.model.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +64,43 @@ public class TransactionService {
         return transactionRepository.findByStatus(status);
     }
 
+    public RevenueReportDTO getRevenueReport(String startDateStr, String endDateStr) {
+        LocalDateTime startDate;
+        LocalDateTime endDate;
+        try {
+            startDate = LocalDate.parse(startDateStr).atStartOfDay();
+            endDate = LocalDate.parse(endDateStr).atTime(LocalTime.MAX);
+        } catch (DateTimeParseException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid date format", e);
+        }
+
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start date cannot be after end date");
+        }
+
+        List<Transaction> transactions = transactionRepository.findByCreatedAtBetween(startDate, endDate);
+
+        double totalRevenue = 0.0;
+        long totalTransactions = 0;
+        double refundedAmount = 0.0;
+        long refundCount = 0;
+
+        for (Transaction t : transactions) {
+            if (t.getStatus() == Status.COMPLETED) {
+                totalRevenue += t.getAmount();
+                totalTransactions++;
+            } else if (t.getStatus() == Status.REFUNDED) {
+                refundedAmount += t.getAmount();
+                refundCount++;
+            }
+        }
+
+        double averageTransaction = 0.0;
+        if (totalTransactions > 0) {
+            averageTransaction = totalRevenue / totalTransactions;
+        }
+
+        return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
     public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
         if (!transactionRepository.checkUserExists(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
