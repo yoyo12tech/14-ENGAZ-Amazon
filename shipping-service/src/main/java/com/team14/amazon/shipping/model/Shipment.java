@@ -26,8 +26,10 @@ public class Shipment {
     private String trackingNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "shipment_status")
     private Status status = Status.PROCESSING;
+
 
     @Column
     private Double latitude;
@@ -154,3 +156,4 @@ public class Shipment {
         this.createdAt = createdAt;
     }
 }
+
