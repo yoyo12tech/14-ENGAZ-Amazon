@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.service;
 
+
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
@@ -100,7 +101,10 @@ public class TransactionService {
             averageTransaction = totalRevenue / totalTransactions;
         }
 
-        return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);}
+
+        return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
+    }
+
     public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
         if (!transactionRepository.checkUserExists(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -122,7 +126,10 @@ public class TransactionService {
             methodBreakdown.put(methodVal, sum);
         }
 
-        return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);}
+
+        return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
+    }
+
 
     public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
         Status status = null;
