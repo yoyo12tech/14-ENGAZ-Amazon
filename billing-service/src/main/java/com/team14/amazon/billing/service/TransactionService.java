@@ -12,6 +12,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.time.LocalDateTime;
 
 @Service
 public class TransactionService {
@@ -80,5 +81,40 @@ public class TransactionService {
         }
 
         return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
+    public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
+        Status status = null;
+        if (statusStr != null && !statusStr.trim().isEmpty()) {
+            try {
+                status = Status.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid status value"
+                );
+            }
+        }
+
+        LocalDateTime startDate = null;
+        if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+            try {
+                startDate = java.time.LocalDate.parse(startDateStr).atStartOfDay();
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid startDate format. Use YYYY-MM-DD."
+                );
+            }
+        }
+
+        LocalDateTime endDate = null;
+        if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+            try {
+                endDate = java.time.LocalDate.parse(endDateStr).atTime(java.time.LocalTime.MAX);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid endDate format. Use YYYY-MM-DD."
+                );
+            }
+        }
+
+        return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
     }
 }

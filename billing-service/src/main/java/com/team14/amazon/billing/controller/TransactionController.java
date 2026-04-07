@@ -43,8 +43,11 @@ public class TransactionController {
     }
 
     @GetMapping("/search")
-    public List<Transaction> findAllTransactionsByStatus(Status status) {
-        return transactionService.findByStatus(status);
+    public List<Transaction> searchTransactions(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        return transactionService.searchTransactions(status, startDate, endDate);
     }
 
     @GetMapping("/user/{userId}/summary")
@@ -52,7 +55,5 @@ public class TransactionController {
         return transactionService.getUserTransactionSummary(userId);
     }
 
-//    @GetMapping
-//
 //    @GetMapping
 }
