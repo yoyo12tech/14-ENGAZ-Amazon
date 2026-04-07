@@ -44,3 +44,51 @@ public class OrderService {
         orderRepository.deleteById(id);
     }
 }
+
+
+@Transactional
+public Order confirmOrder(Long orderId, Long shippingAddressId) {
+    // Find order with items
+    Order order = orderRepository.findById(orderId)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+    if (order.getStatus() != OrderStatus.PENDING) {
+        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending");
+    }
+
+    // Check shipping address exists
+    if (!orderRepository.existsShippingAddressById(shippingAddressId)) {
+        throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipping address not found");
+    }
+
+    double totalAmount = 0.0;
+
+    //Im using the virtual memory, this will work correct as long
+    //as i update the virtual in memory when i save an orderItem
+    for (OrderItem item : order.getOrderItems()) {
+        // Use repository to check product existence and stock
+        Map<String, Object> product = orderRepository.findProductById(item.getProductId());
+        if (product == null || product.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + item.getProductId());
+        }
+
+        Integer stockQuantity = (Integer) product.get("stock_quantity");
+        if (stockQuantity == null || stockQuantity < item.getQuantity()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient stock for product: " + item.getProductId());
+        }
+
+        // Deduct stock via update query, check rows affected
+        int updated = orderRepository.updateProductStock(item.getProductId(), (Integer)item.getQuantity());
+        if (updated == 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to deduct stock (insufficient) for product: " + item.getProductId());
+        }
+
+        totalAmount += item.getQuantity() * item.getPriceAtPurchase();
+    }
+
+    order.setShippingAddressId(shippingAddressId);
+    order.setStatus(OrderStatus.CONFIRMED);
+    order.setTotalAmount(totalAmount);
+
+    return orderRepository.save(order);
+}

@@ -45,4 +45,11 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+
+    @PutMapping("/{orderId}/confirm")
+    public Order confirmOrder(@PathVariable Long orderId,
+                              @RequestParam Long shippingAddressId) {
+        return orderService.confirmOrder(orderId, shippingAddressId);
+    }
 }
