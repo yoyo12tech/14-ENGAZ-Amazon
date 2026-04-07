@@ -46,11 +46,7 @@ public class TransactionController {
         return transactionService.findByStatus(status);
     }
 
-    @PostMapping("/{transactionId}/voucher/{voucherId}")
-    public Transaction applyVoucher(@PathVariable Long transactionId,
-                                    @PathVariable Long voucherId) {
-        return transactionService.applyVoucherToTransaction(transactionId, voucherId);
-    }
+
 //    @GetMapping
 //
 //    @GetMapping
