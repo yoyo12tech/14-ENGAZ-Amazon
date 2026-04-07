@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,15 @@ public class ShipmentController {
     @GetMapping
     public ResponseEntity<List<Shipment>> getAllShipments() {
         return ResponseEntity.ok(shipmentService.getAllShipments());
+    }
+
+    // S4-F8: Carrier Performance Summary
+    @GetMapping("/carrier/{carrier}/summary")
+    public ResponseEntity<CarrierSummaryDTO> getCarrierSummary(
+            @PathVariable String carrier,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate startDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate endDate) {
+        return ResponseEntity.ok(shipmentService.getCarrierSummary(carrier, startDate, endDate));
     }
 
     @GetMapping("/{id}")

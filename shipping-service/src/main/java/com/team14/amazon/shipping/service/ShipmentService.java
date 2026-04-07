@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import org.springframework.stereotype.Service;
@@ -66,5 +67,27 @@ public class ShipmentService {
     public int purgeShipments(int olderThanDays) {
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
         return shipmentRepository.purgeOldShipments(cutoff);
+    }
+
+    // S4-F8
+    public CarrierSummaryDTO getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end) {
+        // Get the list of results
+        List<Object[]> results = shipmentRepository.getCarrierSummary(carrier, start, end);
+
+        // If list is empty, the carrier had no shipments in this range
+        if (results == null || results.isEmpty()) {
+            return new CarrierSummaryDTO(carrier, 0L, 0L, 0.0, 0.0);
+        }
+
+        // Since we grouped by carrier, there is only one row in the list
+        Object[] row = results.getFirst();
+
+        return new CarrierSummaryDTO(
+                row[0] != null ? row[0].toString() : carrier, // carrier name
+                row[1] != null ? ((Number) row[1]).longValue() : 0L, // totalShipments
+                row[2] != null ? ((Number) row[2]).longValue() : 0L, // deliveredCount
+                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0, // averageDeliveryDays
+                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0  // onTimeRate
+        );
     }
 }
