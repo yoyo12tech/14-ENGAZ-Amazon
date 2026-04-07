@@ -4,9 +4,13 @@ import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import com.team14.amazon.user.dto.TopBuyerDTO;
 
 @Service
 public class UserService {
@@ -72,5 +76,23 @@ public class UserService {
             return true;
         }
         return false;
+    }
+
+    public List<TopBuyerDTO> getTopBuyers(LocalDate startDate, LocalDate endDate, Integer limit) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate cannot be after endDate");
+        }
+        
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+        
+        List<Object[]> rawResults = userRepository.findTopBuyers(startDateTime, endDateTime, limit);
+        
+        return rawResults.stream().map(row -> new TopBuyerDTO(
+                ((Number) row[0]).longValue(),
+                (String) row[1],
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
+                ((Number) row[3]).longValue()
+        )).collect(Collectors.toList());
     }
 }
