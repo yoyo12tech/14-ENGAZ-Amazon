@@ -1,5 +1,7 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
+import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
@@ -25,6 +27,21 @@ public class ShipmentController {
         return ResponseEntity.ok(shipmentService.getAllShipments());
     }
 
+    // S4-F8: Carrier Performance Summary
+    @GetMapping("/carrier/{carrier}/summary")
+    public ResponseEntity<CarrierSummaryDTO> getCarrierSummary(
+            @PathVariable String carrier,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate startDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate endDate) {
+        return ResponseEntity.ok(shipmentService.getCarrierSummary(carrier, startDate, endDate));
+    }
+
+    // S4-F9: Find Delayed Shipments
+    @GetMapping("/delayed")
+    public ResponseEntity<List<DelayedShipmentDTO>> getDelayedShipments(@RequestParam(required = false) Integer maxDeliveryAttempts) {
+        return ResponseEntity.ok(shipmentService.getDelayedShipments(maxDeliveryAttempts));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id) {
         return shipmentService.getShipmentById(id)
@@ -47,6 +64,11 @@ public class ShipmentController {
         return shipmentService.updateShipment(id, updatedShipment)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/purge")
+    public ResponseEntity<Integer> purgeOldShipments(@RequestParam int olderThanDays) {
+        return ResponseEntity.ok(shipmentService.purgeShipments(olderThanDays));
     }
 
     @DeleteMapping("/{id}")
