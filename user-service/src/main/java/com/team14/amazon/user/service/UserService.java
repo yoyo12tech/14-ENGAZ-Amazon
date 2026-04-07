@@ -2,7 +2,9 @@ package com.team14.amazon.user.service;
 
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -72,5 +74,18 @@ public class UserService {
             return true;
         }
         return false;
+    }
+
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        int activeOrdersCount = userRepository.countActiveOrdersForUser(id);
+        if (activeOrdersCount > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
+        }
+
+        user.setStatus(User.Status.DEACTIVATED);
+        userRepository.save(user);
     }
 }
