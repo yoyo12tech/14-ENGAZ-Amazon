@@ -3,6 +3,7 @@ package com.team14.amazon.billing.service;
 import com.team14.amazon.billing.model.Method;
 import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.model.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
@@ -100,6 +101,8 @@ public class TransactionService {
         }
 
         return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
+    }
+
     public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
         if (!transactionRepository.checkUserExists(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -122,6 +125,8 @@ public class TransactionService {
         }
 
         return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
+    }
+
     public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
         Status status = null;
         if (statusStr != null && !statusStr.trim().isEmpty()) {
