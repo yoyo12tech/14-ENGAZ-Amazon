@@ -6,6 +6,7 @@ import com.team14.amazon.order.repository.OrderRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -56,28 +57,30 @@ public class OrderService {
         if (order.getStatus() == OrderStatus.DELIVERED) {
             throw new RuntimeException("Order already delivered");
         }
+
         if (order.getStatus() != OrderStatus.SHIPPED) {
             throw new RuntimeException("Order must be SHIPPED to deliver");
         }
 
+        LocalDateTime now = LocalDateTime.now();
+
         // Update order
         order.setStatus(OrderStatus.DELIVERED);
-        order.setDeliveredAt(LocalDateTime.now());
+        order.setDeliveredAt(now);
 
-//          I am not sure if this works but for now till the shipment and billing branches are pushed OwO
-//        // Update shipment
-//        Shipment shipment = shipmentRepository.findByOrderId(id)
-//                .orElseThrow(() -> new RuntimeException("Shipment not found"));
-//        shipment.setStatus(ShipmentStatus.DELIVERED);
-//        shipment.setActualDelivery(LocalDateTime.now());
-//
-//        // Create transaction
-//        Transaction tx = new Transaction();
-//        tx.setOrderId(id);
-//        tx.setAmount(order.getTotalAmount());
-//        tx.setStatus(TransactionStatus.PENDING);
-//        tx.setCreatedAt(LocalDateTime.now());
-//        transactionRepository.save(tx);
+        // Update shipment
+        orderRepository.markShipmentDelivered(id, now);
+
+        // Convert Double → BigDecimal safely
+        BigDecimal amount = BigDecimal.valueOf(order.getTotalAmount());
+
+        // Create transaction
+        orderRepository.createTransaction(
+                id,
+                amount,
+                "PENDING",
+                now
+        );
 
         return orderRepository.save(order);
     }
