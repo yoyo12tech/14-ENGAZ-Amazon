@@ -5,6 +5,7 @@ import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.model.RevenueReportDTO;
+import com.team14.amazon.billing.model.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -13,7 +14,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.time.LocalDateTime;
 
 @Service
 public class TransactionService {
@@ -97,5 +101,62 @@ public class TransactionService {
         }
 
         return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
+    public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
+        if (!transactionRepository.checkUserExists(userId)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+        }
+
+        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId, Status.COMPLETED);
+
+        long totalTransactions = 0;
+        double totalAmount = 0.0;
+        Map<String, Double> methodBreakdown = new HashMap<>();
+
+        for (Object[] row : results) {
+            String methodVal = row[0] != null ? row[0].toString() : "UNKNOWN";
+            long count = ((Number) row[1]).longValue();
+            double sum = ((Number) row[2]).doubleValue();
+
+            totalTransactions += count;
+            totalAmount += sum;
+            methodBreakdown.put(methodVal, sum);
+        }
+
+        return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
+    public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
+        Status status = null;
+        if (statusStr != null && !statusStr.trim().isEmpty()) {
+            try {
+                status = Status.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid status value"
+                );
+            }
+        }
+
+        LocalDateTime startDate = null;
+        if (startDateStr != null && !startDateStr.trim().isEmpty()) {
+            try {
+                startDate = java.time.LocalDate.parse(startDateStr).atStartOfDay();
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid startDate format. Use YYYY-MM-DD."
+                );
+            }
+        }
+
+        LocalDateTime endDate = null;
+        if (endDateStr != null && !endDateStr.trim().isEmpty()) {
+            try {
+                endDate = java.time.LocalDate.parse(endDateStr).atTime(java.time.LocalTime.MAX);
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Invalid endDate format. Use YYYY-MM-DD."
+                );
+            }
+        }
+
+        return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
     }
 }
