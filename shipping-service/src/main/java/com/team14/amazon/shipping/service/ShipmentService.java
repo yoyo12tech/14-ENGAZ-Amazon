@@ -62,4 +62,9 @@ public class ShipmentService {
         }
         return false;
     }
+
+    public int purgeShipments(int olderThanDays) {
+        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
+        return shipmentRepository.purgeOldShipments(cutoff);
+    }
 }
