@@ -1,10 +1,13 @@
 package com.team14.amazon.order.controller;
 
+import com.team14.amazon.order.dto.OrderAnalyticsDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -45,4 +48,12 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/analytics")
+    public ResponseEntity<OrderAnalyticsDTO> getOrderAnalytics(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        return ResponseEntity.ok(orderService.getOrderAnalytics(startDate, endDate));
+    }
+
+
 }
