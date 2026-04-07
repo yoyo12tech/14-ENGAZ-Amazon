@@ -4,7 +4,8 @@ import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.repository.ProductRepository;
 import org.springframework.stereotype.Service;
-
+import java.util.HashMap;
+import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -67,6 +68,18 @@ public class ProductService {
             return productRepository.save(existingProduct);
         });
     }
+    // S2-F2: JSONB partial update — merge incoming specs into existing map
+    public Optional<Product> updateSpecifications(Long id, Map<String, Object> incomingSpecs) {
+        return productRepository.findById(id).map(product -> {
+            Map<String, Object> existing = product.getSpecifications();
+            if (existing == null) {
+                existing = new HashMap<>();
+            }
+            existing.putAll(incomingSpecs); // add new keys, overwrite matching keys
+            product.setSpecifications(existing);
+            return productRepository.save(product);
+        });
+    }
 
     public boolean deleteProduct(Long id) {
         if (productRepository.existsById(id)) {
@@ -75,4 +88,13 @@ public class ProductService {
         }
         return false;
     }
+    // S2-F1: Search products by optional category and price range
+    // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
+    public List<Product> searchProducts(String category, Double minPrice, Double maxPrice) {
+        if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
+            throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
+        }
+        return productRepository.searchProducts(category, minPrice, maxPrice);
+    }
+
 }

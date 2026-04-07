@@ -5,6 +5,8 @@ import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
+import com.team14.amazon.billing.dto.OrderTransactionRequest;
+import com.team14.amazon.billing.dto.OrderTransactionResponse;
 
 import java.util.List;
 
@@ -51,5 +53,24 @@ public class TransactionService {
 
     public List<Transaction> findByStatus(Status status){
         return transactionRepository.findByStatus(status);
+    }
+    public OrderTransactionResponse processOrderTransaction(OrderTransactionRequest request) {
+        Transaction existing = transactionRepository.findByOrderId(request.getOrderId());
+        if (existing != null) {
+            throw new IllegalStateException("Transaction already exists for order: " + request.getOrderId());
+        }
+
+        Transaction transaction = new Transaction();
+        transaction.setOrderId(request.getOrderId());
+        transaction.setUserId(request.getUserId());
+        transaction.setAmount(request.getAmount());
+        transaction.setMethod(request.getMethod());
+        transaction.setStatus(Status.PENDING);
+        Transaction saved = transactionRepository.save(transaction);
+
+        return new OrderTransactionResponse(
+            saved.getId(), saved.getOrderId(), saved.getUserId(),
+            saved.getAmount(), saved.getMethod(), saved.getStatus(), saved.getCreatedAt()
+        );
     }
 }
