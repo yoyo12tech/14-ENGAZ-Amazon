@@ -5,6 +5,8 @@ import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import org.springframework.stereotype.Service;
+import com.team14.amazon.billing.dto.RetryTransactionResponse;
+import java.util.NoSuchElementException;
 
 import java.util.List;
 
@@ -51,5 +53,22 @@ public class TransactionService {
 
     public List<Transaction> findByStatus(Status status){
         return transactionRepository.findByStatus(status);
+    }
+    public RetryTransactionResponse retryTransaction(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+            .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+        if (transaction.getStatus() != Status.FAILED) {
+            throw new IllegalStateException("Only FAILED transactions can be retried. Current status: " + transaction.getStatus());
+        }
+
+        Status previous = transaction.getStatus();
+        transaction.setStatus(Status.PENDING);
+        transactionRepository.save(transaction);
+
+        return new RetryTransactionResponse(
+            transaction.getId(), previous, Status.PENDING,
+            "Transaction queued for retry successfully"
+        );
     }
 }
