@@ -1,11 +1,13 @@
 package com.team14.amazon.order.controller;
 
+import com.team14.amazon.order.dto.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -44,5 +46,10 @@ public class OrderController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/estimate")
+    public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
+        return ResponseEntity.ok(orderService.estimateOrder(items));
     }
 }
