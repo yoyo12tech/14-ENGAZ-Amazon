@@ -1,12 +1,14 @@
 package com.team14.amazon.order.controller;
 
 import com.team14.amazon.order.DTO.DeliverRequest;
+import com.team14.amazon.order.dto.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -55,4 +57,24 @@ public class OrderController {
     }
 
 
+    @GetMapping("/search")
+    public List<Order> searchOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam String startDate,
+            @RequestParam String endDate
+    ) {
+        return orderService.search(status, startDate, endDate);
+    }
+
+      
+    @PostMapping("/estimate")
+    public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
+        return ResponseEntity.ok(orderService.estimateOrder(items));
+    }
+
+    @PutMapping("/{orderId}/confirm")
+    public Order confirmOrder(@PathVariable Long orderId,
+                              @RequestParam Long shippingAddressId) {
+        return orderService.confirmOrder(orderId, shippingAddressId);
+    }
 }

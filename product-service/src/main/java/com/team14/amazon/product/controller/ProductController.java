@@ -1,21 +1,24 @@
 package com.team14.amazon.product.controller;
 
-
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
-
-import com.team14.amazon.product.service.ProductService;
 import com.team14.amazon.product.service.ProductReviewService;
 
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import com.team14.amazon.product.dto.VerifyReviewRequest;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.NoSuchElementException;
 
 
-
+import com.team14.amazon.product.service.ProductService;
+import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import java.util.Map;
 import java.util.List;
-import java.util.Optional;
+import com.team14.amazon.product.dto.LowStockAlertDTO;
 
 @RestController
 @RequestMapping("/api/products")
@@ -28,7 +31,6 @@ public class ProductController {
         this.productService = productService;
         this.reviewService = reviewService;
     }
-
 
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
@@ -66,4 +68,93 @@ public class ProductController {
         }
         return ResponseEntity.notFound().build();
     }
+    // S2-F3: Get product sales summary
+    @GetMapping("/{id}/sales")
+    public ResponseEntity<?> getProductSalesSummary(
+            @PathVariable Long id,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end   = LocalDate.parse(endDate);
+            ProductSalesDTO dto = productService.getProductSalesSummary(id, start, end);
+            return ResponseEntity.ok(dto);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid date format. Use yyyy-MM-dd.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+
+    // S2-F1: Search products by category and price range
+    @GetMapping("/search")
+    public ResponseEntity<?> searchProducts(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) Double minPrice,
+            @RequestParam(required = false) Double maxPrice) {
+        try {
+            List<Product> results = productService.searchProducts(category, minPrice, maxPrice);
+            return ResponseEntity.ok(results);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    // S2-F2: Update product specifications (JSONB partial update)
+    @PutMapping("/{id}/specifications")
+    public ResponseEntity<?> updateSpecifications(
+            @PathVariable Long id,
+            @RequestBody Map<String, Object> specifications) {
+        return productService.updateSpecifications(id, specifications)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ── S2-F7: POST /api/products/{id}/reviews ─────────────────────────────
+
+    @PostMapping("/{id}/reviews")
+    public ResponseEntity<?> addReview(
+            @PathVariable Long id,
+            @RequestBody ProductReview review) {
+        try {
+            Product updatedProduct = reviewService.addReviewWithRatingRecalculation(id, review);
+            return ResponseEntity.ok(updatedProduct);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    // S2-F8: PUT /api/products/{productId}/reviews/{reviewId}/verify
+    @PutMapping("/{productId}/reviews/{reviewId}/verify")
+    public ResponseEntity<?> verifyReview(
+            @PathVariable Long productId,
+            @PathVariable Long reviewId,
+            @RequestBody VerifyReviewRequest request) {
+        try {
+            Product updatedProduct = reviewService.verifyReview(productId, reviewId, request);
+            return ResponseEntity.ok(updatedProduct);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    // S2-F9: GET /api/products/stock/low-stock?threshold={n}
+    @GetMapping("/stock/low-stock")
+    public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
+            @RequestParam(defaultValue = "10") int threshold) {
+        return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
+    }
+
+
+
 }

@@ -59,7 +59,9 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
-        this.orderedAt = LocalDateTime.now();
+        if (this.orderedAt == null) {
+            this.orderedAt = LocalDateTime.now();
+        }
     }
 
     public Long getId() { return id; }
