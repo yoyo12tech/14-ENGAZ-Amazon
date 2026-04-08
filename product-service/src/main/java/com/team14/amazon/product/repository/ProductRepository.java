@@ -40,4 +40,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     AND o.status = 'PENDING'
     """, nativeQuery = true)
 boolean existsPendingOrdersForProduct(@Param("productId") Long productId); 
+
+  @Query(value = """
+        SELECT * FROM products
+        WHERE specifications ->> :key = :value
+        AND (CAST(:status AS text) IS NULL OR CAST(status AS text) = CAST(:status AS text))
+        """, nativeQuery = true)
+    List<Product> findBySpecificationKeyValue(
+        @Param("key") String key,
+        @Param("value") String value,
+        @Param("status") String status
+    );
 }

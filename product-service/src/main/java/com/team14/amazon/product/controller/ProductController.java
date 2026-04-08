@@ -93,12 +93,19 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+
     @PutMapping("/{id}/discontinue")
-    public ResponseEntity<Void> discontinueProduct(@PathVariable Long id) {
-        productService.discontinueProduct(id);
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<Product> discontinueProduct(@PathVariable Long id) {
+        Product product = productService.discontinueProduct(id);
+        return ResponseEntity.ok(product); // 200 with the updated product body
     }
 
-
+    @GetMapping("/specifications/search")
+    public ResponseEntity<List<Product>> searchBySpecification(
+        @RequestParam String key,
+        @RequestParam String value,
+        @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(productService.filterBySpecification(key, value, status));
+}
 
 }
