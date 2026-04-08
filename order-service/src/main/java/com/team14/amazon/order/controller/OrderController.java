@@ -52,4 +52,10 @@ public class OrderController {
     public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
         return ResponseEntity.ok(orderService.estimateOrder(items));
     }
+
+    @PutMapping("/{orderId}/confirm")
+    public Order confirmOrder(@PathVariable Long orderId,
+                              @RequestParam Long shippingAddressId) {
+        return orderService.confirmOrder(orderId, shippingAddressId);
+    }
 }
