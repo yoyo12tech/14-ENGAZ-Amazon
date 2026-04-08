@@ -7,6 +7,9 @@ import com.team14.amazon.product.repository.ProductReviewRepository;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.team14.amazon.product.dto.VerifyReviewRequest;
+import java.time.Instant;
+import java.util.HashMap;
 
 import java.util.List;
 import java.util.Optional;
@@ -59,7 +62,6 @@ public class ProductReviewService {
     }
 
     // ─── S2-F7: Add Product Review with Rating Recalculation (Transactional) ────
-
     @Transactional
     public Product addReviewWithRatingRecalculation(Long productId, ProductReview review) {
 
@@ -99,5 +101,63 @@ public class ProductReviewService {
 
         // 7. Save updated product and return it
         return productRepository.save(product);
+    }
+
+    // ─── S2-F8: Verify Product Review (Transactional + Relationship) ─────────────
+
+    @Transactional
+    public Product verifyReview(Long productId, Long reviewId, VerifyReviewRequest request) {
+
+        // 1. Find product — 404 if not found
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Product not found with id: " + productId));
+
+        // 2. Find review — 404 if not found
+        ProductReview review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Review not found with id: " + reviewId));
+
+        // 3. Verify the review belongs to this product — 400 if not
+        if (!review.getProduct().getId().equals(productId)) {
+            throw new IllegalArgumentException(
+                    "Review " + reviewId + " does not belong to product " + productId);
+        }
+
+        // 4. Verify the reviewer actually purchased this product — 400 if not
+        boolean hasPurchased = reviewRepository.userHasDeliveredOrderForProduct(
+                review.getUserId(), productId);
+        if (!hasPurchased) {
+            throw new IllegalArgumentException(
+                    "Reviewer (userId=" + review.getUserId() +
+                            ") has no delivered order for this product.");
+        }
+
+        // 5. Verify the verifiedBy user is an ADMIN — 403 if not
+        boolean isAdmin = reviewRepository.isAdminUser(request.verifiedBy());
+        if (!isAdmin) {
+            throw new SecurityException(
+                    "User " + request.verifiedBy() + " is not an admin.");
+        }
+
+        // 6. Set verified = true
+        review.setVerified(true);
+
+        // 7. Update JSONB metadata with verifiedAt and verifiedBy
+        java.util.Map<String, Object> metadata = review.getMetadata();
+        if (metadata == null) {
+            metadata = new HashMap<>();
+        }
+        metadata.put("verifiedAt", Instant.now().toString());
+        metadata.put("verifiedBy", request.verifiedBy());
+        review.setMetadata(metadata);
+
+        // 8. Save the review
+        reviewRepository.save(review);
+
+        // 9. Reload the product with all its reviews and return
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Product not found with id: " + productId));
     }
 }

@@ -47,7 +47,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("endDate")   LocalDate endDate
     );
 
-    List<Product> findByBrand(String brand);
 
     // S2-F1: Search by optional category and price range, ordered by price ascending
     // JPQL — uses entity field names (Lab 4 slide 43-44)
