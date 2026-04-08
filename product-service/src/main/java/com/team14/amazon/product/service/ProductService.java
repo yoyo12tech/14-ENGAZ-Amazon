@@ -4,12 +4,15 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.repository.ProductRepository;
@@ -101,10 +104,28 @@ public class ProductService {
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
 
-    // S2-F5
+// S2-F5
     public List<Product> filterBySpecification(String key, String value, String status) {
-    return productRepository.findBySpecificationKeyValue(key, value, status);
-}
+        return productRepository.findBySpecificationKeyValue(key, value, status);
+    } // <-- THIS BRACE WAS MISSING
+
+    // S2-F6: Top Rated Products Report
+    public List<TopProductDTO> getTopRatedProductsReport(int limit) {
+        return productRepository.findAllByOrderByRatingDesc(PageRequest.of(0, limit))
+                .stream()
+                .map(product -> {
+                    // Call the native query we just added to ProductRepository!
+                    Long totalSales = productRepository.countTotalSalesForProduct(product.getId());
+                    
+                    return new TopProductDTO(
+                            product.getId(),
+                            product.getName(),
+                            product.getRating(),
+                            totalSales != null ? totalSales : 0L
+                    );
+                })
+                .collect(Collectors.toList());
+    }
 
 @Transactional
     public Product discontinueProduct(Long id) {

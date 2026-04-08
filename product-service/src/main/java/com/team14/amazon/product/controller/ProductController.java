@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.service.ProductReviewService;
 import com.team14.amazon.product.service.ProductService;
@@ -107,5 +108,15 @@ public class ProductController {
         @RequestParam(required = false) String status) {
         return ResponseEntity.ok(productService.filterBySpecification(key, value, status));
 }
+
+
+// S2-F6: Top Rated Products Report
+    @GetMapping("/reports/top-rated")
+    public ResponseEntity<List<TopProductDTO>> getTopRatedProducts(
+            @RequestParam(name = "limit", defaultValue = "10") int limit) {
+        
+        List<TopProductDTO> report = productService.getTopRatedProductsReport(limit);
+        return ResponseEntity.ok(report);
+    }
 
 }
