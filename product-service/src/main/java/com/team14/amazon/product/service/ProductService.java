@@ -101,6 +101,11 @@ public class ProductService {
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
 
+    // S2-F5
+    public List<Product> filterBySpecification(String key, String value, String status) {
+    return productRepository.findBySpecificationKeyValue(key, value, status);
+}
+
 @Transactional
     public Product discontinueProduct(Long id) {
         // 1. Find product – throws 404 if not found
