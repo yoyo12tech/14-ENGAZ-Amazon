@@ -46,7 +46,7 @@ public class Transaction {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL)
-    @JsonManagedReference
+    @JsonManagedReference("transaction")
     private List<TransactionVoucher> transactionVouchers;
 
     @PrePersist

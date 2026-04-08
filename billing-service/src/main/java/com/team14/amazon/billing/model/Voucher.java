@@ -46,7 +46,7 @@ public class Voucher {
     private Map<String, Object> metadata;
 
     @OneToMany(mappedBy = "voucher")
-    @JsonManagedReference
+    @JsonManagedReference("voucher")
     private List<TransactionVoucher> transactionVoucher;
 
     public Long getId() {
