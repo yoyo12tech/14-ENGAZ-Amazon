@@ -1,5 +1,6 @@
 package com.team14.amazon.order.controller;
 
+import com.team14.amazon.order.DTO.DeliverRequest;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
 import org.springframework.http.ResponseEntity;
@@ -47,8 +48,10 @@ public class OrderController {
     }
 
     @PutMapping("/{id}/deliver")
-    public ResponseEntity<Order> markAsDelivered(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.markAsDelivered(id));
+    public ResponseEntity<Order> markAsDelivered(
+            @PathVariable Long id,
+            @RequestBody DeliverRequest request) {
+        return ResponseEntity.ok(orderService.markAsDelivered(id, request.getMethod()));
     }
 
 

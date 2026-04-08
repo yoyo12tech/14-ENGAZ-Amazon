@@ -3,8 +3,10 @@ package com.team14.amazon.order.service;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderStatus;
 import com.team14.amazon.order.repository.OrderRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -50,38 +52,35 @@ public class OrderService {
 
 
     @Transactional
-    public Order markAsDelivered(Long id) {
+    public Order markAsDelivered(Long id, String method) {
         Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Order not found: " + id));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + id));
 
         if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new RuntimeException("Order already delivered");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order already delivered");
         }
-
         if (order.getStatus() != OrderStatus.SHIPPED) {
-            throw new RuntimeException("Order must be SHIPPED to deliver");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order must be SHIPPED to deliver");
         }
 
         LocalDateTime now = LocalDateTime.now();
-
-        // Update order
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(now);
 
-        // Update shipment
         orderRepository.markShipmentDelivered(id, now);
 
-        // Convert Double → BigDecimal safely
         BigDecimal amount = BigDecimal.valueOf(order.getTotalAmount());
 
-        // Create transaction
         orderRepository.createTransaction(
                 id,
+                order.getUserId(),
                 amount,
                 "PENDING",
-                now
+                now,
+                method // dynamic from body takes "CREDIT_CARD|CASH_ON_DELIVERY|WALLET", in the body of the postman req
         );
 
         return orderRepository.save(order);
     }
+
 }

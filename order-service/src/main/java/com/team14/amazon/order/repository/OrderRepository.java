@@ -10,7 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
@@ -20,7 +19,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Modifying
     @Transactional
     @Query(value = """
-        UPDATE shipment
+        UPDATE shipments
         SET status = 'DELIVERED',
             actual_delivery = :deliveredAt
         WHERE order_id = :orderId
@@ -34,11 +33,13 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Modifying
     @Transactional
     @Query(value = """
-        INSERT INTO transaction (order_id, amount, status, created_at)
-        VALUES (:orderId, :amount, :status, :createdAt)
+        INSERT INTO transactions (order_id, user_id, amount, status, created_at, method)
+        VALUES (:orderId, :userId, :amount, CAST(:status AS transaction_status), :createdAt, CAST(:method AS transaction_method))
     """, nativeQuery = true)
     int createTransaction(@Param("orderId") Long orderId,
+                          @Param("userId") Long userId,
                           @Param("amount") BigDecimal amount,
                           @Param("status") String status,
-                          @Param("createdAt") LocalDateTime createdAt);
+                          @Param("createdAt") LocalDateTime createdAt,
+                          @Param("method") String method);
 }
