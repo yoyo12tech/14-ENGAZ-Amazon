@@ -5,6 +5,7 @@ import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.service.ProductReviewService;
 
 import com.team14.amazon.product.dto.ProductSalesDTO;
+import com.team14.amazon.product.dto.VerifyReviewRequest;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.NoSuchElementException;
@@ -123,6 +124,24 @@ public class ProductController {
             return ResponseEntity.ok(updatedProduct);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    // S2-F8: PUT /api/products/{productId}/reviews/{reviewId}/verify
+    @PutMapping("/{productId}/reviews/{reviewId}/verify")
+    public ResponseEntity<?> verifyReview(
+            @PathVariable Long productId,
+            @PathVariable Long reviewId,
+            @RequestBody VerifyReviewRequest request) {
+        try {
+            Product updatedProduct = reviewService.verifyReview(productId, reviewId, request);
+            return ResponseEntity.ok(updatedProduct);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (SecurityException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
