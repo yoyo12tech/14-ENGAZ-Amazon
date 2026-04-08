@@ -14,11 +14,7 @@ import java.util.Optional;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Optional<Shipment> findByTrackingNumber(String trackingNumber);
     List<Shipment> findByOrderId(Long orderId);
-    // S4-F7: Purge old shipments
-    @Modifying
-    @Transactional
-    @Query(value = "DELETE FROM shipments WHERE lastUpdate < :cutoff", nativeQuery = true)
-    int purgeOldShipments(java.time.LocalDateTime cutoff);
+
 
     // S4-F8: Carrier Summary
     @Query(value = """

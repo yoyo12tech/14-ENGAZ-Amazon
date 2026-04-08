@@ -64,11 +64,6 @@ public class ShipmentService {
         return false;
     }
 
-    public int purgeShipments(int olderThanDays) {
-        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
-        return shipmentRepository.purgeOldShipments(cutoff);
-    }
-
     // S4-F8
     public CarrierSummaryDTO getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end) {
         // Get the list of results

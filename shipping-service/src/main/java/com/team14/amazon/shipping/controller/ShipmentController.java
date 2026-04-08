@@ -67,8 +67,4 @@ public class ShipmentController {
         return ResponseEntity.notFound().build();
     }
 
-    @DeleteMapping("/purge")
-    public ResponseEntity<Integer> purgeOldShipments(@RequestParam int olderThanDays) {
-        return ResponseEntity.ok(shipmentService.purgeShipments(olderThanDays));
-    }
 }
