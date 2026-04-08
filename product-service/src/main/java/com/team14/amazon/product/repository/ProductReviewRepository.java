@@ -31,4 +31,14 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
     boolean userHasDeliveredOrderForProduct(
             @Param("userId") Long userId,
             @Param("productId") Long productId);
+
+    // S2-F8: Verify that a given userId has the ADMIN role (cross-service native SQL)
+    @Query(value = "SELECT COUNT(*) > 0 FROM users WHERE id = :userId AND role = 'ADMIN'",
+            nativeQuery = true)
+    boolean isAdminUser(@Param("userId") Long userId);
+
+    // S2-F9: Check if a product has any review with rating <= 2
+    @Query("SELECT COUNT(r) > 0 FROM ProductReview r " +
+            "WHERE r.product.id = :productId AND r.rating <= 2")
+    boolean hasNegativeReviews(@Param("productId") Long productId);
 }
