@@ -9,6 +9,7 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import java.util.NoSuchElementException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -161,5 +162,25 @@ public class TransactionService {
         }
 
         return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
+    }
+    public Transaction processRefund(Long transactionId, String reason) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+        if (transaction.getStatus() != Status.COMPLETED) {
+            throw new IllegalStateException("Only COMPLETED transactions are eligible for a refund. Current status: " + transaction.getStatus());
+        }
+
+        transaction.setStatus(Status.REFUNDED);
+
+        Map<String, Object> details = new HashMap<>();
+        if (transaction.getTransactionDetails() != null) {
+            details.putAll(transaction.getTransactionDetails());
+        }
+        details.put("refundReason", reason);
+        details.put("refundedAt", LocalDateTime.now().toString());
+        transaction.setTransactionDetails(details);
+
+        return transactionRepository.save(transaction);
     }
 }
