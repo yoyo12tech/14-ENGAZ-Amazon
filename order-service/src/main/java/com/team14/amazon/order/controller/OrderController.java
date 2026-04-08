@@ -48,6 +48,16 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
+    @GetMapping("/search")
+    public List<Order> searchOrders(
+            @RequestParam(required = false) String status,
+            @RequestParam String startDate,
+            @RequestParam String endDate
+    ) {
+        return orderService.search(status, startDate, endDate);
+    }
+
+      
     @PostMapping("/estimate")
     public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
         return ResponseEntity.ok(orderService.estimateOrder(items));
