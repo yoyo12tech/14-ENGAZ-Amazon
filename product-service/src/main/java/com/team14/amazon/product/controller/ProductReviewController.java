@@ -1,17 +1,14 @@
 package com.team14.amazon.product.controller;
 
-
-
+import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.service.ProductReviewService;
-
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/reviews")
@@ -22,6 +19,8 @@ public class ProductReviewController {
     public ProductReviewController(ProductReviewService reviewService) {
         this.reviewService = reviewService;
     }
+
+    // ── Flat /api/reviews CRUD ──────────────────────────────────────────────
 
     @GetMapping
     public ResponseEntity<List<ProductReview>> getAllReviews() {
@@ -46,7 +45,8 @@ public class ProductReviewController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductReview> updateReview(@PathVariable Long id, @RequestBody ProductReview updatedReview) {
+    public ResponseEntity<ProductReview> updateReview(@PathVariable Long id,
+                                                      @RequestBody ProductReview updatedReview) {
         return reviewService.updateReview(id, updatedReview)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -64,4 +64,6 @@ public class ProductReviewController {
     public ResponseEntity<List<ProductReview>> getReviewsByProduct(@PathVariable Long productId) {
         return ResponseEntity.ok(reviewService.getReviewsByProductId(productId));
     }
+
+
 }

@@ -34,6 +34,7 @@ public class UserService {
     }
 
     public User createUser(User user) {
+
         if (userRepository.findByEmail(user.getEmail()).isPresent()) {
             throw new IllegalArgumentException("Email is already in use.");
         }
@@ -113,5 +114,14 @@ public class UserService {
 
         // 6. Save and return the updated user
         return userRepository.save(user);
+    /**
+     * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
+     */
+    public List<User> findUsersByLanguageAndMinOrders(String lang, Integer minOrders) {
+        // Validate lang is not blank per requirement
+        if (lang == null || lang.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Language cannot be blank");
+        }
+        return userRepository.findUsersByLanguageAndMinOrders(lang, minOrders);
     }
 }
