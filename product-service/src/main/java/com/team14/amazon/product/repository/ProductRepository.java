@@ -60,4 +60,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice
     );
+
+    // S2-F9: Find ACTIVE products whose stockQuantity is at or below the threshold
+    @Query(value = "SELECT * FROM products p " +
+            "WHERE p.stock_quantity <= :threshold " +
+            "AND p.status = 'ACTIVE'::product_status",
+            nativeQuery = true)
+    List<Product> findActiveProductsWithStockAtOrBelow(@Param("threshold") int threshold);
 }
