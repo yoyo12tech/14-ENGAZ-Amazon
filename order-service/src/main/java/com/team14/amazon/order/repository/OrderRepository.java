@@ -13,6 +13,9 @@ import java.util.Map;
 public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
+    @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
+    Double findProductPriceById(@Param("productId") Long productId);
+
     @Query(value = "SELECT COUNT(*) > 0 FROM shipments WHERE id = :addressId", nativeQuery = true)
     boolean existsShippingAddressById(@Param("addressId") Long addressId);
 
