@@ -1,13 +1,14 @@
 package com.team14.amazon.product.repository;
 
-import com.team14.amazon.product.model.Product;
-import com.team14.amazon.product.model.ProductStatus;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
+import com.team14.amazon.product.model.Product;
+import com.team14.amazon.product.model.ProductStatus;
 
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
@@ -28,4 +29,15 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice
     );
+
+
+   // In ProductRepository.java
+   @Query(value = """
+    SELECT COUNT(*) > 0
+    FROM orders o
+    JOIN order_items oi ON o.id = oi.order_id
+    WHERE oi.product_id = :productId
+    AND o.status = 'PENDING'
+    """, nativeQuery = true)
+boolean existsPendingOrdersForProduct(@Param("productId") Long productId); 
 }

@@ -1,14 +1,18 @@
 package com.team14.amazon.product.service;
 
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
+
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.repository.ProductRepository;
-import org.springframework.stereotype.Service;
-import java.util.HashMap;
-import java.util.Map;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ProductService {
@@ -95,6 +99,32 @@ public class ProductService {
             throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
         }
         return productRepository.searchProducts(category, minPrice, maxPrice);
+    }
+
+@Transactional
+    public Product discontinueProduct(Long id) {
+        // 1. Find product – throws 404 if not found
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
+
+        // 2. Check no pending orders contain this product — throws 400 if not
+        // NOTE: You will need to inject an OrderService, OrderRepository, or FeignClient 
+        // depending on your architecture to actually perform this check.
+        boolean hasPendingOrders = checkPendingOrders(id); // Placeholder method
+        
+        if (hasPendingOrders) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot discontinue product: It is currently part of a pending order.");
+        }
+
+        // 3. Update status and save
+        product.setStatus(ProductStatus.INACTIVE);
+        //productRepository.save(product);
+        return productRepository.save(product); // return the saved product
+    }
+
+
+    private boolean checkPendingOrders(Long productId) {
+        return productRepository.existsPendingOrdersForProduct(productId);
     }
 
 }
