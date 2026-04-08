@@ -2,7 +2,9 @@ package com.team14.amazon.user.service;
 
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.UserRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -26,27 +28,27 @@ public class UserService {
     }
 
     public User createUser(User user) {
-        
-            if (userRepository.findByEmail(user.getEmail()).isPresent()) {
-                throw new IllegalArgumentException("Email is already in use.");
-            }
-            if (userRepository.findByPhone(user.getPhone()).isPresent()) {
-                throw new IllegalArgumentException("Phone number is already in use.");
-            }
-            
-            return userRepository.save(user);
+
+        if (userRepository.findByEmail(user.getEmail()).isPresent()) {
+            throw new IllegalArgumentException("Email is already in use.");
+        }
+        if (userRepository.findByPhone(user.getPhone()).isPresent()) {
+            throw new IllegalArgumentException("Phone number is already in use.");
+        }
+
+        return userRepository.save(user);
     }
 
     public Optional<User> updateUser(Long id, User updatedUser) {
         return userRepository.findById(id).map(existingUser -> {
-            
-            if (!existingUser.getEmail().equals(updatedUser.getEmail()) && 
-                userRepository.findByEmail(updatedUser.getEmail()).isPresent()) {
+
+            if (!existingUser.getEmail().equals(updatedUser.getEmail()) &&
+                    userRepository.findByEmail(updatedUser.getEmail()).isPresent()) {
                 throw new IllegalArgumentException("Email is already in use.");
             }
-            
-            if (!existingUser.getPhone().equals(updatedUser.getPhone()) && 
-                userRepository.findByPhone(updatedUser.getPhone()).isPresent()) {
+
+            if (!existingUser.getPhone().equals(updatedUser.getPhone()) &&
+                    userRepository.findByPhone(updatedUser.getPhone()).isPresent()) {
                 throw new IllegalArgumentException("Phone number is already in use.");
             }
 
@@ -55,9 +57,9 @@ public class UserService {
             existingUser.setPhone(updatedUser.getPhone());
             existingUser.setRole(updatedUser.getRole());
             existingUser.setStatus(updatedUser.getStatus());
-            
+
             existingUser.setPreferences(updatedUser.getPreferences());
-            
+
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
                 existingUser.setPassword(updatedUser.getPassword());
             }
@@ -65,12 +67,23 @@ public class UserService {
             return userRepository.save(existingUser);
         });
     }
-    
+
     public boolean deleteUser(Long id) {
         if (userRepository.existsById(id)) {
             userRepository.deleteById(id);
             return true;
         }
         return false;
+    }
+
+    /**
+     * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
+     */
+    public List<User> findUsersByLanguageAndMinOrders(String lang, Integer minOrders) {
+        // Validate lang is not blank per requirement
+        if (lang == null || lang.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Language cannot be blank");
+        }
+        return userRepository.findUsersByLanguageAndMinOrders(lang, minOrders);
     }
 }
