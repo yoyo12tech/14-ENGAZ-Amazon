@@ -195,15 +195,18 @@ public class TransactionService {
                 .mapToDouble(entry -> (Double) entry.get("discountApplied"))
                 .sum();
 
-        // Step 4 - Calculate finalAmount
-        Double finalAmount = transaction.getAmount() - totalDiscount;
+        // Step 4 - Derive originalAmount and finalAmount
+        // transaction.getAmount() is already the post-discount value,
+        // so original = current amount + total discounts applied
+        Double finalAmount = transaction.getAmount();
+        Double originalAmount = finalAmount + totalDiscount;
 
         // Step 5 - Build and return the TransactionDetailsDTO
         return new TransactionDetailsDTO(
                 transaction.getId(),
                 transaction.getOrderId(),
                 transaction.getUserId(),
-                transaction.getAmount(),
+                originalAmount,
                 transaction.getMethod(),
                 transaction.getStatus(),
                 transaction.getTransactionDetails(),
