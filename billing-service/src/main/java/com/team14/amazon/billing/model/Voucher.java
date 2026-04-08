@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -44,6 +45,7 @@ public class Voucher {
     private Map<String, Object> metadata;
 
     @OneToMany(mappedBy = "voucher")
+    @JsonManagedReference("voucher")
     private List<TransactionVoucher> transactionVoucher;
 
     public Long getId() {
