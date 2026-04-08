@@ -6,6 +6,7 @@ import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.service.TransactionService;
+import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,9 +27,12 @@ public class TransactionController {
     public Transaction createTransaction(@RequestBody Transaction transaction){
         return transactionService.createTransaction(transaction);
     }
-    @PostMapping("/order")
-    public ResponseEntity<OrderTransactionResponse> processOrderTransaction(@RequestBody OrderTransactionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(transactionService.processOrderTransaction(request));
+    @PostMapping("/order/{orderId}")
+    public ResponseEntity<Transaction> processOrderTransaction(
+        @PathVariable Long orderId,
+        @RequestBody ProcessTransactionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(transactionService.processOrderTransaction(orderId, request));
     }
 
     @GetMapping("/{id}")

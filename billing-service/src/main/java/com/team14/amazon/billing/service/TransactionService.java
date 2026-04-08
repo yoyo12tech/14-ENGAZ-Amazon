@@ -9,8 +9,10 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.billing.dto.OrderTransactionRequest;
-import com.team14.amazon.billing.dto.OrderTransactionResponse;
+import com.team14.amazon.billing.dto.ProcessTransactionRequest;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.NoSuchElementException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -164,23 +166,29 @@ public class TransactionService {
 
         return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
     }
-    public OrderTransactionResponse processOrderTransaction(OrderTransactionRequest request) {
-        Transaction existing = transactionRepository.findByOrderId(request.getOrderId());
-        if (existing != null) {
-            throw new IllegalStateException("Transaction already exists for order: " + request.getOrderId());
+    
+    public Transaction processOrderTransaction(Long orderId, ProcessTransactionRequest request) {
+        Transaction existing = transactionRepository.findByOrderId(orderId);
+        if (existing != null && existing.getStatus() == Status.COMPLETED) {
+            throw new IllegalStateException("already paid");
+        }
+        if (existing == null) {
+            throw new NoSuchElementException("No transaction found for order: " + orderId);
         }
 
-        Transaction transaction = new Transaction();
-        transaction.setOrderId(request.getOrderId());
-        transaction.setUserId(request.getUserId());
-        transaction.setAmount(request.getAmount());
-        transaction.setMethod(request.getMethod());
-        transaction.setStatus(Status.PENDING);
-        Transaction saved = transactionRepository.save(transaction);
+        existing.setMethod(request.getMethod());
+        existing.setStatus(Status.COMPLETED);
 
-        return new OrderTransactionResponse(
-            saved.getId(), saved.getOrderId(), saved.getUserId(),
-            saved.getAmount(), saved.getMethod(), saved.getStatus(), saved.getCreatedAt()
-        );
+        Map<String, Object> details = new HashMap<>();
+        if (existing.getTransactionDetails() != null) {
+             details.putAll(existing.getTransactionDetails());
+        }
+        details.put("gatewayResponse", "approved");
+        if (request.getCardLastFour() != null) {
+            details.put("cardLastFour", request.getCardLastFour());
+        }
+        existing.setTransactionDetails(details);
+
+        return transactionRepository.save(existing);
     }
 }
