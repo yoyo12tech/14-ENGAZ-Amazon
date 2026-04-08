@@ -39,7 +39,7 @@ public class TransactionController {
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTransaction(Long id){
+    public void deleteTransaction(@PathVariable Long id){
         transactionService.deleteTransaction(id);
     }
 
