@@ -1,8 +1,10 @@
 package com.team14.amazon.product.controller;
 
 import com.team14.amazon.product.model.Product;
+import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.service.ProductReviewService;
 import com.team14.amazon.product.service.ProductService;
+import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -81,6 +83,22 @@ public class ProductController {
         return productService.updateSpecifications(id, specifications)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    // ── S2-F7: POST /api/products/{id}/reviews ─────────────────────────────
+
+    @PostMapping("/{id}/reviews")
+    public ResponseEntity<?> addReview(
+            @PathVariable Long id,
+            @RequestBody ProductReview review) {
+        try {
+            Product updatedProduct = reviewService.addReviewWithRatingRecalculation(id, review);
+            return ResponseEntity.ok(updatedProduct);
+        } catch (ResourceNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
 
