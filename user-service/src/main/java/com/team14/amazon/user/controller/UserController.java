@@ -71,5 +71,14 @@ public class UserController {
     public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long id) {
         UserProfileDTO profile = userService.getUserProfile(id);
         return ResponseEntity.ok(profile);
+    /**
+     * [S1-F9] Search Users by Language (JSONB) and Minimum Order Count (SQL JOIN)
+     */
+    @GetMapping("/preferences/language")
+    public ResponseEntity<List<User>> getUsersByLanguageAndMinOrders(
+            @RequestParam String lang,
+            @RequestParam(defaultValue = "0") Integer minOrders) {
+        List<User> users = userService.findUsersByLanguageAndMinOrders(lang, minOrders);
+        return ResponseEntity.ok(users);
     }
 }
