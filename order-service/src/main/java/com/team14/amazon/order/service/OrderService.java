@@ -1,5 +1,7 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.order.dto.OrderAnalyticsDTO;
+import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.dto.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
@@ -8,6 +10,9 @@ import com.team14.amazon.order.repository.OrderRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -134,6 +139,29 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
+    public OrderAnalyticsDTO getOrderAnalytics(LocalDate startDate, LocalDate endDate) {
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(23, 59, 59);
+
+        List<Order> orders = orderRepository.findOrdersBetween(start, end);
+
+        long totalOrders = orders.size();
+        long deliveredOrders = orders.stream().filter(o -> o.getStatus() == OrderStatus.DELIVERED).count();
+        long cancelledOrders = orders.stream().filter(o -> o.getStatus() == OrderStatus.CANCELLED).count();
+        double totalRevenue = orders.stream()
+                .filter(o -> o.getStatus() == OrderStatus.DELIVERED)
+                .mapToDouble(Order::getTotalAmount)
+                .sum();
+        double averageOrderValue = deliveredOrders > 0 ? totalRevenue / deliveredOrders : 0.0;
+        double completionRate = totalOrders > 0 ? (deliveredOrders * 100.0) / totalOrders : 0.0;
+
+        return new OrderAnalyticsDTO(totalOrders, deliveredOrders, cancelledOrders,
+                totalRevenue, averageOrderValue, completionRate);
+    }
+
+
+}
+
     public List<Order> searchByMetadata(String key, String value) {
         if (key == null || key.isBlank() || value == null || value.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must be provided");

@@ -55,8 +55,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+import java.time.LocalDateTime;
+import java.util.List;
+
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+    @Query("SELECT o FROM Order o WHERE o.orderedAt BETWEEN :startDate AND :endDate")
+    List<Order> findOrdersBetween(@Param("startDate") LocalDateTime startDate,
+                                  @Param("endDate") LocalDateTime endDate);
 
 
 
