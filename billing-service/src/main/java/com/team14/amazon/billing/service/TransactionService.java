@@ -9,7 +9,6 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.billing.dto.RetryTransactionResponse;
 import java.util.NoSuchElementException;
 
 import java.time.LocalDate;
@@ -164,21 +163,29 @@ public class TransactionService {
 
         return transactionRepository.findTransactionsByFilters(status, startDate, endDate);
     }
-    public RetryTransactionResponse retryTransaction(Long transactionId) {
+
+    public Transaction retryTransaction(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-            .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
 
         if (transaction.getStatus() != Status.FAILED) {
             throw new IllegalStateException("Only FAILED transactions can be retried. Current status: " + transaction.getStatus());
         }
 
-        Status previous = transaction.getStatus();
-        transaction.setStatus(Status.PENDING);
-        transactionRepository.save(transaction);
+        transaction.setStatus(Status.COMPLETED);
 
-        return new RetryTransactionResponse(
-            transaction.getId(), previous, Status.PENDING,
-            "Transaction queued for retry successfully"
-        );
+        Map<String, Object> details = new HashMap<>();
+        if (transaction.getTransactionDetails() != null) {
+            details.putAll(transaction.getTransactionDetails());
+        }
+        int retryAttempt = 0;
+        if (details.get("retryAttempt") instanceof Number) {
+            retryAttempt = ((Number) details.get("retryAttempt")).intValue();
+        }
+        details.put("retryAttempt", retryAttempt + 1);
+        details.put("gatewayResponse", "approved");
+        transaction.setTransactionDetails(details);
+
+        return transactionRepository.save(transaction);
     }
 }

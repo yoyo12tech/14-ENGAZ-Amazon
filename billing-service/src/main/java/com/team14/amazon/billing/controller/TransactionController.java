@@ -5,7 +5,6 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.service.TransactionService;
 import org.springframework.web.bind.annotation.*;
-import com.team14.amazon.billing.dto.RetryTransactionResponse;
 import org.springframework.http.ResponseEntity;
 
 import java.util.List;
@@ -24,8 +23,8 @@ public class TransactionController {
         return transactionService.createTransaction(transaction);
     }
 
-    @PostMapping("/{id}/retry")
-    public ResponseEntity<RetryTransactionResponse> retryTransaction(@PathVariable Long id) {
+    @PutMapping("/{id}/retry")
+    public ResponseEntity<Transaction> retryTransaction(@PathVariable Long id) {
         return ResponseEntity.ok(transactionService.retryTransaction(id));
     }
 
