@@ -1,5 +1,6 @@
 package com.team14.amazon.order.controller;
 
+import com.team14.amazon.order.DTO.DeliverRequest;
 import com.team14.amazon.order.dto.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
@@ -47,6 +48,14 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PutMapping("/{id}/deliver")
+    public ResponseEntity<Order> markAsDelivered(
+            @PathVariable Long id,
+            @RequestBody DeliverRequest request) {
+        return ResponseEntity.ok(orderService.markAsDelivered(id, request.getMethod()));
+    }
+
 
     @GetMapping("/search")
     public List<Order> searchOrders(
