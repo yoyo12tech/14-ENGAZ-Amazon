@@ -1,7 +1,9 @@
 package com.team14.amazon.user.controller;
 
 import com.team14.amazon.user.model.ShippingAddress;
+import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.ShippingAddressService;
+import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -13,9 +15,12 @@ import java.util.List;
 public class UserAddressController {
 
     private final ShippingAddressService shippingAddressService;
+    private final UserService userService; // Added UserService
 
-    public UserAddressController(ShippingAddressService shippingAddressService) {
+    // Updated constructor to inject both services
+    public UserAddressController(ShippingAddressService shippingAddressService, UserService userService) {
         this.shippingAddressService = shippingAddressService;
+        this.userService = userService;
     }
 
     @GetMapping
@@ -38,7 +43,7 @@ public class UserAddressController {
             @RequestBody ShippingAddress address) {
         return shippingAddressService.createAddressForUser(userId, address)
                 .map(created -> ResponseEntity.status(HttpStatus.CREATED).body(created))
-                .orElse(ResponseEntity.notFound().build()); // 404 if user doesn't exist
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @PutMapping("/{addressId}")
@@ -59,5 +64,21 @@ public class UserAddressController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // ==========================================
+    // MILESTONE 1 FEATURES
+    // ==========================================
+
+    /**
+     * [S1-F7] Set Default Shipping Address
+     */
+    @PutMapping("/{addressId}/default")
+    public ResponseEntity<User> setDefaultAddress(
+            @PathVariable Long userId,
+            @PathVariable Long addressId) {
+
+        User updatedUser = userService.setDefaultShippingAddress(userId, addressId);
+        return ResponseEntity.ok(updatedUser);
     }
 }
