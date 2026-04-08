@@ -3,6 +3,13 @@ package com.team14.amazon.product.controller;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.service.ProductReviewService;
+
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.NoSuchElementException;
+
+
 import com.team14.amazon.product.service.ProductService;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -58,6 +65,26 @@ public class ProductController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+    // S2-F3: Get product sales summary
+    @GetMapping("/{id}/sales")
+    public ResponseEntity<?> getProductSalesSummary(
+            @PathVariable Long id,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        try {
+            LocalDate start = LocalDate.parse(startDate);
+            LocalDate end   = LocalDate.parse(endDate);
+            ProductSalesDTO dto = productService.getProductSalesSummary(id, start, end);
+            return ResponseEntity.ok(dto);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (DateTimeParseException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("Invalid date format. Use yyyy-MM-dd.");
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
 
