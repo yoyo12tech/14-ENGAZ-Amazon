@@ -1,14 +1,22 @@
 package com.team14.amazon.product.service;
-
+import java.util.HashMap;
+import java.util.Map;
+import java.util.List;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.repository.ProductRepository;
 import org.springframework.stereotype.Service;
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import java.time.LocalDate;
+import java.util.NoSuchElementException;
 import java.util.HashMap;
 import java.util.Map;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import java.time.LocalDate;
+import java.util.NoSuchElementException;
 
 @Service
 public class ProductService {
@@ -53,6 +61,20 @@ public class ProductService {
         return productRepository.save(product);
     }
 
+
+
+
+    public boolean deleteProduct(Long id) {
+        if (productRepository.existsById(id)) {
+            productRepository.deleteById(id);
+            return true;
+        }
+        return false;
+    }
+
+
+
+
     // --- Update an existing product ---
     public Optional<Product> updateProduct(Long id, Product updatedProduct) {
         return productRepository.findById(id).map(existingProduct -> {
@@ -81,12 +103,36 @@ public class ProductService {
         });
     }
 
-    public boolean deleteProduct(Long id) {
-        if (productRepository.existsById(id)) {
-            productRepository.deleteById(id);
-            return true;
+
+
+
+
+//s2-f3
+    public ProductSalesDTO getProductSalesSummary(Long id, LocalDate startDate, LocalDate endDate) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
+
+        LocalDate exclusiveEnd = endDate.plusDays(1);
+
+        // 1. Get the list of results
+        List<Object[]> results = productRepository.getProductSalesSummary(id, startDate, exclusiveEnd);
+
+        // 2. Handle empty results (e.g., if the left join has no matches)
+        if (results == null || results.isEmpty()) {
+            return new ProductSalesDTO(id, product.getName(), 0L, 0.0, 0.0);
         }
-        return false;
+
+        // 3. Extract the first row (the Object array)
+        Object[] row = results.get(0);
+
+        // 4. Map columns to DTO with proper Number casting
+        return new ProductSalesDTO(
+                ((Number) row[0]).longValue(),    // productId
+                (String)  row[1],                 // name
+                ((Number) row[2]).longValue(),    // totalUnitsSold
+                ((Number) row[3]).doubleValue(),  // totalRevenue
+                ((Number) row[4]).doubleValue()   // averageSellingPrice
+        );
     }
     // S2-F1: Search products by optional category and price range
     // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
