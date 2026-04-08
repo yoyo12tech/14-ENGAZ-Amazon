@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -25,4 +26,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
     List<Object[]> findTopBuyers(@Param("startDateTime") LocalDateTime startDateTime,
                                  @Param("endDateTime") LocalDateTime endDateTime,
                                  @Param("limit") Integer limit);
+
+
+    @Query(value = "SELECT u.* FROM users u " +
+            "JOIN orders o ON u.id = o.user_id " +
+            "WHERE u.preferences ->> 'language' = :lang " +
+            "GROUP BY u.id " +
+            "HAVING COUNT(o.id) >= :minOrders",
+            nativeQuery = true)
+    List<User> findUsersByLanguageAndMinOrders(@Param("lang") String lang, @Param("minOrders") Integer minOrders);
 }

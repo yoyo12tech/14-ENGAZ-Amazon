@@ -1,5 +1,6 @@
 package com.team14.amazon.user.controller;
 
+import com.team14.amazon.user.dto.UserProfileDTO;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -35,7 +36,7 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-@PostMapping
+    @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
         try {
             User createdUser = userService.createUser(user);
@@ -49,18 +50,18 @@ public class UserController {
     public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
         try {
             Optional<User> result = userService.updateUser(id, updatedUser);
-            
+
             if (result.isPresent()) {
                 return ResponseEntity.status(HttpStatus.OK).body(result.get());
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
             }
-            
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         if (userService.deleteUser(id)) {
@@ -80,5 +81,19 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long id) {
+        UserProfileDTO profile = userService.getUserProfile(id);
+        return ResponseEntity.ok(profile);
+        }
+
+    @GetMapping("/preferences/language")
+    public ResponseEntity<List<User>> getUsersByLanguageAndMinOrders(
+            @RequestParam String lang,
+            @RequestParam(defaultValue = "0") Integer minOrders) {
+        List<User> users = userService.findUsersByLanguageAndMinOrders(lang, minOrders);
+        return ResponseEntity.ok(users);
     }
 }
