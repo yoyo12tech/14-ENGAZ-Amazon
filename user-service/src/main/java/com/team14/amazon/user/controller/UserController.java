@@ -1,5 +1,6 @@
 package com.team14.amazon.user.controller;
 
+import com.team14.amazon.user.dto.UserProfileDTO;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -66,6 +67,10 @@ public class UserController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long id) {
+        UserProfileDTO profile = userService.getUserProfile(id);
+        return ResponseEntity.ok(profile);
     /**
      * [S1-F9] Search Users by Language (JSONB) and Minimum Order Count (SQL JOIN)
      */

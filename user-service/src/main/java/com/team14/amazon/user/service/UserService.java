@@ -1,5 +1,6 @@
 package com.team14.amazon.user.service;
 
+import com.team14.amazon.user.dto.UserProfileDTO;
 import com.team14.amazon.user.model.ShippingAddress;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.ShippingAddressRepository;
@@ -87,6 +88,30 @@ public class UserService {
     // ==========================================
 
     /**
+     * [S1-F8] Get User Profile with Shipping Addresses
+     */
+    public UserProfileDTO getUserProfile(Long userId) {
+        // 1. Find the user or throw 404
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // 2. Map data to the DTO
+        UserProfileDTO profileDTO = new UserProfileDTO();
+        profileDTO.setUserId(user.getId());
+        profileDTO.setName(user.getName());
+        profileDTO.setEmail(user.getEmail());
+        profileDTO.setPhone(user.getPhone());
+        profileDTO.setPreferences(user.getPreferences());
+
+        // 3. Attach the addresses and calculate the total count
+        profileDTO.setShippingAddresses(user.getShippingAddresses());
+
+        // Safe check in case the list is null
+        int addressCount = (user.getShippingAddresses() != null) ? user.getShippingAddresses().size() : 0;
+        profileDTO.setTotalAddresses(addressCount);
+
+        return profileDTO;
+     /*
      * [S1-F7] Set Default Shipping Address (Transactional + Relationship)
      */
     @Transactional
