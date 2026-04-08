@@ -31,7 +31,8 @@ public class Order {
     // Stored as string in DB using @Enumerated(EnumType.STRING)
     // This saves "PENDING" not 0 — readable and safe if enum order changes
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 50)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "order_status")
     private OrderStatus status = OrderStatus.PENDING;
 
     // Nullable — set when calculated
