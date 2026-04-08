@@ -48,6 +48,13 @@ public class OrderController {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
     }
+    @GetMapping("/metadata/search")
+    public List<Order> searchOrdersByMetadata(
+            @RequestParam String key,
+            @RequestParam String value) {
+        return orderService.searchByMetadata(key, value);
+    }
+
 
     @PutMapping("/{id}/deliver")
     public ResponseEntity<Order> markAsDelivered(

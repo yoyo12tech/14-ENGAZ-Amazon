@@ -133,6 +133,15 @@ public class OrderService {
         orderRepository.deleteById(id);
     }
 
+    @Transactional(readOnly = true)
+    public List<Order> searchByMetadata(String key, String value) {
+        if (key == null || key.isBlank() || value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must be provided");
+        }
+        return orderRepository.findByMetadata(key, value);
+    }
+
+}
 
     @Transactional
     public Order markAsDelivered(Long id, String method) {

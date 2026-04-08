@@ -9,6 +9,13 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
+@Repository
+public interface OrderRepository extends JpaRepository<Order, Long> {
+    @Query(value = "SELECT * FROM orders o WHERE o.metadata ->> :key = :value", nativeQuery = true)
+    List<Order> findByMetadata(@Param("key") String key, @Param("value") String value);
+}
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 @Repository
