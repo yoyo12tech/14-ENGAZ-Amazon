@@ -5,9 +5,11 @@ import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 
 import java.util.Optional;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/shipments")
@@ -62,5 +64,13 @@ public class ShipmentController {
         return ResponseEntity.notFound().build();
     }
 
-
+    @PutMapping("/batch-status")
+    public ResponseEntity<?> batchUpdateStatus(@RequestBody List<BatchStatusUpdateRequest> updates) {
+        try {
+            int count = shipmentService.batchUpdateStatus(updates);
+            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("updatedCount", count));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
 }
