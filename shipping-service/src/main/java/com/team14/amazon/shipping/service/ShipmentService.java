@@ -55,6 +55,11 @@ public class ShipmentService {
         });
     }
 
+    public int purgeShipments(int olderThanDays) {
+        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
+        return shipmentRepository.purgeOldShipments(cutoff);
+    }
+
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
@@ -62,4 +67,6 @@ public class ShipmentService {
         }
         return false;
     }
+
+
 }
