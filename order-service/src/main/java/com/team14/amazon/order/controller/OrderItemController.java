@@ -17,6 +17,11 @@ public class OrderItemController {
         this.orderItemService = orderItemService;
     }
 
+    @PostMapping
+    public ResponseEntity<OrderItem> create(@RequestBody OrderItem item) {
+        return ResponseEntity.ok(orderItemService.create(item.getOrder().getId(), item));
+    }
+
     @PostMapping("/order/{orderId}")
     public ResponseEntity<OrderItem> create(@PathVariable Long orderId,
                                             @RequestBody OrderItem item) {
