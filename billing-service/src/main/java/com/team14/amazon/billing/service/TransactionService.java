@@ -1,11 +1,16 @@
 package com.team14.amazon.billing.service;
 
+import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.Method;
 import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
+import com.team14.amazon.billing.repository.TransactionVoucherRepository;
+import com.team14.amazon.billing.repository.VoucherRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,9 +30,13 @@ import java.util.Map;
 @Service
 public class TransactionService {
     private final TransactionRepository transactionRepository;
+    private final VoucherRepository voucherRepository;
+    private final TransactionVoucherRepository transactionVoucherRepository;
 
-    public TransactionService(TransactionRepository transactionRepository) {
+    public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository, TransactionVoucherRepository transactionVoucherRepository) {
         this.transactionRepository = transactionRepository;
+        this.voucherRepository = voucherRepository;
+        this.transactionVoucherRepository = transactionVoucherRepository;
     }
 
     public Transaction createTransaction(Transaction transaction){
@@ -209,5 +218,10 @@ public class TransactionService {
         transaction.setTransactionDetails(details);
 
         return transactionRepository.save(transaction);
+    }
+
+    public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
     }
 }
