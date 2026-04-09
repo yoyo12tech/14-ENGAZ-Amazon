@@ -58,7 +58,7 @@ public class ShipmentService {
             existingShipment.setEstimatedDelivery(updatedShipment.getEstimatedDelivery());
             existingShipment.setActualDelivery(updatedShipment.getActualDelivery());
             existingShipment.setMetadata(updatedShipment.getMetadata());
-            existingShipment.setLastUpdate(updatedShipment.getLastUpdate());
+            existingShipment.setLastUpdate(LocalDateTime.now());
 
             return shipmentRepository.save(existingShipment);
         });
