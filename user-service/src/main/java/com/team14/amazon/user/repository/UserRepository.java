@@ -27,6 +27,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
                                  @Param("endDateTime") LocalDateTime endDateTime,
                                  @Param("limit") Integer limit);
 
+    @Query(value = "SELECT COUNT(*) FROM orders o WHERE o.user_id = :userId AND o.status NOT IN ('DELIVERED', 'CANCELLED', 'RETURNED')", nativeQuery = true)
+    int countActiveOrdersForUser(@Param("userId") Long userId);
 
     @Query(value = "SELECT u.* FROM users u " +
             "JOIN orders o ON u.id = o.user_id " +

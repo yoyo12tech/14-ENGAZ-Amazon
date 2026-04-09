@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -105,6 +106,26 @@ public class UserService {
         )).collect(Collectors.toList());
     }
 
+    public List<User> findUsersByPreference(String key, String value) {
+        if (key == null || key.trim().isEmpty() || value == null || value.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must not be blank");
+        }
+        return userRepository.findAll().stream()
+                .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
+                .toList();
+}
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        int activeOrdersCount = userRepository.countActiveOrdersForUser(id);
+        if (activeOrdersCount > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
+        }
+
+        user.setStatus(User.Status.DEACTIVATED);
+        userRepository.save(user);
+    }
 
     public UserProfileDTO getUserProfile(Long userId) {
         // 1. Find the user or throw 404
