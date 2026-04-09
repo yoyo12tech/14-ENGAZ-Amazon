@@ -58,7 +58,7 @@ public class ShipmentService {
             existingShipment.setEstimatedDelivery(updatedShipment.getEstimatedDelivery());
             existingShipment.setActualDelivery(updatedShipment.getActualDelivery());
             existingShipment.setMetadata(updatedShipment.getMetadata());
-            existingShipment.setLastUpdate(LocalDateTime.now());
+            existingShipment.setLastUpdate(updatedShipment.getLastUpdate());
 
             return shipmentRepository.save(existingShipment);
         });
@@ -157,4 +157,10 @@ public class ShipmentService {
         shipmentRepository.saveAll(toSave);
         return toSave.size();
     }
+
+    public List<Shipment> getShipmentsInDateRange(LocalDateTime startDate, LocalDateTime endDate, String status) {
+        String resolvedStatus = (status == null || status.isBlank()) ? null : status;
+        return shipmentRepository.findByDateRangeAndStatus(startDate, endDate, resolvedStatus);
+    }
+
 }

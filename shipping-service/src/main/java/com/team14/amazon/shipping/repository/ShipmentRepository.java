@@ -9,6 +9,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,5 +28,11 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     @Transactional
     @Query(value = "DELETE FROM shipments WHERE last_update < :cutoff", nativeQuery = true)
     int purgeOldShipments(java.time.LocalDateTime cutoff);
+
+    @Query(value = "SELECT * FROM shipments WHERE last_update BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp) AND (:status IS NULL OR status = :status) ORDER BY last_update ASC", nativeQuery = true)
+    List<Shipment> findByDateRangeAndStatus(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("status") String status);
 }
 
