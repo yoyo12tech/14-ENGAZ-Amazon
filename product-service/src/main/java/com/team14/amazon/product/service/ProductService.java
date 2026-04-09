@@ -17,17 +17,22 @@ import java.util.Optional;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import java.time.LocalDate;
 import java.util.NoSuchElementException;
+import com.team14.amazon.product.dto.LowStockAlertDTO;
+import com.team14.amazon.product.repository.ProductReviewRepository;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductReviewRepository reviewRepository;
 
-
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository,
+                          ProductReviewRepository reviewRepository) {
         this.productRepository = productRepository;
+        this.reviewRepository  = reviewRepository;
     }
-
 
     //Below are the main crud methods for the product
     //which are :findAll,findById,update,delete,create
@@ -142,5 +147,50 @@ public class ProductService {
         }
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
+
+
+
+    // S2-F9: Low Stock Alert Report
+    public List<LowStockAlertDTO> getLowStockAlerts(int threshold) {
+
+        // 1. Query ACTIVE products with stock <= threshold
+        List<Product> lowStockProducts =
+                productRepository.findActiveProductsWithStockAtOrBelow(threshold);
+
+        // 2. Cutoff date for "recent" sales (last 30 days)
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+
+        // 3. Build DTO list
+        List<LowStockAlertDTO> result = new ArrayList<>();
+
+        for (Product p : lowStockProducts) {
+
+            // 4. Count recent DELIVERED sales via native SQL (reuse existing repo pattern)
+            List<Object[]> salesRows = productRepository.getProductSalesSummary(
+                    p.getId(),
+                    since.toLocalDate(),
+                    LocalDateTime.now().toLocalDate().plusDays(1)
+            );
+            long recentSalesCount = 0L;
+            if (salesRows != null && !salesRows.isEmpty()) {
+                recentSalesCount = ((Number) salesRows.get(0)[2]).longValue(); // totalUnitsSold column
+            }
+
+            // 5. Check for negative reviews (rating <= 2)
+            boolean hasNegativeReviews = reviewRepository.hasNegativeReviews(p.getId());
+
+            result.add(new LowStockAlertDTO(
+                    p.getId(),
+                    p.getName(),
+                    p.getStockQuantity(),
+                    p.getCategory(),
+                    recentSalesCount,
+                    hasNegativeReviews
+            ));
+        }
+
+        return result;
+    }
+
 
 }

@@ -10,6 +10,8 @@ import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import java.util.Map;
 
 import java.util.List;
 
@@ -48,6 +50,14 @@ public class TransactionController {
     public Transaction updateTransaction(Transaction transaction){
         return transactionService.updateTransaction(transaction);
     }
+
+    @PutMapping("/{id}/refund")
+    public ResponseEntity<Transaction> processRefund(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(transactionService.processRefund(id, body.get("reason")));
+    }
+
 
     @DeleteMapping("/{id}")
     public void deleteTransaction(Long id){

@@ -47,7 +47,6 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("endDate")   LocalDate endDate
     );
 
-    List<Product> findByBrand(String brand);
 
     // S2-F1: Search by optional category and price range, ordered by price ascending
     // JPQL — uses entity field names (Lab 4 slide 43-44)
@@ -61,4 +60,11 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice
     );
+
+    // S2-F9: Find ACTIVE products whose stockQuantity is at or below the threshold
+    @Query(value = "SELECT * FROM products p " +
+            "WHERE p.stock_quantity <= :threshold " +
+            "AND p.status = 'ACTIVE'::product_status",
+            nativeQuery = true)
+    List<Product> findActiveProductsWithStockAtOrBelow(@Param("threshold") int threshold);
 }
