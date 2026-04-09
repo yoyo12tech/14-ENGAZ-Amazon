@@ -91,6 +91,18 @@ public class UserService {
         return userRepository.findAll().stream()
                 .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
                 .toList();
+}
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        int activeOrdersCount = userRepository.countActiveOrdersForUser(id);
+        if (activeOrdersCount > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
+        }
+
+        user.setStatus(User.Status.DEACTIVATED);
+        userRepository.save(user);
     }
 
     public UserProfileDTO getUserProfile(Long userId) {

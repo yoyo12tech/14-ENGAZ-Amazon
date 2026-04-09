@@ -18,6 +18,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 import java.util.List;
+import com.team14.amazon.product.dto.LowStockAlertDTO;
 
 @RestController
 @RequestMapping("/api/products")
@@ -145,6 +146,13 @@ public class ProductController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+
+    // S2-F9: GET /api/products/stock/low-stock?threshold={n}
+    @GetMapping("/stock/low-stock")
+    public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
+            @RequestParam(defaultValue = "10") int threshold) {
+        return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
     }
 
 
