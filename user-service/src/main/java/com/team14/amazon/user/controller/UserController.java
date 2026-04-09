@@ -12,6 +12,7 @@ import java.util.Optional;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.team14.amazon.user.dto.TopBuyerDTO;
+import com.team14.amazon.user.dto.UserOrderSummaryDTO;
 import java.util.Map;
 
 @RestController
@@ -71,6 +72,19 @@ public class UserController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<?> searchUsers(
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String role
+    ) {
+        try {
+            return ResponseEntity.ok(userService.searchUsers(name, email, role));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
     @GetMapping("/reports/top-buyers")
     public ResponseEntity<?> getTopBuyers(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
@@ -116,6 +130,16 @@ public class UserController {
         try {
             User updatedUser = userService.updateUserPreferences(id, preferences);
             return ResponseEntity.ok(updatedUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/order-summary")
+    public ResponseEntity<?> getUserOrderSummary(@PathVariable Long id) {
+        try {
+            UserOrderSummaryDTO summary = userService.getUserOrderSummary(id);
+            return ResponseEntity.ok(summary);
         } catch (RuntimeException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
