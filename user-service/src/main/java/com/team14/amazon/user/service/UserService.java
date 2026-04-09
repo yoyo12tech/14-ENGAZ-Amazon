@@ -111,6 +111,7 @@ public class UserService {
         profileDTO.setTotalAddresses(addressCount);
 
         return profileDTO;
+    }
      /*
      * [S1-F7] Set Default Shipping Address (Transactional + Relationship)
      */
@@ -139,9 +140,12 @@ public class UserService {
 
         // 6. Save and return the updated user
         return userRepository.save(user);
+    }
+
     /**
      * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
      */
+
     public List<User> findUsersByLanguageAndMinOrders(String lang, Integer minOrders) {
         // Validate lang is not blank per requirement
         if (lang == null || lang.trim().isEmpty()) {
