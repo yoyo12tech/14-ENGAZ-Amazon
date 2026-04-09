@@ -30,6 +30,15 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     @Query(value = "DELETE FROM shipments WHERE last_update < :cutoff", nativeQuery = true)
     int purgeOldShipments(java.time.LocalDateTime cutoff);
 
+    @Query(value = "SELECT * FROM shipments WHERE metadata->>:key = :value", nativeQuery = true)
+    List<Shipment> findByMetadataEq(@Param("key") String key, @Param("value") String value);
+
+    @Query(value = "SELECT * FROM shipments WHERE (metadata->>:key)::numeric > :value", nativeQuery = true)
+    List<Shipment> findByMetadataGt(@Param("key") String key, @Param("value") double value);
+
+    @Query(value = "SELECT * FROM shipments WHERE (metadata->>:key)::numeric < :value", nativeQuery = true)
+    List<Shipment> findByMetadataLt(@Param("key") String key, @Param("value") double value);
+
     @Query(value = "SELECT * FROM shipments WHERE last_update BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp) AND (:status IS NULL OR status = :status) ORDER BY last_update ASC", nativeQuery = true)
     List<Shipment> findByDateRangeAndStatus(
             @Param("startDate") LocalDateTime startDate,
