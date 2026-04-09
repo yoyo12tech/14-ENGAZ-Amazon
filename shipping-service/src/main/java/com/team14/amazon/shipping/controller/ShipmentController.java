@@ -95,4 +95,17 @@ public class ShipmentController {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }
+
+    @GetMapping("/metadata/search")
+    public ResponseEntity<?> filterByMetadata(
+            @RequestParam String key,
+            @RequestParam String operator,
+            @RequestParam String value) {
+        try {
+            List<Shipment> results = shipmentService.filterByMetadata(key, operator, value);
+            return ResponseEntity.ok(results);
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
 }
