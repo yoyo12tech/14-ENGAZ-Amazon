@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import org.springframework.http.HttpStatus;
@@ -11,8 +12,10 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 public class ShipmentService {
@@ -74,6 +77,29 @@ public class ShipmentService {
         return false;
     }
 
+    public List<NearbyShipmentDTO> findNearbyShipments(Double lat, Double lon, Double radiusKm ){
+        return shipmentRepository.findByStatus(Shipment.Status.OUT_FOR_DELIVERY)
+                .stream()
+                .filter( s -> s.getLatitude() != null && s.getLongitude() != null)
+                .map(s -> {
+                    Double distance = Math.sqrt(
+                            Math.pow(s.getLatitude() - lat, 2) + Math.pow(s.getLongitude() - lon, 2)
+                    ) * 111;
+                    return new NearbyShipmentDTO(
+                            s.getId(),
+                            s.getOrderId(),
+                            s.getCarrier(),
+                            s.getTrackingNumber(),
+                            s.getLatitude(),
+                            s.getLongitude(),
+                            distance
+                    );
+
+                })
+                .filter(dto -> dto.getDistanceKm() <= radiusKm)
+                .sorted(Comparator.comparingDouble(NearbyShipmentDTO::getDistanceKm))
+                .collect(Collectors.toList());
+    }
     public Shipment createShipment(Long orderId, Shipment shipment){
         if(!shipmentRepository.existsOrderById(orderId)){
             throw new ResponseStatusException(

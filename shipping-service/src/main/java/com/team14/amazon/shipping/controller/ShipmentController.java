@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
@@ -65,6 +66,10 @@ public class ShipmentController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyShipmentDTO>> findNearbyShipments(@RequestParam Double lat, @RequestParam Double lon, @RequestParam Double radiusKm){
+        return ResponseEntity.ok(shipmentService.findNearbyShipments(lat, lon, radiusKm));
+}
     @PostMapping("/order/{orderId}")
     public ResponseEntity<?> createShipmentForOrder(@PathVariable Long orderId, @RequestBody Shipment shipment){
         try{
