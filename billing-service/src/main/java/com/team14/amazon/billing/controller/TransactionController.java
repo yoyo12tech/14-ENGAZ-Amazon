@@ -5,6 +5,7 @@ import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.service.TransactionService;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
@@ -23,18 +24,6 @@ public class TransactionController {
     @PostMapping
     public Transaction createTransaction(@RequestBody Transaction transaction){
         return transactionService.createTransaction(transaction);
-    }
-    @PostMapping("/order/{orderId}")
-    public ResponseEntity<Transaction> processOrderTransaction(
-        @PathVariable Long orderId,
-        @RequestBody ProcessTransactionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(transactionService.processOrderTransaction(orderId, request));
-    }
-
-    @PutMapping("/{id}/retry")
-    public ResponseEntity<Transaction> retryTransaction(@PathVariable Long id) {
-        return ResponseEntity.ok(transactionService.retryTransaction(id));
     }
 
     @GetMapping("/{id}")
