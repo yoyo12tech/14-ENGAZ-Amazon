@@ -2,6 +2,7 @@ package com.team14.amazon.shipping.service;
 
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.transaction.annotation.Transactional;
@@ -73,6 +74,19 @@ public class ShipmentService {
         return false;
     }
 
+    public Shipment getLatestShipmentForOrder(Long orderId){
+        if(!shipmentRepository.existsByOrderId(orderId)){
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "The Order has no shipping yet!");
+        }
+        return shipmentRepository.findLatestShipmentByOrderId(orderId)
+        .orElseThrow(()-> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "The Order provided is still being processed!"));
+        }
+  
+  
     @Transactional
     public int batchUpdateStatus(List<BatchStatusUpdateRequest> updates) {
         List<Shipment> toSave = new ArrayList<>();

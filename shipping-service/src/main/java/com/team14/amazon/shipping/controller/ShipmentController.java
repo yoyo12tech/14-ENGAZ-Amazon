@@ -64,6 +64,11 @@ public class ShipmentController {
         return ResponseEntity.notFound().build();
     }
 
+    @GetMapping("order/{orderId}/latest")
+    public Shipment getLatestShipmentForAnOrder(@PathVariable Long orderId){
+        return shipmentService.getLatestShipmentForOrder(orderId);
+    }
+
     @PutMapping("/batch-status")
     public ResponseEntity<?> batchUpdateStatus(@RequestBody List<BatchStatusUpdateRequest> updates) {
         try {
