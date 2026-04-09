@@ -23,9 +23,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 public class TransactionService {
@@ -223,5 +221,29 @@ public class TransactionService {
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
+}
+    public Transaction retryTransaction(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+        if (transaction.getStatus() != Status.FAILED) {
+            throw new IllegalStateException("Only FAILED transactions can be retried. Current status: " + transaction.getStatus());
+        }
+
+        transaction.setStatus(Status.COMPLETED);
+
+        Map<String, Object> details = new HashMap<>();
+        if (transaction.getTransactionDetails() != null) {
+            details.putAll(transaction.getTransactionDetails());
+        }
+        int retryAttempt = 0;
+        if (details.get("retryAttempt") instanceof Number) {
+            retryAttempt = ((Number) details.get("retryAttempt")).intValue();
+        }
+        details.put("retryAttempt", retryAttempt + 1);
+        details.put("gatewayResponse", "approved");
+        transaction.setTransactionDetails(details);
+
+        return transactionRepository.save(transaction);
     }
 }
