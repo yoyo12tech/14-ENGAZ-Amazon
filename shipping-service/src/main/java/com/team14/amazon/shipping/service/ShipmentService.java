@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
 import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
@@ -156,5 +157,18 @@ public class ShipmentService {
 
         shipmentRepository.saveAll(toSave);
         return toSave.size();
+    }
+
+    public List<DelayedShipmentDTO> getDelayedShipments(Integer maxAttempts) {
+        return shipmentRepository.findDelayedShipments(maxAttempts).stream()
+                .map(row -> new DelayedShipmentDTO(
+                        ((Number) row[0]).longValue(),
+                        ((Number) row[1]).longValue(),
+                        (String) row[2],
+                        (String) row[3],
+                        (java.time.LocalDateTime) row[4],
+                        ((Number) row[5]).longValue(),
+                        (Integer) row[6]
+                )).toList();
     }
 }

@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
 import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
@@ -29,12 +30,20 @@ public class ShipmentController {
         return ResponseEntity.ok(shipmentService.getAllShipments());
     }
 
+    // S4-F9: Find Delayed Shipments
+    @GetMapping("/delayed")
+    public ResponseEntity<List<DelayedShipmentDTO>> getDelayedShipments(@RequestParam(required = false) Integer maxDeliveryAttempts) {
+        return ResponseEntity.ok(shipmentService.getDelayedShipments(maxDeliveryAttempts));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Shipment> getShipmentById(@PathVariable Long id) {
         return shipmentService.getShipmentById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
+
+
 
     @PostMapping
     public ResponseEntity<?> createShipment(@RequestBody Shipment shipment) {
