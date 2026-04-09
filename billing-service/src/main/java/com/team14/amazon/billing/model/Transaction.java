@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -27,12 +28,14 @@ public class Transaction {
     private Double amount;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
     private Method method;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private Status status;
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
+    private Status status = Status.PENDING;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -41,6 +44,7 @@ public class Transaction {
     @Column(name= "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL)
     private List<TransactionVoucher> transactionVouchers;
 
@@ -117,3 +121,5 @@ public class Transaction {
         this.transactionVouchers = transactionVouchers;
     }
 }
+
+

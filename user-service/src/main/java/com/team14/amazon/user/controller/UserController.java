@@ -1,13 +1,17 @@
 package com.team14.amazon.user.controller;
 
+import com.team14.amazon.user.dto.UserProfileDTO;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
+import org.springframework.format.annotation.DateTimeFormat;
+import com.team14.amazon.user.dto.TopBuyerDTO;
 
 @RestController
 @RequestMapping("/api/users")
@@ -32,7 +36,7 @@ public class UserController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-@PostMapping
+    @PostMapping
     public ResponseEntity<?> createUser(@RequestBody User user) {
         try {
             User createdUser = userService.createUser(user);
@@ -46,18 +50,18 @@ public class UserController {
     public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
         try {
             Optional<User> result = userService.updateUser(id, updatedUser);
-            
+
             if (result.isPresent()) {
                 return ResponseEntity.status(HttpStatus.OK).body(result.get());
             } else {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
             }
-            
+
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-    
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
         if (userService.deleteUser(id)) {
@@ -77,5 +81,45 @@ public class UserController {
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @GetMapping("/reports/top-buyers")
+    public ResponseEntity<?> getTopBuyers(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam Integer limit) {
+        try {
+            List<TopBuyerDTO> topBuyers = userService.getTopBuyers(startDate, endDate, limit);
+            return ResponseEntity.ok(topBuyers);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/preferences/search")
+    public ResponseEntity<List<User>> searchByPreference(@RequestParam String key, @RequestParam String value) {
+        return ResponseEntity.ok(userService.findUsersByPreference(key, value));
+}
+    @PutMapping("/{id}/deactivate")
+    public ResponseEntity<Void> deactivateUser(@PathVariable Long id) {
+        userService.deactivateUser(id);
+        return ResponseEntity.ok().build();
+    }
+
+
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<UserProfileDTO> getUserProfile(@PathVariable Long id) {
+        UserProfileDTO profile = userService.getUserProfile(id);
+        return ResponseEntity.ok(profile);
+        }
+
+    @GetMapping("/preferences/language")
+    public ResponseEntity<List<User>> getUsersByLanguageAndMinOrders(
+            @RequestParam String lang,
+            @RequestParam(defaultValue = "0") int minOrders) {
+
+        return ResponseEntity.ok(
+                userService.findUsersByLanguageAndMinOrders(lang, minOrders)
+        );
     }
 }
