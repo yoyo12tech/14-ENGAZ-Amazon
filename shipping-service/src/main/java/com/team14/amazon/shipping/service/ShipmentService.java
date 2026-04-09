@@ -160,6 +160,12 @@ public class ShipmentService {
         return toSave.size();
     }
 
+    public List<Shipment> getShipmentsInDateRange(LocalDateTime startDate, LocalDateTime endDate, String status) {
+        String resolvedStatus = (status == null || status.isBlank()) ? null : status;
+        return shipmentRepository.findByDateRangeAndStatus(startDate, endDate, resolvedStatus);
+    }
+
+
     public CarrierSummaryDTO getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end) {
         // Get the list of results
         List<Object[]> results = shipmentRepository.getCarrierSummary(carrier, start, end);
