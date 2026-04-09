@@ -7,5 +7,17 @@ public enum OrderStatus {
     SHIPPED,
     DELIVERED,
     CANCELLED,
-    RETURNED
+    RETURNED;
+
+    public static OrderStatus fromString(String status) {
+        if (status == null || status.isBlank()) {
+            throw new IllegalArgumentException("Order status cannot be null or empty");
+        }
+
+        try {
+            return OrderStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Invalid order status: " + status);
+        }
+    }
 }

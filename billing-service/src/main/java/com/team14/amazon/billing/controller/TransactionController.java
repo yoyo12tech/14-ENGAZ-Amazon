@@ -1,14 +1,22 @@
 package com.team14.amazon.billing.controller;
 
-import com.team14.amazon.billing.model.Status;
+
 import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
+import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.service.TransactionService;
+import com.team14.amazon.billing.dto.ProcessTransactionRequest;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.ResponseEntity;
+import java.util.Map;
 
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/transaction")
+@RequestMapping("/api/transactions")
 public class TransactionController {
     private final TransactionService transactionService;
 
@@ -19,6 +27,13 @@ public class TransactionController {
     @PostMapping
     public Transaction createTransaction(@RequestBody Transaction transaction){
         return transactionService.createTransaction(transaction);
+    }
+    @PostMapping("/order/{orderId}")
+    public ResponseEntity<Transaction> processOrderTransaction(
+        @PathVariable Long orderId,
+        @RequestBody ProcessTransactionRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(transactionService.processOrderTransaction(orderId, request));
     }
 
     @GetMapping("/{id}")
@@ -36,19 +51,38 @@ public class TransactionController {
         return transactionService.updateTransaction(transaction);
     }
 
+    @PutMapping("/{id}/refund")
+    public ResponseEntity<Transaction> processRefund(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        return ResponseEntity.ok(transactionService.processRefund(id, body.get("reason")));
+    }
+
+
     @DeleteMapping("/{id}")
     public void deleteTransaction(Long id){
         transactionService.deleteTransaction(id);
     }
 
     @GetMapping("/search")
-    public List<Transaction> findAllTransactionsByStatus(Status status) {
-        return transactionService.findByStatus(status);
+    public List<Transaction> searchTransactions(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        return transactionService.searchTransactions(status, startDate, endDate);
+    }
+
+    @GetMapping("/user/{userId}/summary")
+    public UserTransactionSummaryDTO getUserTransactionSummary(@PathVariable Long userId) {
+        return transactionService.getUserTransactionSummary(userId);
     }
 
 //    @GetMapping
 //
 //    @GetMapping
-//
-//    @GetMapping
+
+    @GetMapping("/reports/revenue")
+    public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {
+        return transactionService.getRevenueReport(startDate, endDate);
+    }
 }

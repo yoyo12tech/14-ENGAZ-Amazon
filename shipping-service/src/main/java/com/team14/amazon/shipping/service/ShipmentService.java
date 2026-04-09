@@ -4,8 +4,12 @@ import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -57,6 +61,11 @@ public class ShipmentService {
         });
     }
 
+    public int purgeShipments(int olderThanDays) {
+        java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
+        return shipmentRepository.purgeOldShipments(cutoff);
+    }
+
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
@@ -75,5 +84,38 @@ public class ShipmentService {
         .orElseThrow(()-> new ResponseStatusException(
                 HttpStatus.NOT_FOUND,
                 "The Order provided is still being processed!"));
+        }
+  
+  
+    @Transactional
+    public int batchUpdateStatus(List<BatchStatusUpdateRequest> updates) {
+        List<Shipment> toSave = new ArrayList<>();
+
+        for (BatchStatusUpdateRequest req : updates) {
+            // Validate coordinates
+            if (req.getLatitude() == null || req.getLatitude() < -90 || req.getLatitude() > 90) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Latitude must be between -90 and 90");
+            }
+            if (req.getLongitude() == null || req.getLongitude() < -180 || req.getLongitude() > 180) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Longitude must be between -180 and 180");
+            }
+
+            // Find shipment — 404 if not found
+            Shipment shipment = shipmentRepository.findById(req.getShipmentId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Shipment not found: " + req.getShipmentId()));
+
+            shipment.setStatus(Shipment.Status.valueOf(req.getStatus()));
+            shipment.setLatitude(req.getLatitude());
+            shipment.setLongitude(req.getLongitude());
+            shipment.setLastUpdate(LocalDateTime.now());
+
+            toSave.add(shipment);
+        }
+
+        shipmentRepository.saveAll(toSave);
+        return toSave.size();
     }
 }

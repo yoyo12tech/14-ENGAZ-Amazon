@@ -45,6 +45,10 @@ public class TransactionVoucher {
         return appliedAt;
     }
 
+    public void setId(Long id){
+        this.id = id;
+    }
+
     public void setTransaction(Transaction transaction) {
         this.transaction = transaction;
     }
@@ -56,4 +60,5 @@ public class TransactionVoucher {
     public void setDiscountApplied(Double discountApplied) {
         this.discountApplied = discountApplied;
     }
+    public void setAppliedAt(LocalDateTime appliedAt){ this.appliedAt = appliedAt;}
 }
