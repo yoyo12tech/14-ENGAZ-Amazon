@@ -1,11 +1,17 @@
 package com.team14.amazon.billing.service;
 
+import com.team14.amazon.billing.dto.VoucherUsageDTO;
+import com.team14.amazon.billing.model.Method;
+import com.team14.amazon.billing.model.Status;
+import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -262,6 +268,9 @@ public class TransactionService {
         transactionVoucher.setDiscountApplied(discount);
         transactionVoucher.setAppliedAt(LocalDateTime.now());
 
+    public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
         //increment use
         voucher.setCurrentUses(voucher.getCurrentUses() + 1);
 

@@ -1,6 +1,7 @@
 package com.team14.amazon.billing.controller;
 
 
+import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
@@ -74,6 +75,12 @@ public class TransactionController {
     @GetMapping("/reports/revenue")
     public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {
         return transactionService.getRevenueReport(startDate, endDate);
+    }
+
+    @GetMapping("/voucher/top-used")
+    public ResponseEntity<List<VoucherUsageDTO>> getTopUsedVouchers(
+            @RequestParam(defaultValue = "3") int limit) {
+        return ResponseEntity.ok(transactionService.getTopUsedVouchers(limit));
     }
 
     @PostMapping("/{transactionId}/voucher/{voucherId}")
