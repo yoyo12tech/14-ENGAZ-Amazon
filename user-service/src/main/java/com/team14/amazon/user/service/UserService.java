@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import com.team14.amazon.user.dto.TopBuyerDTO;
+import com.team14.amazon.user.dto.UserOrderSummaryDTO;
 
 @Service
 public class UserService {
@@ -211,5 +212,34 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Language cannot be blank");
         }
         return userRepository.findUsersByLanguageAndMinOrders(lang, minOrders);
+    }
+
+    public UserOrderSummaryDTO getUserOrderSummary(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    
+        Object[] raw = userRepository.getOrderSummaryByUserId(id);
+    
+        Object[] row = (raw.length > 0 && raw[0] instanceof Object[])
+                ? (Object[]) raw[0]
+                : raw;
+    
+        long totalOrders     = row[0] != null ? ((Number) row[0]).longValue()   : 0L;
+        long completedOrders = row[1] != null ? ((Number) row[1]).longValue()   : 0L;
+        long cancelledOrders = row[2] != null ? ((Number) row[2]).longValue()   : 0L;
+        double totalSpent    = row[3] != null ? ((Number) row[3]).doubleValue() : 0.0;
+        double avgOrderValue = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
+    
+        avgOrderValue = Math.round(avgOrderValue * 100.0) / 100.0;
+    
+        return new UserOrderSummaryDTO(
+                user.getId(),
+                user.getName(),
+                totalOrders,
+                completedOrders,
+                cancelledOrders,
+                totalSpent,
+                avgOrderValue
+        );
     }
 }
