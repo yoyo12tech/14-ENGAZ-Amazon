@@ -83,4 +83,12 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getTopUsedVouchers(limit));
     }
 
+    @PostMapping("/{transactionId}/voucher/{voucherId}")
+    public ResponseEntity<Transaction> applyVoucher(
+            @PathVariable Long transactionId,
+            @PathVariable Long voucherId) {
+
+        Transaction updated = transactionService.applyVoucher(transactionId, voucherId);
+        return ResponseEntity.ok(updated);
+    }
 }

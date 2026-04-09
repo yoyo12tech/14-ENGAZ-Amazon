@@ -4,6 +4,7 @@ import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.Method;
 import com.team14.amazon.billing.model.Status;
 import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
@@ -13,6 +14,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import java.util.HashMap;
@@ -24,6 +26,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import com.team14.amazon.billing.dto.AppliedVoucherDetail;
+import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 
 @Service
 public class TransactionService {
@@ -217,10 +221,68 @@ public class TransactionService {
 
         return transactionRepository.save(transaction);
     }
+    @Transactional
+    public Transaction applyVoucher(Long transactionId, Long voucherId) {
+        //Find transaction
+        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction with id: " + transactionId + " was not found"));
+
+        //transaction status
+        if (transaction.getStatus() != Status.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "cannot apply voucher to a completed/cancelled transaction");
+        }
+        //Find voucher
+        Voucher voucher = voucherRepository.findById(voucherId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Voucher with id: " + voucherId + " was not found"));
+
+        //check voucher usability
+        if (!voucher.getActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher is inactive");
+        }
+        if (voucher.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher has expired");
+        }
+        if (voucher.getCurrentUses() >= voucher.getMaxUses()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher usage limit reached");
+        }
+
+        //check for dups
+        if (transactionVoucherRepository.existsByTransactionIdAndVoucherId(transactionId, voucherId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "voucher already applied");
+        }
+
+        //calculate discount
+        double discount;
+        if (voucher.getDiscountType() == DiscountType.PERCENTAGE) {
+            discount = transaction.getAmount() * voucher.getDiscountValue() / 100;
+        } else {
+            discount = voucher.getDiscountValue();
+        }
+        //cap discount at transaction amount
+        discount = Math.min(discount, transaction.getAmount());
+
+        //create join entity
+        TransactionVoucher transactionVoucher = new TransactionVoucher();
+        transactionVoucher.setTransaction(transaction);
+        transactionVoucher.setVoucher(voucher);
+        transactionVoucher.setDiscountApplied(discount);
+        transactionVoucher.setAppliedAt(LocalDateTime.now());
 
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
+        //increment use
+        voucher.setCurrentUses(voucher.getCurrentUses() + 1);
+
+        //save
+        transactionVoucherRepository.save(transactionVoucher);
+        voucherRepository.save(voucher);
+
+        //refresh transaction's voucher list
+        transaction.getTransactionVouchers().add(transactionVoucher);
+        transactionRepository.save(transaction);
+
+        return transaction;
 }
     public Transaction retryTransaction(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
@@ -245,5 +307,40 @@ public class TransactionService {
         transaction.setTransactionDetails(details);
 
         return transactionRepository.save(transaction);
+
+    }
+    public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+        List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
+                ? List.of()
+                : transaction.getTransactionVouchers().stream()
+                        .map(tv -> new AppliedVoucherDetail(
+                                tv.getVoucher().getCode(),
+                                tv.getVoucher().getDiscountType(),
+                                tv.getDiscountApplied(),
+                                tv.getAppliedAt()
+                        )).toList();
+
+        double totalDiscount = appliedVouchers.stream()
+                .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
+                .sum();
+
+        double finalAmount = transaction.getAmount() - totalDiscount;
+
+        return new TransactionDetailsDTO(
+                transaction.getId(),
+                transaction.getOrderId(),
+                transaction.getUserId(),
+                transaction.getAmount(),
+                transaction.getMethod(),
+                transaction.getStatus(),
+                transaction.getCreatedAt(),
+                transaction.getTransactionDetails(),
+                appliedVouchers,
+                totalDiscount,
+                finalAmount
+        );
     }
 }

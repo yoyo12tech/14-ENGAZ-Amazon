@@ -23,4 +23,6 @@ public interface TransactionVoucherRepository extends JpaRepository<TransactionV
             "GROUP BY v.id, v.code, v.discountType, v.discountValue, v.currentUses, v.active, v.expiryDate " +
             "ORDER BY v.currentUses DESC")
     List<VoucherUsageDTO> findTopUsedVouchers(Pageable pageable);
+    boolean existsByTransactionIdAndVoucherId(Long transactionId, Long voucherId);
+    List<TransactionVoucher> findByTransactionId(Long transactionId);
 }

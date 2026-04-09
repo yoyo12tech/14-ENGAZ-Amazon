@@ -11,9 +11,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+import com.team14.amazon.user.dto.TopBuyerDTO;
 
 @Service
 public class UserService {
@@ -84,6 +88,32 @@ public class UserService {
         return false;
     }
 
+    public List<TopBuyerDTO> getTopBuyers(LocalDate startDate, LocalDate endDate, Integer limit) {
+        if (startDate.isAfter(endDate)) {
+            throw new IllegalArgumentException("startDate cannot be after endDate");
+        }
+
+        LocalDateTime startDateTime = startDate.atStartOfDay();
+        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+
+        List<Object[]> rawResults = userRepository.findTopBuyers(startDateTime, endDateTime, limit);
+
+        return rawResults.stream().map(row -> new TopBuyerDTO(
+                ((Number) row[0]).longValue(),
+                (String) row[1],
+                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
+                ((Number) row[3]).longValue()
+        )).collect(Collectors.toList());
+    }
+
+    public List<User> findUsersByPreference(String key, String value) {
+        if (key == null || key.trim().isEmpty() || value == null || value.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must not be blank");
+        }
+        return userRepository.findAll().stream()
+                .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
+                .toList();
+}
     public void deactivateUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));

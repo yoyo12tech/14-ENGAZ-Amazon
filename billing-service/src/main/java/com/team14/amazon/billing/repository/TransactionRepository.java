@@ -30,9 +30,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query("SELECT t.method, COUNT(t), SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.status = :status GROUP BY t.method")
     List<Object[]> getCompletedTransactionSummaryByUser(@Param("userId") Long userId, @Param("status") Status status);
     @Query("SELECT t FROM Transaction t WHERE " +
-            "(:#{#status == null} = true OR t.status = :status) AND " +
-            "(:#{#startDate == null} = true OR t.createdAt >= :startDate) AND " +
-            "(:#{#endDate == null} = true OR t.createdAt <= :endDate) " +
+            "(:status IS NULL OR t.status = :status) AND " +
+            "(:startDate IS NULL OR t.createdAt >= :startDate) AND " +
+            "(:endDate IS NULL OR t.createdAt <= :endDate) " +
             "ORDER BY t.createdAt DESC")
     List<Transaction> findTransactionsByFilters(
             @Param("status") Status status,
