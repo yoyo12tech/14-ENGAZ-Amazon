@@ -84,6 +84,14 @@ public class UserService {
         return false;
     }
 
+    public List<User> findUsersByPreference(String key, String value) {
+        if (key == null || key.trim().isEmpty() || value == null || value.trim().isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Key and value must not be blank");
+        }
+        return userRepository.findAll().stream()
+                .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
+                .toList();
+}
     public void deactivateUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
