@@ -1,8 +1,8 @@
 package com.team14.amazon.order.controller;
 
-import com.team14.amazon.order.dto.OrderAnalyticsDTO;
+import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.DTO.DeliverRequest;
-import com.team14.amazon.order.dto.OrderEstimateDTO;
+import com.team14.amazon.order.DTO.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.service.OrderService;
 import org.springframework.format.annotation.DateTimeFormat;

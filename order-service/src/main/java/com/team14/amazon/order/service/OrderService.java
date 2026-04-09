@@ -1,8 +1,8 @@
 package com.team14.amazon.order.service;
 
-import com.team14.amazon.order.dto.OrderAnalyticsDTO;
+import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.model.Order;
-import com.team14.amazon.order.dto.OrderEstimateDTO;
+import com.team14.amazon.order.DTO.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
@@ -32,6 +32,7 @@ import java.util.Optional;
 
 @Service
 public class OrderService {
+
     @Transactional
     public void cancelOrder(Long id) {
         Order order = orderRepository.findById(id)
@@ -183,7 +184,7 @@ public class OrderService {
     }
 
 
-}
+
 
     public List<Order> searchByMetadata(String key, String value) {
         if (key == null || key.isBlank() || value == null || value.isBlank()) {
@@ -192,7 +193,7 @@ public class OrderService {
         return orderRepository.findByMetadata(key, value);
     }
 
-}
+
 
     @Transactional
     public Order markAsDelivered(Long id, String method) {
@@ -226,7 +227,7 @@ public class OrderService {
         return orderRepository.save(order);
     }
 
-}
+
     public Order confirmOrder(Long orderId, Long shippingAddressId) {
         // Find order with items
         Order order = orderRepository.findById(orderId)
