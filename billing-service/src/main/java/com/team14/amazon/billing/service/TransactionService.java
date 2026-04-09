@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.List;
+import com.team14.amazon.billing.dto.AppliedVoucherDetail;
+import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 
 @Service
 public class TransactionService {
@@ -232,5 +234,39 @@ public class TransactionService {
         transaction.setTransactionDetails(details);
 
         return transactionRepository.save(transaction);
+    }
+    public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+        List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
+                ? List.of()
+                : transaction.getTransactionVouchers().stream()
+                        .map(tv -> new AppliedVoucherDetail(
+                                tv.getVoucher().getCode(),
+                                tv.getVoucher().getDiscountType(),
+                                tv.getDiscountApplied(),
+                                tv.getAppliedAt()
+                        )).toList();
+
+        double totalDiscount = appliedVouchers.stream()
+                .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
+                .sum();
+
+        double finalAmount = transaction.getAmount() - totalDiscount;
+
+        return new TransactionDetailsDTO(
+                transaction.getId(),
+                transaction.getOrderId(),
+                transaction.getUserId(),
+                transaction.getAmount(),
+                transaction.getMethod(),
+                transaction.getStatus(),
+                transaction.getCreatedAt(),
+                transaction.getTransactionDetails(),
+                appliedVouchers,
+                totalDiscount,
+                finalAmount
+        );
     }
 }
