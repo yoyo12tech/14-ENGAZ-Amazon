@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.repository;
 
+import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,5 +29,45 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     @Transactional
     @Query(value = "DELETE FROM shipments WHERE last_update < :cutoff", nativeQuery = true)
     int purgeOldShipments(java.time.LocalDateTime cutoff);
+
+    @Query(value = "SELECT * FROM shipments WHERE metadata->>:key = :value", nativeQuery = true)
+    List<Shipment> findByMetadataEq(@Param("key") String key, @Param("value") String value);
+
+    @Query(value = "SELECT * FROM shipments WHERE (metadata->>:key)::numeric > :value", nativeQuery = true)
+    List<Shipment> findByMetadataGt(@Param("key") String key, @Param("value") double value);
+
+    @Query(value = "SELECT * FROM shipments WHERE (metadata->>:key)::numeric < :value", nativeQuery = true)
+    List<Shipment> findByMetadataLt(@Param("key") String key, @Param("value") double value);
+
+    @Query(value = "SELECT * FROM shipments WHERE last_update BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp) AND (:status IS NULL OR status = :status) ORDER BY last_update ASC", nativeQuery = true)
+    List<Shipment> findByDateRangeAndStatus(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate,
+            @Param("status") String status);
+
+    // S4-F9: Delayed Shipments
+    @Query(value = """
+        SELECT s.id, s.order_id, s.carrier, s.tracking_number, s.estimated_delivery,
+               EXTRACT(DAY FROM (CURRENT_DATE - s.estimated_delivery)) as days_overdue,
+               (s.metadata->>'deliveryAttempts')::int as attempts
+        FROM shipments s
+        WHERE s.estimated_delivery < CURRENT_TIMESTAMP
+        AND s.status NOT IN ('DELIVERED', 'RETURNED')
+        AND (:maxAttempts IS NULL OR (s.metadata->>'deliveryAttempts')::int <= :maxAttempts)
+        """, nativeQuery = true)
+    List<Object[]> findDelayedShipments(Integer maxAttempts);
+
+    @Query(value = """
+        SELECT carrier,
+               COUNT(*) as totalShipments,
+               COUNT(*) FILTER (WHERE status = 'DELIVERED') as deliveredCount,
+               AVG(EXTRACT(DAY FROM (actual_delivery - created_at))) FILTER (WHERE status = 'DELIVERED') as avgDays,
+               (COUNT(*) FILTER (WHERE status = 'DELIVERED' AND actual_delivery <= estimated_delivery)::float /
+                NULLIF(COUNT(*) FILTER (WHERE status = 'DELIVERED'), 0) * 100) as onTimeRate
+        FROM shipments
+        WHERE carrier = :carrier AND last_update BETWEEN :start AND :end
+        GROUP BY carrier
+        """, nativeQuery = true)
+    List<Object[]> getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end);
 }
 

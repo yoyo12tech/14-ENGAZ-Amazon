@@ -1,5 +1,7 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
+import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
 import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
@@ -9,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 
+import java.time.LocalDate;
 import java.util.Optional;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +30,21 @@ public class ShipmentController {
     @GetMapping
     public ResponseEntity<List<Shipment>> getAllShipments() {
         return ResponseEntity.ok(shipmentService.getAllShipments());
+    }
+
+    // S4-F8: Carrier Performance Summary
+    @GetMapping("/carrier/{carrier}/summary")
+    public ResponseEntity<CarrierSummaryDTO> getCarrierSummary(
+            @PathVariable String carrier,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate startDate,
+            @RequestParam @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE_TIME) java.time.LocalDate endDate) {
+        return ResponseEntity.ok(shipmentService.getCarrierSummary(carrier, startDate, endDate));
+    }
+
+    // S4-F9: Find Delayed Shipments
+    @GetMapping("/delayed")
+    public ResponseEntity<List<DelayedShipmentDTO>> getDelayedShipments(@RequestParam(required = false) Integer maxDeliveryAttempts) {
+        return ResponseEntity.ok(shipmentService.getDelayedShipments(maxDeliveryAttempts));
     }
 
     @GetMapping("/{id}")
@@ -95,4 +113,29 @@ public class ShipmentController {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }
+
+    @GetMapping("/metadata/search")
+    public ResponseEntity<?> filterByMetadata(
+            @RequestParam String key,
+            @RequestParam String operator,
+            @RequestParam String value) {
+        try {
+            List<Shipment> results = shipmentService.filterByMetadata(key, operator, value);
+            return ResponseEntity.ok(results);
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
+    }
+
+    @GetMapping("/history")
+    public ResponseEntity<List<Shipment>> getShipmentHistory(
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate,
+            @RequestParam(required = false) String status) {
+        return ResponseEntity.ok(shipmentService.getShipmentsInDateRange(
+                startDate.atStartOfDay(),
+                endDate.atTime(23, 59, 59),
+                status));
+    }
+
 }
