@@ -27,5 +27,18 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     @Transactional
     @Query(value = "DELETE FROM shipments WHERE last_update < :cutoff", nativeQuery = true)
     int purgeOldShipments(java.time.LocalDateTime cutoff);
+
+    @Query(value = """
+        SELECT carrier,
+               COUNT(*) as totalShipments,
+               COUNT(*) FILTER (WHERE status = 'DELIVERED') as deliveredCount,
+               AVG(EXTRACT(DAY FROM (actual_delivery - created_at))) FILTER (WHERE status = 'DELIVERED') as avgDays,
+               (COUNT(*) FILTER (WHERE status = 'DELIVERED' AND actual_delivery <= estimated_delivery)::float /
+                NULLIF(COUNT(*) FILTER (WHERE status = 'DELIVERED'), 0) * 100) as onTimeRate
+        FROM shipments
+        WHERE carrier = :carrier AND last_update BETWEEN :start AND :end
+        GROUP BY carrier
+        """, nativeQuery = true)
+    List<Object[]> getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end);
 }
 
