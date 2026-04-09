@@ -268,13 +268,11 @@ public class TransactionService {
         transactionVoucher.setDiscountApplied(discount);
         transactionVoucher.setAppliedAt(LocalDateTime.now());
 
-    public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
-        Pageable pageable = PageRequest.of(0, limit);
-        return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
-        //increment use
+
+            //increment use
         voucher.setCurrentUses(voucher.getCurrentUses() + 1);
 
-        //save
+            //save
         transactionVoucherRepository.save(transactionVoucher);
         voucherRepository.save(voucher);
 
@@ -283,64 +281,70 @@ public class TransactionService {
         transactionRepository.save(transaction);
 
         return transaction;
-}
-    public Transaction retryTransaction(Long transactionId) {
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
-
-        if (transaction.getStatus() != Status.FAILED) {
-            throw new IllegalStateException("Only FAILED transactions can be retried. Current status: " + transaction.getStatus());
         }
+        public Transaction retryTransaction (Long transactionId){
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
 
-        transaction.setStatus(Status.COMPLETED);
+            if (transaction.getStatus() != Status.FAILED) {
+                throw new IllegalStateException("Only FAILED transactions can be retried. Current status: " + transaction.getStatus());
+            }
 
-        Map<String, Object> details = new HashMap<>();
-        if (transaction.getTransactionDetails() != null) {
-            details.putAll(transaction.getTransactionDetails());
+            transaction.setStatus(Status.COMPLETED);
+
+            Map<String, Object> details = new HashMap<>();
+            if (transaction.getTransactionDetails() != null) {
+                details.putAll(transaction.getTransactionDetails());
+            }
+            int retryAttempt = 0;
+            if (details.get("retryAttempt") instanceof Number) {
+                retryAttempt = ((Number) details.get("retryAttempt")).intValue();
+            }
+            details.put("retryAttempt", retryAttempt + 1);
+            details.put("gatewayResponse", "approved");
+            transaction.setTransactionDetails(details);
+
+            return transactionRepository.save(transaction);
+
         }
-        int retryAttempt = 0;
-        if (details.get("retryAttempt") instanceof Number) {
-            retryAttempt = ((Number) details.get("retryAttempt")).intValue();
+        public TransactionDetailsDTO getTransactionDetails (Long transactionId){
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
+
+            List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
+                    ? List.of()
+                    : transaction.getTransactionVouchers().stream()
+                    .map(tv -> new AppliedVoucherDetail(
+                            tv.getVoucher().getCode(),
+                            tv.getVoucher().getDiscountType(),
+                            tv.getDiscountApplied(),
+                            tv.getAppliedAt()
+                    )).toList();
+
+            double totalDiscount = appliedVouchers.stream()
+                    .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
+                    .sum();
+
+            double finalAmount = transaction.getAmount() - totalDiscount;
+
+            return new TransactionDetailsDTO(
+                    transaction.getId(),
+                    transaction.getOrderId(),
+                    transaction.getUserId(),
+                    transaction.getAmount(),
+                    transaction.getMethod(),
+                    transaction.getStatus(),
+                    transaction.getCreatedAt(),
+                    transaction.getTransactionDetails(),
+                    appliedVouchers,
+                    totalDiscount,
+                    finalAmount
+            );
         }
-        details.put("retryAttempt", retryAttempt + 1);
-        details.put("gatewayResponse", "approved");
-        transaction.setTransactionDetails(details);
-
-        return transactionRepository.save(transaction);
-
+    public List<VoucherUsageDTO> getTopUsedVouchers ( int limit) {
+        Pageable pageable = PageRequest.of(0, limit);
+        return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
     }
-    public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new NoSuchElementException("Transaction not found: " + transactionId));
-
-        List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
-                ? List.of()
-                : transaction.getTransactionVouchers().stream()
-                        .map(tv -> new AppliedVoucherDetail(
-                                tv.getVoucher().getCode(),
-                                tv.getVoucher().getDiscountType(),
-                                tv.getDiscountApplied(),
-                                tv.getAppliedAt()
-                        )).toList();
-
-        double totalDiscount = appliedVouchers.stream()
-                .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
-                .sum();
-
-        double finalAmount = transaction.getAmount() - totalDiscount;
-
-        return new TransactionDetailsDTO(
-                transaction.getId(),
-                transaction.getOrderId(),
-                transaction.getUserId(),
-                transaction.getAmount(),
-                transaction.getMethod(),
-                transaction.getStatus(),
-                transaction.getCreatedAt(),
-                transaction.getTransactionDetails(),
-                appliedVouchers,
-                totalDiscount,
-                finalAmount
-        );
-    }
 }
+
+
