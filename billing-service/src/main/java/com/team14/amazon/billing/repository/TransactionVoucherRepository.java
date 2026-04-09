@@ -6,4 +6,7 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TransactionVoucherRepository extends JpaRepository<TransactionVoucher, Long> {
+
+    // Step 5 - Duplicate check
+    boolean existsByTransactionIdAndVoucherId(Long transactionId, Long voucherId);
 }

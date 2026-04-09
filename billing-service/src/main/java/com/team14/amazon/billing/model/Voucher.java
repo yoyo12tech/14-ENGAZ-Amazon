@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -110,6 +111,8 @@ public class Voucher {
     public void setExpiryDate(LocalDateTime expiryDate) {
         this.expiryDate = expiryDate;
     }
+
+    public void setCurrentUses(Integer currentUsers){this.currentUses= currentUsers; }
 
     public void setMaxUses(Integer maxUses) {
         this.maxUses = maxUses;
