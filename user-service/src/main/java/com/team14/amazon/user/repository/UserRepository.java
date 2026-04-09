@@ -16,6 +16,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Optional<User> findByPhone(String phone);
 
+    @Query(value = """
+    SELECT * FROM users u
+    WHERE (:name IS NULL OR u.name ILIKE CONCAT('%', :name, '%'))
+      AND (:email IS NULL OR u.email ILIKE CONCAT('%', :email, '%'))
+      AND (:role IS NULL OR u.role = :role)
+""", nativeQuery = true)
+List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
+
     @Query(value = "SELECT u.id, u.name, SUM(o.total_amount) as totalSpent, COUNT(o.id) as orderCount " +
                    "FROM users u JOIN orders o ON u.id = o.user_id " +
                    "WHERE o.status = 'DELIVERED' " +
