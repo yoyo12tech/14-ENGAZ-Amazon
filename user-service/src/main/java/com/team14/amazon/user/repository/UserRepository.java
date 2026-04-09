@@ -14,10 +14,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Optional<User> findByPhone(String phone);
 
-    /**
-     * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
-     * Queries the shared database to join users with orders and filter by JSONB language key.
-     */
+    @Query(value = "SELECT COUNT(*) FROM orders o WHERE o.user_id = :userId AND o.status NOT IN ('DELIVERED', 'CANCELLED', 'RETURNED')", nativeQuery = true)
+    int countActiveOrdersForUser(@Param("userId") Long userId);
+
     @Query(value = "SELECT u.* FROM users u " +
             "JOIN orders o ON u.id = o.user_id " +
             "WHERE u.preferences ->> 'language' = :lang " +
