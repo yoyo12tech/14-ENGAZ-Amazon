@@ -10,27 +10,33 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+
+
+
 
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+
     @Modifying
     @Query(value = "UPDATE products SET stock_quantity = stock_quantity + :quantity WHERE id = :productId", nativeQuery = true)
     void restoreProductStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
-}
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 
-@Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = "SELECT * FROM orders o WHERE o.metadata ->> :key = :value", nativeQuery = true)
     List<Order> findByMetadata(@Param("key") String key, @Param("value") String value);
-}
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-@Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
 
     // =========================
     // Shipment update
@@ -61,16 +67,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
                           @Param("status") String status,
                           @Param("createdAt") LocalDateTime createdAt,
                           @Param("method") String method);
-}
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
 
-import java.time.LocalDateTime;
-import java.util.List;
 
-@Repository
-public interface OrderRepository extends JpaRepository<Order, Long> {
 
     @Query("SELECT o FROM Order o WHERE o.orderedAt BETWEEN :startDate AND :endDate")
     List<Order> findOrdersBetween(@Param("startDate") LocalDateTime startDate,
@@ -105,3 +103,6 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     )
     int updateProductStock(@Param("id") Long id, @Param("qty") Integer qty);
 }
+
+
+

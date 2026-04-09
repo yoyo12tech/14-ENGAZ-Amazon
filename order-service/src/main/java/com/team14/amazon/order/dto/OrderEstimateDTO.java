@@ -1,4 +1,4 @@
-package com.team14.amazon.order.dto;
+package com.team14.amazon.order.DTO;
 
 public class OrderEstimateDTO {
     private int itemCount;
