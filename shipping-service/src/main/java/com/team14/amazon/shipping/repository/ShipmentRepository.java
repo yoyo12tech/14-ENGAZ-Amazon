@@ -16,6 +16,8 @@ import java.util.Optional;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Optional<Shipment> findByTrackingNumber(String trackingNumber);
     List<Shipment> findByOrderId(Long orderId);
+//    @Query("SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId")
+    boolean existsOrderById(@Param("orderId") Long orderId);
     Boolean existsByOrderId(Long orderId);
     @Query("SELECT s FROM Shipment s WHERE s.orderId = :orderId ORDER BY s.lastUpdate DESC LIMIT 1")
     Optional<Shipment> findLatestShipmentByOrderId(@Param("orderId") Long orderId);

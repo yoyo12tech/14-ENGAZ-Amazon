@@ -74,6 +74,19 @@ public class ShipmentService {
         return false;
     }
 
+    public Shipment createShipment(Long orderId, Shipment shipment){
+        if(!shipmentRepository.existsOrderById(orderId)){
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "The Order does not exist!");
+        }
+        shipment.setOrderId(orderId);
+        shipment.setStatus(Shipment.Status.PROCESSING);
+        shipment.setLastUpdate(LocalDateTime.now());
+
+        return shipmentRepository.save(shipment);
+  
+     }
     public Shipment getLatestShipmentForOrder(Long orderId){
         if(!shipmentRepository.existsByOrderId(orderId)){
             throw new ResponseStatusException(
