@@ -32,4 +32,6 @@ public interface TransactionVoucherRepository extends JpaRepository<TransactionV
         LIMIT :limit
         """)
     List<Object[]> findTopUsedVouchers(@Param("limit") int limit);
+    // Step 5 - Duplicate check
+    boolean existsByTransactionIdAndVoucherId(Long transactionId, Long voucherId);
 }

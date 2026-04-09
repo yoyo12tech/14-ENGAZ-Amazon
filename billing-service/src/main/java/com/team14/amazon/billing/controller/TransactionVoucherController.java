@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.controller;
 
+
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.service.TransactionService;
 import com.team14.amazon.billing.service.VoucherService;
@@ -9,6 +10,12 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+
+import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.service.TransactionService;
+import com.team14.amazon.billing.service.VoucherService;
+import org.springframework.web.bind.annotation.*;
+
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -21,9 +28,9 @@ public class TransactionVoucherController {
         this.transactionService = transactionService;
         this.voucherService = voucherService;
     }
-    // GET /api/transactions/voucher/top-used?limit={n}
-    @GetMapping("/voucher/top-used")
-    public List<VoucherUsageDTO> getTopUsedVouchers(@RequestParam int limit) {
-        return voucherService.getTopUsedVouchers(limit);
+    @PostMapping("/{transactionId}/voucher/{voucherId}")
+    public Transaction applyVoucher(@PathVariable Long transactionId,
+                                    @PathVariable Long voucherId) {
+        return transactionService.applyVoucherToTransaction(transactionId, voucherId);
     }
 }

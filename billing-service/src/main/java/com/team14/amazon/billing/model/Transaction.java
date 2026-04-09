@@ -1,6 +1,7 @@
 package com.team14.amazon.billing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -45,7 +46,7 @@ public class Transaction {
     private LocalDateTime createdAt;
 
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL)
-    @JsonBackReference("transaction")
+    @JsonManagedReference("transaction")
     private List<TransactionVoucher> transactionVouchers;
 
     @PrePersist
