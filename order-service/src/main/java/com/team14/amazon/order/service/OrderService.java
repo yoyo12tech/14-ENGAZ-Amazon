@@ -1,5 +1,7 @@
 package com.team14.amazon.order.service;
 
+
+import com.team14.amazon.order.DTO.OrderItemRequestDTO;
 import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.DTO.OrderEstimateDTO;
@@ -30,9 +32,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import java.util.List;
 @Service
 public class OrderService {
 
+    @Transactional
+    public Order addItemsToOrder(Long orderId, List<OrderItemRequestDTO> itemsDto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add items to non-pending orders");
+        }
+
+        int currentMaxItemOrder = order.getOrderItems().stream()
+                .mapToInt(OrderItem::getItemOrder)
+                .max()
+                .orElse(0);
+
+        for (OrderItemRequestDTO dto : itemsDto) {
+            Double price = orderRepository.getProductPrice(dto.productId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + dto.productId()));
+
+            currentMaxItemOrder++;
+
+            OrderItem newItem = new OrderItem();
+            newItem.setProductId(dto.productId());
+            newItem.setQuantity(dto.quantity());
+            newItem.setPriceAtPurchase(price);
+            newItem.setItemOrder(currentMaxItemOrder);
+            newItem.setMetadata(dto.metadata());
+            newItem.setOrder(order);
+
+            order.getOrderItems().add(newItem);
+        }
+
+        return orderRepository.save(order);
+    }
     @Transactional
     public void cancelOrder(Long id) {
         Order order = orderRepository.findById(id)
