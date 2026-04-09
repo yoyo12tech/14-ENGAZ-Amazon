@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -43,6 +44,7 @@ public class Voucher {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @JsonManagedReference("voucher-transactionvoucher")
     @OneToMany(mappedBy = "voucher")
     private List<TransactionVoucher> transactionVoucher;
 
@@ -119,6 +121,10 @@ public class Voucher {
 
     public void setTransactionVoucher(List<TransactionVoucher> transactionVoucher) {
         this.transactionVoucher = transactionVoucher;
+    }
+
+    public void setCurrentUses(Integer currentUses) {
+        this.currentUses = currentUses;
     }
 }
 

@@ -1,13 +1,14 @@
 package com.team14.amazon.billing.service;
 
-import com.team14.amazon.billing.model.Method;
-import com.team14.amazon.billing.model.Status;
-import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
+import com.team14.amazon.billing.repository.TransactionVoucherRepository;
+import com.team14.amazon.billing.repository.VoucherRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import java.util.HashMap;
@@ -25,9 +26,13 @@ import java.util.Map;
 @Service
 public class TransactionService {
     private final TransactionRepository transactionRepository;
+    private final VoucherRepository voucherRepository;
+    private final TransactionVoucherRepository transactionVoucherRepository;
 
-    public TransactionService(TransactionRepository transactionRepository) {
+    public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository, TransactionVoucherRepository transactionVoucherRepository) {
         this.transactionRepository = transactionRepository;
+        this.voucherRepository = voucherRepository;
+        this.transactionVoucherRepository = transactionVoucherRepository;
     }
 
     public Transaction createTransaction(Transaction transaction){
@@ -209,5 +214,66 @@ public class TransactionService {
         transaction.setTransactionDetails(details);
 
         return transactionRepository.save(transaction);
+    }
+
+    @Transactional
+    public Transaction applyVoucher(Long transactionId, Long voucherId) {
+        //Find transaction
+        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction with id: " + transactionId + " was not found"));
+
+        //transaction status
+        if (transaction.getStatus() != Status.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "cannot apply voucher to a completed/cancelled transaction");
+        }
+        //Find voucher
+        Voucher voucher = voucherRepository.findById(voucherId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                "Voucher with id: " + voucherId + " was not found"));
+
+        //check voucher usability
+        if (!voucher.getActive()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher is inactive");
+        }
+        if (voucher.getExpiryDate().isBefore(LocalDateTime.now())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher has expired");
+        }
+        if (voucher.getCurrentUses() >= voucher.getMaxUses()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher usage limit reached");
+        }
+
+        //check for dups
+        if (transactionVoucherRepository.existsByTransactionIdAndVoucherId(transactionId, voucherId)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "voucher already applied");
+        }
+
+        //calculate discount
+        double discount;
+        if (voucher.getDiscountType() == DiscountType.PERCENTAGE) {
+            discount = transaction.getAmount() * voucher.getDiscountValue() / 100;
+        } else {
+            discount = voucher.getDiscountValue();
+        }
+        //cap discount at transaction amount
+        discount = Math.min(discount, transaction.getAmount());
+
+        //create join entity
+        TransactionVoucher transactionVoucher = new TransactionVoucher();
+        transactionVoucher.setTransaction(transaction);
+        transactionVoucher.setVoucher(voucher);
+        transactionVoucher.setDiscountApplied(discount);
+        transactionVoucher.setAppliedAt(LocalDateTime.now());
+
+        //increment use
+        voucher.setCurrentUses(voucher.getCurrentUses() + 1);
+
+        //save
+        transactionVoucherRepository.save(transactionVoucher);
+        voucherRepository.save(voucher);
+
+        //refresh transaction's voucher list
+        transaction.getTransactionVouchers().add(transactionVoucher);
+        transactionRepository.save(transaction);
+
+        return transaction;
     }
 }
