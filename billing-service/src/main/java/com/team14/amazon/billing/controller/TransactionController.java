@@ -75,4 +75,13 @@ public class TransactionController {
     public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {
         return transactionService.getRevenueReport(startDate, endDate);
     }
+
+    @PostMapping("/{transactionId}/voucher/{voucherId}")
+    public ResponseEntity<Transaction> applyVoucher(
+            @PathVariable Long transactionId,
+            @PathVariable Long voucherId) {
+
+        Transaction updated = transactionService.applyVoucher(transactionId, voucherId);
+        return ResponseEntity.ok(updated);
+    }
 }
