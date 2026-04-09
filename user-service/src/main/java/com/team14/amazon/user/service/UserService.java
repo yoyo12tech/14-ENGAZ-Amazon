@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -83,13 +84,19 @@ public class UserService {
         return false;
     }
 
-    // ==========================================
-    // MILESTONE 1 FEATURES
-    // ==========================================
+    public void deactivateUser(Long id) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-    /**
-     * [S1-F8] Get User Profile with Shipping Addresses
-     */
+        int activeOrdersCount = userRepository.countActiveOrdersForUser(id);
+        if (activeOrdersCount > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
+        }
+
+        user.setStatus(User.Status.DEACTIVATED);
+        userRepository.save(user);
+    }
+
     public UserProfileDTO getUserProfile(Long userId) {
         // 1. Find the user or throw 404
         User user = userRepository.findById(userId)
@@ -112,9 +119,7 @@ public class UserService {
 
         return profileDTO;
     }
-     /*
-     * [S1-F7] Set Default Shipping Address (Transactional + Relationship)
-     */
+
     @Transactional
     public User setDefaultShippingAddress(Long userId, Long addressId) {
         // 1. Find the user
@@ -141,10 +146,6 @@ public class UserService {
         // 6. Save and return the updated user
         return userRepository.save(user);
     }
-
-    /**
-     * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
-     */
 
     public List<User> findUsersByLanguageAndMinOrders(String lang, Integer minOrders) {
         // Validate lang is not blank per requirement

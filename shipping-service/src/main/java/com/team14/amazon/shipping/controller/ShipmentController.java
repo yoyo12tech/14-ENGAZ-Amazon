@@ -1,10 +1,12 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 
 import java.util.Optional;
@@ -62,6 +64,26 @@ public class ShipmentController {
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @GetMapping("/nearby")
+    public ResponseEntity<List<NearbyShipmentDTO>> findNearbyShipments(@RequestParam Double lat, @RequestParam Double lon, @RequestParam Double radiusKm){
+        return ResponseEntity.ok(shipmentService.findNearbyShipments(lat, lon, radiusKm));
+}
+    @PostMapping("/order/{orderId}")
+    public ResponseEntity<?> createShipmentForOrder(@PathVariable Long orderId, @RequestBody Shipment shipment){
+        try{
+            Shipment created = shipmentService.createShipment(orderId, shipment);
+            return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not save Shipment!");
+        }
+    }
+
+
+    @GetMapping("order/{orderId}/latest")
+    public Shipment getLatestShipmentForAnOrder(@PathVariable Long orderId){
+        return shipmentService.getLatestShipmentForOrder(orderId);
     }
 
     @PutMapping("/batch-status")
