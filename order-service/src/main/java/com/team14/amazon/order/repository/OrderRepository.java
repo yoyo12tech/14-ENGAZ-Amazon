@@ -1,5 +1,7 @@
 package com.team14.amazon.order.repository;
 
+
+import java.util.Optional;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -28,6 +30,10 @@ import java.util.List;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+
+    @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
+    Optional<Double> getProductPrice(@Param("productId") Long productId);
 
 
     @Modifying
