@@ -14,6 +14,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import com.team14.amazon.user.dto.TopBuyerDTO;
 import com.team14.amazon.user.dto.UserOrderSummaryDTO;
 import java.util.Map;
+import org.springframework.transaction.annotation.Transactional;
 
 @RestController
 @RequestMapping("/api/users")
