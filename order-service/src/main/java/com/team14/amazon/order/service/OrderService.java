@@ -1,6 +1,10 @@
 package com.team14.amazon.order.service;
 
 
+import com.team14.amazon.order.DTO.OrderDetailsDTO;
+import com.team14.amazon.order.DTO.OrderItemDTO;
+import java.util.Comparator;
+import java.util.stream.Collectors;
 import com.team14.amazon.order.DTO.OrderItemRequestDTO;
 import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.model.Order;
@@ -156,7 +160,25 @@ public class OrderService {
             );
         }
     }
+    public OrderDetailsDTO getOrderDetails(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
+        List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
+                .sorted(Comparator.comparingInt(OrderItem::getItemOrder))
+                .map(item -> new OrderItemDTO(item.getId(), item.getItemOrder(), item.getProductId(),
+                        item.getQuantity(), item.getPriceAtPurchase(), item.getMetadata()))
+                .collect(Collectors.toList());
+
+        int totalItems = itemDTOs.size();
+        int totalQuantity = itemDTOs.stream().mapToInt(OrderItemDTO::quantity).sum();
+
+        return new OrderDetailsDTO(
+                order.getId(), order.getUserId(), order.getShippingAddressId(),
+                order.getStatus(), order.getTotalAmount(), order.getMetadata(),
+                itemDTOs, totalItems, totalQuantity
+        );
+    }
     public OrderEstimateDTO estimateOrder(List<Map<String, Object>> items) {
         if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request must contain at least one item");

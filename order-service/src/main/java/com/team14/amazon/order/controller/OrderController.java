@@ -1,6 +1,7 @@
 package com.team14.amazon.order.controller;
 
 
+import com.team14.amazon.order.DTO.OrderDetailsDTO;
 import com.team14.amazon.order.DTO.OrderItemRequestDTO;
 import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.DTO.DeliverRequest;
@@ -24,6 +25,10 @@ public class OrderController {
     public OrderController(OrderService orderService) {
         this.orderService = orderService;
 
+    }
+    @GetMapping("/{orderId}/details")
+    public ResponseEntity<OrderDetailsDTO> getOrderDetails(@PathVariable Long orderId) {
+        return ResponseEntity.ok(orderService.getOrderDetails(orderId));
     }
     @PostMapping("/{orderId}/items")
     public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId, @RequestBody List<OrderItemRequestDTO> items) {
