@@ -12,6 +12,8 @@ import java.util.Optional;
 import java.util.List;
 import org.springframework.format.annotation.DateTimeFormat;
 import com.team14.amazon.user.dto.TopBuyerDTO;
+import com.team14.amazon.user.dto.UserOrderSummaryDTO;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/users")
@@ -121,5 +123,25 @@ public class UserController {
         return ResponseEntity.ok(
                 userService.findUsersByLanguageAndMinOrders(lang, minOrders)
         );
+    }
+
+    @PutMapping("/{id}/preferences")
+    public ResponseEntity<?> updatePreferences(@PathVariable Long id,@RequestBody Map<String, Object> preferences) {
+        try {
+            User updatedUser = userService.updateUserPreferences(id, preferences);
+            return ResponseEntity.ok(updatedUser);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/order-summary")
+    public ResponseEntity<?> getUserOrderSummary(@PathVariable Long id) {
+        try {
+            UserOrderSummaryDTO summary = userService.getUserOrderSummary(id);
+            return ResponseEntity.ok(summary);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        }
     }
 }
