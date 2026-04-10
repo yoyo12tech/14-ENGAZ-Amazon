@@ -55,13 +55,8 @@ public class ProductService {
             product.setStockQuantity(0);
         }
 
-        if (product.getRating() == null) {
-            product.setRating(0.0);
-        }
-
-        if (product.getTotalRatings() == null) {
-            product.setTotalRatings(0);
-        }
+        product.setRating(0.0);
+        product.setTotalRatings(0);
 
         return productRepository.save(product);
     }
