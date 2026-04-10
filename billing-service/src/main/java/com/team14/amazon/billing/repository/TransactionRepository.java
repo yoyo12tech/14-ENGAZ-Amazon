@@ -24,8 +24,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByMethod(Method method);
     List<Transaction> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
-    @Query(value = "SELECT COUNT(id) > 0 FROM users WHERE id = :userId", nativeQuery = true)
-    boolean checkUserExists(@Param("userId") Long userId);
+    boolean existsByUserId(Long userId);
 
     @Query("SELECT t.method, COUNT(t), SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.status = :status GROUP BY t.method")
     List<Object[]> getCompletedTransactionSummaryByUser(@Param("userId") Long userId, @Param("status") Status status);
