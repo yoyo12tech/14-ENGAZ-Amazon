@@ -1,5 +1,11 @@
 package com.team14.amazon.order.service;
 
+
+import com.team14.amazon.order.DTO.OrderDetailsDTO;
+import com.team14.amazon.order.DTO.OrderItemDTO;
+import java.util.Comparator;
+import java.util.stream.Collectors;
+import com.team14.amazon.order.DTO.OrderItemRequestDTO;
 import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.DTO.OrderEstimateDTO;
@@ -30,9 +36,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import java.util.List;
 @Service
 public class OrderService {
 
+    @Transactional
+    public Order addItemsToOrder(Long orderId, List<OrderItemRequestDTO> itemsDto) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+
+        if (order.getStatus() != OrderStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add items to non-pending orders");
+        }
+
+        int currentMaxItemOrder = order.getOrderItems().stream()
+                .mapToInt(OrderItem::getItemOrder)
+                .max()
+                .orElse(0);
+
+        for (OrderItemRequestDTO dto : itemsDto) {
+            Double price = orderRepository.getProductPrice(dto.productId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + dto.productId()));
+
+            currentMaxItemOrder++;
+
+            OrderItem newItem = new OrderItem();
+            newItem.setProductId(dto.productId());
+            newItem.setQuantity(dto.quantity());
+            newItem.setPriceAtPurchase(price);
+            newItem.setItemOrder(currentMaxItemOrder);
+            newItem.setMetadata(dto.metadata());
+            newItem.setOrder(order);
+
+            order.getOrderItems().add(newItem);
+        }
+
+        return orderRepository.save(order);
+    }
     @Transactional
     public void cancelOrder(Long id) {
         Order order = orderRepository.findById(id)
@@ -120,7 +160,25 @@ public class OrderService {
             );
         }
     }
+    public OrderDetailsDTO getOrderDetails(Long orderId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
+        List<OrderItemDTO> itemDTOs = order.getOrderItems().stream()
+                .sorted(Comparator.comparingInt(OrderItem::getItemOrder))
+                .map(item -> new OrderItemDTO(item.getId(), item.getItemOrder(), item.getProductId(),
+                        item.getQuantity(), item.getPriceAtPurchase(), item.getMetadata()))
+                .collect(Collectors.toList());
+
+        int totalItems = itemDTOs.size();
+        int totalQuantity = itemDTOs.stream().mapToInt(OrderItemDTO::quantity).sum();
+
+        return new OrderDetailsDTO(
+                order.getId(), order.getUserId(), order.getShippingAddressId(),
+                order.getStatus(), order.getTotalAmount(), order.getMetadata(),
+                itemDTOs, totalItems, totalQuantity
+        );
+    }
     public OrderEstimateDTO estimateOrder(List<Map<String, Object>> items) {
         if (items == null || items.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request must contain at least one item");
