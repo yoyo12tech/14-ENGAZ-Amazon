@@ -28,11 +28,8 @@ public class Order {
     @Column(name = "shipping_address_id")
     private Long shippingAddressId;
 
-    // Stored as string in DB using @Enumerated(EnumType.STRING)
-    // This saves "PENDING" not 0 — readable and safe if enum order changes
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "order_status")
+    @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;
 
     // Nullable — set when calculated

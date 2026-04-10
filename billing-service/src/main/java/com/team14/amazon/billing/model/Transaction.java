@@ -27,12 +27,14 @@ public class Transaction {
     @Column(nullable = false)
     private Double amount;
 
+
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
     private Method method;
 
+
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
+    @Column(name = "status", nullable = false)
     private Status status = Status.PENDING;
 
     @JdbcTypeCode(SqlTypes.JSON)

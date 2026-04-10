@@ -1,7 +1,9 @@
 package com.team14.amazon.user.controller;
 
 import com.team14.amazon.user.model.ShippingAddress;
+import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.service.ShippingAddressService;
+import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -9,66 +11,74 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/users/{userId}/shipping-addresses")
+@RequestMapping("/api/users/{userId}/addresses")
 public class ShippingAddressController {
+
     private final ShippingAddressService shippingAddressService;
+    private final UserService userService; // Added UserService
 
-    // Constructor injection (Best practice, no @Autowired needed)
-    public ShippingAddressController(ShippingAddressService shippingAddressService) {
+    // Updated constructor to inject both services
+    public ShippingAddressController(ShippingAddressService shippingAddressService, UserService userService) {
         this.shippingAddressService = shippingAddressService;
+        this.userService = userService;
     }
 
-    // READ: Get all addresses for a specific user
     @GetMapping
-    public ResponseEntity<List<ShippingAddress>> getAllAddresses(@PathVariable Long userId) {
-        List<ShippingAddress> addresses = shippingAddressService.getAddressesByUserId(userId);
-        return ResponseEntity.ok(addresses);
+    public ResponseEntity<List<ShippingAddress>> getUserAddresses(@PathVariable Long userId) {
+        return ResponseEntity.ok(shippingAddressService.getAddressesByUserId(userId));
     }
 
-    // READ: Get a specific address for a specific user
     @GetMapping("/{addressId}")
     public ResponseEntity<ShippingAddress> getAddressById(
             @PathVariable Long userId,
             @PathVariable Long addressId) {
-
         return shippingAddressService.getAddressByIdAndUserId(addressId, userId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // CREATE: Add a new address for a user
     @PostMapping
     public ResponseEntity<ShippingAddress> createAddress(
             @PathVariable Long userId,
             @RequestBody ShippingAddress address) {
-
         return shippingAddressService.createAddressForUser(userId, address)
-                .map(createdAddress -> ResponseEntity.status(HttpStatus.CREATED).body(createdAddress))
-                .orElse(ResponseEntity.notFound().build()); // 404 if the user doesn't exist
+                .map(created -> ResponseEntity.status(HttpStatus.CREATED).body(created))
+                .orElse(ResponseEntity.notFound().build());
     }
 
-    // UPDATE: Modify an existing address
     @PutMapping("/{addressId}")
     public ResponseEntity<ShippingAddress> updateAddress(
             @PathVariable Long userId,
             @PathVariable Long addressId,
-            @RequestBody ShippingAddress addressDetails) {
-
-        return shippingAddressService.updateAddress(userId, addressId, addressDetails)
+            @RequestBody ShippingAddress updatedAddress) {
+        return shippingAddressService.updateAddress(userId, addressId, updatedAddress)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // DELETE: Remove an address
     @DeleteMapping("/{addressId}")
     public ResponseEntity<Void> deleteAddress(
             @PathVariable Long userId,
             @PathVariable Long addressId) {
-
-        boolean isDeleted = shippingAddressService.deleteAddress(userId, addressId);
-        if (isDeleted) {
-            return ResponseEntity.noContent().build(); // 204 No Content is standard for successful deletions
+        if (shippingAddressService.deleteAddress(userId, addressId)) {
+            return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
+    }
+
+    // ==========================================
+    // MILESTONE 1 FEATURES
+    // ==========================================
+
+    /**
+     * [S1-F7] Set Default Shipping Address
+     */
+    @PutMapping("/{addressId}/default")
+    public ResponseEntity<User> setDefaultAddress(
+            @PathVariable Long userId,
+            @PathVariable Long addressId) {
+
+        User updatedUser = userService.setDefaultShippingAddress(userId, addressId);
+        return ResponseEntity.ok(updatedUser);
     }
 }

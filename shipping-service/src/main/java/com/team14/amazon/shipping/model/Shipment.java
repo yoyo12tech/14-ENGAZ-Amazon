@@ -25,9 +25,9 @@ public class Shipment {
     @Column(nullable = false, unique = true)
     private String trackingNumber;
 
-    @Enumerated(EnumType.STRING)
+    
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "shipment_status")
+    @Column(name = "status", nullable = false)
     private Status status = Status.PROCESSING;
 
 
