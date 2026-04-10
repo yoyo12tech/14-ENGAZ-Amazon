@@ -2,7 +2,9 @@ package com.team14.amazon.billing.service;
 
 import com.team14.amazon.billing.model.Voucher;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -29,7 +31,7 @@ public class VoucherService {
     public Voucher updateVoucher(Voucher voucher) {
         // Check if it exists to throw an error if missing, then save the NEW data
         if (!voucherRepository.existsById(voucher.getId())) {
-            throw new java.util.NoSuchElementException("Voucher not found");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found");
         }
         return voucherRepository.save(voucher);
     }
