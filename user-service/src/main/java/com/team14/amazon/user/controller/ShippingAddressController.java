@@ -12,13 +12,13 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/users/{userId}/addresses")
-public class UserAddressController {
+public class ShippingAddressController {
 
     private final ShippingAddressService shippingAddressService;
     private final UserService userService; // Added UserService
 
     // Updated constructor to inject both services
-    public UserAddressController(ShippingAddressService shippingAddressService, UserService userService) {
+    public ShippingAddressController(ShippingAddressService shippingAddressService, UserService userService) {
         this.shippingAddressService = shippingAddressService;
         this.userService = userService;
     }
