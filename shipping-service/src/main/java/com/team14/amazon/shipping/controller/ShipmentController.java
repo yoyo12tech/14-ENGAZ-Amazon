@@ -93,8 +93,8 @@ public class ShipmentController {
         try{
             Shipment created = shipmentService.createShipment(orderId, shipment);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
-        } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Could not save Shipment!");
+        } catch (ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }
 
@@ -106,6 +106,9 @@ public class ShipmentController {
 
     @PutMapping("/batch-status")
     public ResponseEntity<?> batchUpdateStatus(@RequestBody List<BatchStatusUpdateRequest> updates) {
+        if (updates == null || updates.isEmpty()) {
+            return ResponseEntity.ok(Map.of("updatedCount", 0));
+        }
         try {
             int count = shipmentService.batchUpdateStatus(updates);
             return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("updatedCount", count));
