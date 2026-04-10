@@ -29,7 +29,7 @@ public class Transaction {
 
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
+    @Column(name = "method", nullable = false)
     private Method method;
 
 

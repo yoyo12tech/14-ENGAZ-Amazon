@@ -33,7 +33,8 @@ public class VoucherController {
     }
 
     @PutMapping("/{id}")
-    public Voucher updateVoucher(@PathVariable Voucher voucher){
+    public Voucher updateVoucher(@PathVariable Long id, @RequestBody Voucher voucher) {
+        voucher.setId(id);
         return voucherService.updateVoucher(voucher);
     }
 
@@ -43,7 +44,7 @@ public class VoucherController {
     }
 
     @GetMapping("/search")
-    public Voucher findVoucherByCode(String code){
+    public Voucher findVoucherByCode(@RequestParam String code) {
         return voucherService.findVoucherByCode(code);
     }
 

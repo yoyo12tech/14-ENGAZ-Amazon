@@ -53,9 +53,12 @@ public class TransactionService {
         return transactionRepository.findAll();
     }
 
-    public Transaction updateTransaction(Transaction transaction){
-        Transaction toUpdate = transactionRepository.findById(transaction.getId()).orElseThrow();
-        return transactionRepository.save(toUpdate);
+    public Transaction updateTransaction(Transaction transaction) {
+        // Check if it exists to throw an error if missing, then save the NEW data
+        if (!transactionRepository.existsById(transaction.getId())) {
+            throw new java.util.NoSuchElementException("Transaction not found");
+        }
+        return transactionRepository.save(transaction);
     }
 
     public void deleteTransaction(Long id){

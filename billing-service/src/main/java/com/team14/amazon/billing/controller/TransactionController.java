@@ -40,7 +40,8 @@ public class TransactionController {
     }
 
     @PutMapping("/{id}")
-    public Transaction updateTransaction(Transaction transaction){
+    public Transaction updateTransaction(@PathVariable Long id, @RequestBody Transaction transaction) {
+        transaction.setId(id); // Ensure the ID matches the path
         return transactionService.updateTransaction(transaction);
     }
 
@@ -53,10 +54,9 @@ public class TransactionController {
 
 
     @DeleteMapping("/{id}")
-    public void deleteTransaction(Long id){
+    public void deleteTransaction(@PathVariable Long id) {
         transactionService.deleteTransaction(id);
     }
-
     @GetMapping("/search")
     public List<Transaction> searchTransactions(
             @RequestParam(required = false) String status,
