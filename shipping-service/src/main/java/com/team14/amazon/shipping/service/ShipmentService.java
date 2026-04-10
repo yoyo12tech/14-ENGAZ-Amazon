@@ -66,6 +66,7 @@ public class ShipmentService {
         });
     }
 
+    @Transactional
     public int purgeShipments(int olderThanDays) {
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
         return shipmentRepository.purgeOldShipments(cutoff);
@@ -80,7 +81,7 @@ public class ShipmentService {
     }
 
     public List<NearbyShipmentDTO> findNearbyShipments(Double lat, Double lon, Double radiusKm ){
-        return shipmentRepository.findByStatus(Shipment.Status.OUT_FOR_DELIVERY)
+        return shipmentRepository.findByStatusNative(Shipment.Status.OUT_FOR_DELIVERY.name())
                 .stream()
                 .filter( s -> s.getLatitude() != null && s.getLongitude() != null)
                 .map(s -> {
