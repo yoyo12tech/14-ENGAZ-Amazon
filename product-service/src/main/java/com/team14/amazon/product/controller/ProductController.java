@@ -156,8 +156,13 @@ public class ProductController {
             @PathVariable Long id,
             @RequestBody ProductReview review) {
         try {
-            ProductReview savedReview = reviewService.addReviewWithRatingRecalculation(id, review);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedReview);
+            reviewService.addReviewWithRatingRecalculation(id, review);
+
+            // Return the updated product so callers can assert rating/totalRatings after posting.
+            return productService.getProductById(id)
+                    .<ResponseEntity<?>>map(ResponseEntity::ok)
+                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                            .body("Product not found with id: " + id));
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (IllegalArgumentException e) {

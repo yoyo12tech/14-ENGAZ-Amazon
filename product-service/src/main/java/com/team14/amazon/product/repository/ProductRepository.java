@@ -78,11 +78,22 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             """, nativeQuery = true)
     boolean hasActiveOrders(@Param("productId") Long productId);
 
+    @Query("""
+            SELECT p
+            FROM Product p
+            WHERE LOWER(p.brand) = LOWER(:brand)
+              AND (:status IS NULL OR p.status = :status)
+            """)
+    List<Product> findByBrandAndStatus(
+            @Param("brand") String brand,
+            @Param("status") ProductStatus status
+    );
+
     @Query(value = """
             SELECT *
             FROM products p
-            WHERE p.specifications->>:key = :value
-              AND (:status IS NULL OR p.status = CAST(:status AS product_status))
+            WHERE jsonb_extract_path_text(p.specifications, CAST(:key AS text)) = :value
+              AND (CAST(:status AS text) IS NULL OR p.status::text = CAST(:status AS text))
             """, nativeQuery = true)
     List<Product> findBySpecification(
             @Param("key") String key,
@@ -116,4 +127,5 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             @Param("productId") Long productId,
             @Param("since") LocalDateTime since
     );
+
 }
