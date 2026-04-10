@@ -2,9 +2,12 @@ package com.team14.amazon.product.controller;
 
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
+import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.service.ProductReviewService;
 
+import com.team14.amazon.product.dto.LowStockAlertDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
+import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
@@ -16,9 +19,9 @@ import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import java.util.Map;
+
 import java.util.List;
-import com.team14.amazon.product.dto.LowStockAlertDTO;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/products")
@@ -35,6 +38,27 @@ public class ProductController {
     @GetMapping
     public ResponseEntity<List<Product>> getAllProducts() {
         return ResponseEntity.ok(productService.getAllProducts());
+    }
+
+    // Keep explicit literal paths in the top section to avoid path-variable ambiguity.
+    @GetMapping("/stock/low-stock")
+    public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
+            @RequestParam(defaultValue = "10") int threshold) {
+        return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
+    }
+
+    @GetMapping("/specifications/search")
+    public ResponseEntity<List<Product>> searchBySpecification(
+            @RequestParam String key,
+            @RequestParam String value,
+            @RequestParam(required = false) ProductStatus status) {
+        return ResponseEntity.ok(productService.searchBySpecification(key, value, status));
+    }
+
+    @GetMapping("/reports/top-rated")
+    public ResponseEntity<List<TopProductDTO>> getTopRatedProducts(
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(productService.getTopRatedProducts(limit));
     }
 
     @GetMapping("/{id}")
@@ -59,6 +83,17 @@ public class ProductController {
         return productService.updateProduct(id, updatedProduct)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}/discontinue")
+    public ResponseEntity<?> discontinueProduct(@PathVariable Long id) {
+        try {
+            return ResponseEntity.ok(productService.discontinueProduct(id));
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
@@ -121,13 +156,38 @@ public class ProductController {
             @PathVariable Long id,
             @RequestBody ProductReview review) {
         try {
-            Product updatedProduct = reviewService.addReviewWithRatingRecalculation(id, review);
-            return ResponseEntity.ok(updatedProduct);
+            ProductReview savedReview = reviewService.addReviewWithRatingRecalculation(id, review);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedReview);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
+    }
+
+    @GetMapping("/{productId}/reviews/{reviewId}")
+    public ResponseEntity<ProductReview> getReviewByProductAndId(
+            @PathVariable Long productId,
+            @PathVariable Long reviewId) {
+        return reviewService.getReviewById(reviewId)
+                .filter(review -> review.getProduct() != null
+                        && review.getProduct().getId().equals(productId))
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/{productId}/reviews/{reviewId}")
+    public ResponseEntity<Void> deleteReviewByProductAndId(
+            @PathVariable Long productId,
+            @PathVariable Long reviewId) {
+        return reviewService.getReviewById(reviewId)
+                .filter(review -> review.getProduct() != null
+                        && review.getProduct().getId().equals(productId))
+                .map(review -> {
+                    reviewService.deleteReview(reviewId);
+                    return ResponseEntity.ok().<Void>build();
+                })
+                .orElse(ResponseEntity.notFound().build());
     }
 
     // S2-F8: PUT /api/products/{productId}/reviews/{reviewId}/verify
@@ -147,14 +207,6 @@ public class ProductController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
     }
-
-    // S2-F9: GET /api/products/stock/low-stock?threshold={n}
-    @GetMapping("/stock/low-stock")
-    public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
-            @RequestParam(defaultValue = "10") int threshold) {
-        return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
-    }
-
 
 
 }

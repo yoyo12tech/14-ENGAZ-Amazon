@@ -1,26 +1,21 @@
 package com.team14.amazon.product.service;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
+import com.team14.amazon.product.dto.LowStockAlertDTO;
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
+import com.team14.amazon.product.repository.ProductReviewRepository;
 import com.team14.amazon.product.repository.ProductRepository;
 import org.springframework.stereotype.Service;
-import com.team14.amazon.product.dto.ProductSalesDTO;
+
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
-import java.util.HashMap;
-import java.util.Map;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import com.team14.amazon.product.dto.ProductSalesDTO;
-import java.time.LocalDate;
-import java.util.NoSuchElementException;
-import com.team14.amazon.product.dto.LowStockAlertDTO;
-import com.team14.amazon.product.repository.ProductReviewRepository;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 public class ProductService {
@@ -44,6 +39,18 @@ public class ProductService {
 
     public Optional<Product> getProductById(Long id) {
         return productRepository.findById(id);
+    }
+
+    public Product discontinueProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
+
+        if (productRepository.hasActiveOrders(id)) {
+            throw new IllegalStateException("Cannot discontinue product with pending or confirmed orders.");
+        }
+
+        product.setStatus(ProductStatus.DISCONTINUED);
+        return productRepository.save(product);
     }
 
     public Product createProduct(Product product) {
@@ -143,6 +150,27 @@ public class ProductService {
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
 
+    public List<Product> searchBySpecification(String key, String value, ProductStatus status) {
+        String statusValue = status != null ? status.name() : null;
+        return productRepository.findBySpecification(key, value, statusValue);
+    }
+
+    public List<TopProductDTO> getTopRatedProducts(int limit) {
+        int normalizedLimit = limit > 0 ? limit : 10;
+        List<Object[]> rows = productRepository.findTopRatedProducts(normalizedLimit);
+
+        List<TopProductDTO> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            result.add(new TopProductDTO(
+                    ((Number) row[0]).longValue(),
+                    (String) row[1],
+                    ((Number) row[2]).doubleValue(),
+                    ((Number) row[3]).longValue()
+            ));
+        }
+        return result;
+    }
+
 
 
     // S2-F9: Low Stock Alert Report
@@ -160,16 +188,8 @@ public class ProductService {
 
         for (Product p : lowStockProducts) {
 
-            // 4. Count recent DELIVERED sales via native SQL (reuse existing repo pattern)
-            List<Object[]> salesRows = productRepository.getProductSalesSummary(
-                    p.getId(),
-                    since.toLocalDate(),
-                    LocalDateTime.now().toLocalDate().plusDays(1)
-            );
-            long recentSalesCount = 0L;
-            if (salesRows != null && !salesRows.isEmpty()) {
-                recentSalesCount = ((Number) salesRows.get(0)[2]).longValue(); // totalUnitsSold column
-            }
+            // 4. Count recent DELIVERED sales with a dedicated query to avoid date-cast issues.
+            long recentSalesCount = productRepository.countRecentDeliveredSales(p.getId(), since);
 
             // 5. Check for negative reviews (rating <= 2)
             boolean hasNegativeReviews = reviewRepository.hasNegativeReviews(p.getId());

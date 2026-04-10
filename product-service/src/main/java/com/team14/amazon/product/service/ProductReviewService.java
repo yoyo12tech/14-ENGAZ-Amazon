@@ -35,6 +35,10 @@ public class ProductReviewService {
     }
 
     public ProductReview createReview(ProductReview review) {
+
+        if (review.getVerified() == null) {
+            review.setVerified(false);
+        }
         return reviewRepository.save(review);
     }
 
@@ -63,7 +67,7 @@ public class ProductReviewService {
 
     // ─── S2-F7: Add Product Review with Rating Recalculation (Transactional) ────
     @Transactional
-    public Product addReviewWithRatingRecalculation(Long productId, ProductReview review) {
+    public ProductReview addReviewWithRatingRecalculation(Long productId, ProductReview review) {
 
         // 1. Find product — 404 if not found
         Product product = productRepository.findById(productId)
@@ -89,7 +93,10 @@ public class ProductReviewService {
 
         // 5. Create and save the review
         review.setProduct(product);
-        reviewRepository.save(review);
+        if (review.getVerified() == null) {
+            review.setVerified(false);
+        }
+        ProductReview savedReview = reviewRepository.save(review);
 
         // 6. Recalculate running average rating on product
         int newTotalRatings = product.getTotalRatings() + 1;
@@ -99,8 +106,9 @@ public class ProductReviewService {
         product.setTotalRatings(newTotalRatings);
         product.setRating(newRating);
 
-        // 7. Save updated product and return it
-        return productRepository.save(product);
+        // 7. Save updated product and return the created review payload
+        productRepository.save(product);
+        return savedReview;
     }
 
     // ─── S2-F8: Verify Product Review (Transactional + Relationship) ─────────────

@@ -3,6 +3,7 @@ package com.team14.amazon.product.repository;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -67,4 +68,52 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             "AND p.status = 'ACTIVE'::product_status",
             nativeQuery = true)
     List<Product> findActiveProductsWithStockAtOrBelow(@Param("threshold") int threshold);
+
+    @Query(value = """
+            SELECT COUNT(*) > 0
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.product_id = :productId
+              AND o.status IN ('PENDING', 'CONFIRMED')
+            """, nativeQuery = true)
+    boolean hasActiveOrders(@Param("productId") Long productId);
+
+    @Query(value = """
+            SELECT *
+            FROM products p
+            WHERE p.specifications->>:key = :value
+              AND (:status IS NULL OR p.status = CAST(:status AS product_status))
+            """, nativeQuery = true)
+    List<Product> findBySpecification(
+            @Param("key") String key,
+            @Param("value") String value,
+            @Param("status") String status
+    );
+
+    @Query(value = """
+            SELECT p.id,
+                   p.name,
+                   p.rating,
+                   COALESCE(SUM(CASE WHEN o.status = 'DELIVERED' THEN oi.quantity ELSE 0 END), 0) AS totalSales
+            FROM products p
+            LEFT JOIN order_items oi ON oi.product_id = p.id
+            LEFT JOIN orders o ON o.id = oi.order_id
+            GROUP BY p.id, p.name, p.rating
+            ORDER BY p.rating DESC, totalSales DESC, p.id ASC
+            LIMIT :limit
+            """, nativeQuery = true)
+    List<Object[]> findTopRatedProducts(@Param("limit") int limit);
+
+    @Query(value = """
+            SELECT COALESCE(SUM(oi.quantity), 0)
+            FROM order_items oi
+            JOIN orders o ON o.id = oi.order_id
+            WHERE oi.product_id = :productId
+              AND o.status = 'DELIVERED'
+              AND o.ordered_at >= :since
+            """, nativeQuery = true)
+    long countRecentDeliveredSales(
+            @Param("productId") Long productId,
+            @Param("since") LocalDateTime since
+    );
 }
