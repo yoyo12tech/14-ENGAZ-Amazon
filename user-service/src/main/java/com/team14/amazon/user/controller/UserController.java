@@ -100,8 +100,15 @@ public class UserController {
     }
 
     @GetMapping("/preferences/search")
-    public ResponseEntity<List<User>> searchByPreference(@RequestParam String key, @RequestParam String value) {
-        return ResponseEntity.ok(userService.findUsersByPreference(key, value));
+    public ResponseEntity<?> searchByPreference(@RequestParam String key, @RequestParam String value) {
+        if (key == null || key.isBlank()) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Key must not be blank");
+        }
+        try {
+            return ResponseEntity.ok(userService.findUsersByPreference(key, value));
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
+        }
     }
     
     @Transactional

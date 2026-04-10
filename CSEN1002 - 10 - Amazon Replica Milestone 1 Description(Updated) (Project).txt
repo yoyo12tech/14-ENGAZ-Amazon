@@ -1,0 +1,2630 @@
+﻿German University in Cairo
+Department of Computer Science
+Assoc. Prof. Mervat Abu El-Kheir
+
+Architecture of Massively Scalable Applications, Spring 2026
+
+Milestone 1: Amazon Replica Platform
+Core Services Foundation
+
+Deadline is Saturday 11/04/2026 at 11:59 PM
+
+Contents
+
+1 Overview 5
+
+2 Personalization & Team Roster 5
+2.1 team.json (Required) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 5
+2.2 Branch Naming (Mandatory) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+2.3 Commit Message Format (Mandatory) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+3 Project Structure — Multi-Module Maven 6
+3.1 Port & Database Configuration . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 6
+
+4 Step-by-Step: Creating the Multi-Module Project 6
+4.1 Using IntelliJ IDEA (Recommended) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+
+4.1.1 A1. Create the Parent Project . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+4.1.2 A2. Add Each Service as a Module . . . . . . . . . . . . . . . . . . . . . . . . . . . 7
+4.1.3 A3. What IntelliJ Does (and Does Not Do) Automatically . . . . . . . . . . . . . . 8
+4.1.4 A4. Verify and Complete the Root POM . . . . . . . . . . . . . . . . . . . . . . . 8
+4.1.5 A5. Important: Do NOT Modify Child Service POMs . . . . . . . . . . . . . . . . 9
+4.1.6 Add jackson-databind Dependency . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+4.1.7 Configure application.properties per Service . . . . . . . . . . . . . . . . . . . . . . 9
+4.1.8 Create Sub-Packages . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9
+4.1.9 Add a Health Endpoint to Each Service . . . . . . . . . . . . . . . . . . . . . . . . 9
+4.1.10 Create team.json . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+4.1.11 Verify the Build . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+4.2 Final Project Structure . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 10
+
+5 Git Workflow — Initial Setup 11
+
+6 Database Setup (Docker Compose) 11
+
+7 Entity Models 11
+7.1 User Service Entities (user-service) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+7.1.1 User Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+7.1.2 ShippingAddress Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+
+1
+
+
+
+7.2 Product Service Entities (product-service) . . . . . . . . . . . . . . . . . . . . . . . . . 12
+7.2.1 Product Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 12
+7.2.2 ProductReview Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+
+7.3 Order Service Entities (order-service) . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+7.3.1 Order Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 13
+7.3.2 OrderItem Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+7.4 Shipping Service Entities (shipping-service) . . . . . . . . . . . . . . . . . . . . . . . . 14
+7.4.1 Shipment Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+
+7.5 Billing Service Entities (billing-service) . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+7.5.1 Transaction Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+7.5.2 Voucher Entity . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 15
+7.5.3 TransactionVoucher Entity (Join Entity) . . . . . . . . . . . . . . . . . . . . . . . . 16
+
+7.6 Relationship Summary . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+7.7 Important: Cross-Service Data Access . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+
+8 Repository Layer 17
+
+9 Features 17
+9.1 User Service Features (port 8081) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+
+9.1.1 [S1-F1] Search Users with Filters . . . . . . . . . . . . . . . . . . . . . . . . . . . . 17
+9.1.2 [S1-F2] Update User Preferences (JSONB) . . . . . . . . . . . . . . . . . . . . . . . 18
+9.1.3 [S1-F3] Get User Order Summary (DTO) . . . . . . . . . . . . . . . . . . . . . . . 18
+9.1.4 [S1-F4] Deactivate User Account . . . . . . . . . . . . . . . . . . . . . . . . . . . . 18
+9.1.5 [S1-F5] Filter Users by Preference (JSONB Query) . . . . . . . . . . . . . . . . . . 19
+9.1.6 [S1-F6] Top Buyers by Spending (Report DTO) . . . . . . . . . . . . . . . . . . . . 19
+9.1.7 [S1-F7] Set Default Shipping Address (Transactional + Relationship) . . . . . . . . 19
+9.1.8 [S1-F8] Get User Profile with Shipping Addresses (Relationship DTO) . . . . . . . 20
+9.1.9 [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL) 20
+
+9.2 Product Service Features (port 8082) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 20
+9.2.1 [S2-F1] Search Products by Category and Price Range . . . . . . . . . . . . . . . . 20
+9.2.2 [S2-F2] Update Product Specifications (JSONB Partial Update) . . . . . . . . . . 21
+9.2.3 [S2-F3] Get Product Sales Summary (DTO) . . . . . . . . . . . . . . . . . . . . . . 21
+9.2.4 [S2-F4] Discontinue Product (Transactional) . . . . . . . . . . . . . . . . . . . . . . 21
+9.2.5 [S2-F5] Filter Products by Specification (JSONB) . . . . . . . . . . . . . . . . . . 22
+9.2.6 [S2-F6] Top Rated Products Report (DTO) . . . . . . . . . . . . . . . . . . . . . . 22
+9.2.7 [S2-F7] Add Product Review with Rating Recalculation (Transactional) . . . . . . 22
+9.2.8 [S2-F8] Verify Product Review (Transactional + Relationship) . . . . . . . . . . . 23
+9.2.9 [S2-F9] Get Products with Low Stock Alert (Relationship + Report DTO) . . . . 23
+
+9.3 Order Service Features (port 8083) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 23
+9.3.1 [S3-F1] Get Orders by Status and Date Range . . . . . . . . . . . . . . . . . . . . 23
+9.3.2 [S3-F2] Confirm Order and Deduct Stock (Transactional) . . . . . . . . . . . . . . 24
+9.3.3 [S3-F3] Get Order Price Estimate (DTO) . . . . . . . . . . . . . . . . . . . . . . . 24
+9.3.4 [S3-F4] Mark Order as Delivered (Transactional Multi-Step) . . . . . . . . . . . . . 25
+
+2
+
+
+
+9.3.5 [S3-F5] Filter Orders by Metadata Field (JSONB) . . . . . . . . . . . . . . . . . . 25
+9.3.6 [S3-F6] Order Analytics by Time Period (Report DTO) . . . . . . . . . . . . . . . 25
+9.3.7 [S3-F7] Cancel Order (Transactional) . . . . . . . . . . . . . . . . . . . . . . . . . . 26
+9.3.8 [S3-F8] Add Items to Existing Order (Transactional + Relationship) . . . . . . . . 26
+9.3.9 [S3-F9] Get Order Details with Items (Relationship DTO) . . . . . . . . . . . . . . 26
+
+9.4 Shipping Service Features (port 8084) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 27
+9.4.1 [S4-F1] Get Latest Shipment for an Order . . . . . . . . . . . . . . . . . . . . . . . 27
+9.4.2 [S4-F2] Create Shipment with Tracking Metadata (JSONB) . . . . . . . . . . . . . 27
+9.4.3 [S4-F3] Find Nearby Shipments Out for Delivery (DTO with Distance) . . . . . . 27
+9.4.4 [S4-F4] Batch Shipment Status Update (Transactional) . . . . . . . . . . . . . . . 28
+9.4.5 [S4-F5] Filter Shipments by Metadata (JSONB Query) . . . . . . . . . . . . . . . . 28
+9.4.6 [S4-F6] Get Shipments in Date Range . . . . . . . . . . . . . . . . . . . . . . . . . 28
+9.4.7 [S4-F7] Purge Old Shipment Data (Transactional) . . . . . . . . . . . . . . . . . . 29
+9.4.8 [S4-F8] Carrier Performance Summary (DTO) . . . . . . . . . . . . . . . . . . . . 29
+9.4.9 [S4-F9] Find Delayed Shipments (JSONB + Cross-Table DTO) . . . . . . . . . . . 29
+
+9.5 Billing Service Features (port 8085) . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 30
+9.5.1 [S5-F1] Get Transactions by Status and Date Range . . . . . . . . . . . . . . . . . 30
+9.5.2 [S5-F2] Process Refund (Transactional + JSONB Update) . . . . . . . . . . . . . . 30
+9.5.3 [S5-F3] User Transaction Summary (DTO) . . . . . . . . . . . . . . . . . . . . . . 30
+9.5.4 [S5-F4] Process Transaction for Order (Transactional) . . . . . . . . . . . . . . . . 31
+9.5.5 [S5-F5] Apply Voucher to Transaction (Transactional + Join Entity) . . . . . . . . 31
+9.5.6 [S5-F6] Revenue Report by Date Range (Report DTO) . . . . . . . . . . . . . . . . 32
+9.5.7 [S5-F7] Retry Failed Transaction (Transactional) . . . . . . . . . . . . . . . . . . . 33
+9.5.8 [S5-F8] Get Transaction Details with Applied Vouchers (Join Entity DTO) . . . . 34
+9.5.9 [S5-F9] Get Most Used Vouchers Report (Join Entity + Aggregation) . . . . . . . 34
+
+10 Git Workflow — Feature Development 35
+
+11 Dockerization (Phase D) 35
+
+12 Work Distribution (Recommended): 36
+
+13 Submission & Auto-Grader 36
+
+14 Appendix: JSONB Sample Data 37
+
+15 Appendix: Example Database Tables 38
+15.1 User Service Tables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 38
+
+15.1.1 users table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 38
+15.1.2 shipping_addresses table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+
+15.2 Product Service Tables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+15.2.1 products table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 39
+15.2.2 product_reviews table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 40
+
+15.3 Order Service Tables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+
+3
+
+
+
+15.3.1 orders table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 41
+15.3.2 order_items table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 42
+
+15.4 Shipping Service Tables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+15.4.1 shipments table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+
+15.5 Billing Service Tables . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+15.5.1 transactions table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 43
+15.5.2 vouchers table . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 44
+15.5.3 transaction_voucher table (Join Entity) . . . . . . . . . . . . . . . . . . . . . . . 44
+
+15.6 How the Tables Connect (Cross-Service) . . . . . . . . . . . . . . . . . . . . . . . . . . . . 45
+
+4
+
+
+
+1 Overview
+
+This milestone is worth 15% of your final grade. You will build an E-Commerce Platform consisting of
+5 independently runnable Spring Boot services organized as a Maven multi-module project. All 5 ser-
+vices connect to a single shared PostgreSQL database and are orchestrated via a single docker-compose.yaml.
+In future milestones, these services will be refactored into true microservices with separate databases,
+inter-service communication (OpenFeign, RabbitMQ, etc.), and Kubernetes deployment. For now, they
+are independent applications sharing one database.
+Technologies: Spring Boot, PostgreSQL, Spring Data JPA, Docker, Docker Compose, Maven multi-
+module, Git & GitHub.
+Services:
+
+a) User Service (port 8081) — Customer accounts, profiles, preferences
+
+b) Product Service (port 8082) — Product catalog, reviews, specifications
+
+c) Order Service (port 8083) — Order lifecycle, order items, history
+
+d) Shipping Service (port 8084) — Shipment tracking, delivery updates
+
+e) Billing Service (port 8085) — Transaction processing, refunds, revenue
+
+Deliverables: 45 features (9 per service), full CRUD for all entities, Dockerized multi-service application,
+Git history with personalized feature branches and PRs.
+
+2 Personalization & Team Roster
+
+Every team member’s work must be individually identifiable in Git history. The auto-grader cross-
+references the team.json roster against git log to determine who built what. Violations result in zero
+credit for the affected member.
+
+2.1 team.json (Required)
+
+Create a file named team.json in the project root directory (next to the parent pom.xml). It contains
+a JSON array with one entry per team member:
+
+[{"studentId":"55-8078","name":"Ahmed
+Ali","githubUsername":"ahmed-ali-dev","service":"user-service"}, ...]
+
+Fields per entry:
+
+• studentId — University ID in the format XX-XXXX
+
+• name — Full name
+
+• githubUsername — The exact GitHub username that will author commits
+
+• service — Which service module this member belongs to (one of: user-service, product-service,
+order-service, shipping-service, billing-service)
+
+The auto-grader reads this file and then runs specific tests to find each member’s commits. It matches
+those commits against branch names to determine which features each member implemented. Do not
+self-declare features — the grader discovers them automatically.
+
+5
+
+
+
+2.2 Branch Naming (Mandatory)
+
+All feature branches must include the implementing member’s student ID:
+
+feat/<service>/<feature-name>/<studentId>
+
+Example: student 55-8078 implementing S1-F1 (Service 1, Feature 1) creates:
+
+feat/user/S1-F1/55-8078
+
+2.3 Commit Message Format (Mandatory)
+
+All commits must follow this convention:
+
+feat(<service name>): <description> (ID)
+
+Examples: feat(user-service): add User entity model (55-8078), fix(order-service): fix
+null handling in search query (55-8078).
+The auto-grader matches each commit’s Git author (from team.json) against the student ID in the
+message. Mismatched or missing IDs will result in failures during grading. So even if you named the
+commit message wrong or the branch name was wrong and did follow the criteria, you know how to fix
+it using the commands that you took in the Git Lab.
+
+3 Project Structure — Multi-Module Maven
+
+The project is organized as a Maven multi-module project. The root directory contains a parent POM
+with <packaging>pom</packaging> that declares all 5 services as modules. Each service is a fully
+independent Spring Boot application with its own POM, source tree, and @SpringBootApplication
+entry point. Section 4 provides full step-by-step instructions for creating this structure.
+
+3.1 Port & Database Configuration
+
+All services connect to the same PostgreSQL database (amazondb). Each runs on a different port:
+
+Service Internal Port Docker Host Port
+user-service 8080 8081
+product-service 8080 8082
+order-service 8080 8083
+shipping-service 8080 8084
+billing-service 8080 8085
+
+Each service’s application.properties sets server.port=8080. The port differentiation happens in
+docker-compose.yaml via host-port mapping (e.g., 8081:8080 for user-service). When running services
+locally without Docker during development, each developer works on their own service and can use port
+8080 since they only run one service at a time.
+Each service configures: spring.datasource.url=jdbc:postgresql://localhost:5432/amazondb (or
+postgres:5432 inside Docker), ddl-auto=update, and show-sql=true.
+
+4 Step-by-Step: Creating the Multi-Module Project
+
+This section walks you through creating the entire project structure from scratch. Two approaches are
+provided: Option A using IntelliJ IDEA (recommended), and Option B using Spring Initializr for
+
+6
+
+
+
+students not using IntelliJ. Both produce the same result. Follow one of the two options, then continue
+with the shared steps.
+Important architectural note: The root project acts as an aggregator only. It does not contain
+source code and does not act as a Maven parent for the child modules. Each service module keeps its
+own generated Spring Boot parent. The root pom.xml simply lists the modules so you can build them all
+with a single command.
+
+4.1 Using IntelliJ IDEA (Recommended)
+
+4.1.1 A1. Create the Parent Project
+
+a) Open IntelliJ IDEA → File → New → Project.
+
+b) On the left panel, select Java.
+
+c) On the right, set Build system to Maven.
+
+d) Set the JDK to 25.
+
+e) Uncheck Add sample code.
+
+f) Expand Advanced Settings (at the bottom of the dialog).
+
+g) Fill in:
+
+• Name: amazon
+• GroupId: com.teamXX.amazon (replace XX with your team number)
+• ArtifactId: amazon
+
+h) Click Create.
+
+i) IntelliJ creates a Maven project with a pom.xml. Open this pom.xml and manually add the following
+line inside the <project> block (after <version>):
+
+<packaging>pom</packaging>
+
+j) If IntelliJ created a src/ folder in the root project, delete it — the root aggregator project has no
+source code.
+
+k) Reload Maven: Click the Maven reload icon (circular arrows) in the Maven tool window, or
+right-click the pom.xml → Maven → Reload project.
+
+4.1.2 A2. Add Each Service as a Module
+
+Repeat the following for each of the 5 services (user-service, product-service, order-service,
+shipping-service, billing-service):
+
+a) Right-click the project root (amazon) in the Project panel → New → Module.
+
+b) Select Spring Boot on the left.
+
+c) Configure the service information:
+
+• Name / Artifact: the service name (e.g., user-service)
+• Group: com.teamXX.amazon
+• Package name: Use the service domain name without hyphens:
+
+– com.teamXX.amazon.user
+– com.teamXX.amazon.product
+
+7
+
+
+
+– com.teamXX.amazon.order
+– com.teamXX.amazon.shipping
+– com.teamXX.amazon.billing
+
+• Type / Build system: Maven
+• Java: 25
+• Packaging: Jar
+
+Warning: The artifactId can use hyphens (e.g., user-service), but Java package names
+cannot contain hyphens. Use .user, not .user-service, in the package name.
+
+d) Click Next to continue to the dependencies page.
+
+e) Select these dependencies: Spring Web, Spring Boot DevTools, Spring Data JPA, Post-
+greSQL Driver, Rest Repositories.
+
+f) Click Create.
+
+4.1.3 A3. What IntelliJ Does (and Does Not Do) Automatically
+
+After creating each service module, IntelliJ will usually:
+
+• Create the service folder with its own pom.xml and src/ tree.
+
+• Generate the @SpringBootApplication main class.
+
+However, IntelliJ may not automatically add the <module> entry to the root pom.xml. You must verify
+this yourself after each module creation.
+
+4.1.4 A4. Verify and Complete the Root POM
+
+After creating all 5 service modules:
+
+a) Open the root amazon/pom.xml.
+
+b) Confirm that <packaging>pom</packaging> exists.
+
+c) Check whether all 5 services appear inside a <modules> block. If any are missing, add them
+manually:
+
+<modules>
+<module>user-service</module>
+<module>product-service</module>
+<module>order-service</module>
+<module>shipping-service</module>
+<module>billing-service</module>
+
+</modules>
+
+d) Save the file.
+
+e) Reload Maven to pick up the changes.
+
+f) Confirm there are no Maven errors in the tool window.
+
+8
+
+
+
+4.1.5 A5. Important: Do NOT Modify Child Service POMs
+
+Each generated service already has its own <parent> block pointing to Spring Boot. Do not replace
+or modify this parent. The root amazon POM acts only as an aggregator (it lists the modules so
+you can build them all at once). It is not a Maven parent for the child modules.
+In other words:
+
+• Do not add a <parent> block pointing to amazon inside any child POM.
+
+• Do not remove the existing Spring Boot <parent> from any child POM.
+
+• The only connection between the root POM and the children is the <modules> block in the root.
+
+4.1.6 Add jackson-databind Dependency
+
+In each service’s pom.xml, add the following dependency inside the <dependencies> block (required for
+Hibernate JSONB support):
+
+<dependency>
+<groupId>com.fasterxml.jackson.core</groupId>
+<artifactId>jackson-databind</artifactId>
+
+</dependency>
+
+After adding, reload Maven.
+
+4.1.7 Configure application.properties per Service
+
+Inside each service’s src/main/resources/application.properties, add:
+
+server.port=8080
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/amazondb
+spring.datasource.username=postgres
+spring.datasource.password=postgres
+spring.jpa.hibernate.ddl-auto=update
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.dialect=
+
+org.hibernate.dialect.PostgreSQLDialect
+
+All services use port 8080 internally. The port differentiation to 8081–8085 happens in docker-compose.yaml
+(covered in the Dockerization section).
+
+4.1.8 Create Sub-Packages
+
+Inside each service’s main package (e.g., src/main/java/com/teamXX/amazon/user/), create these sub-
+packages: model/, repository/, service/, controller/, dto/.
+
+4.1.9 Add a Health Endpoint to Each Service
+
+In each service’s controller/ package, create a simple health controller that exposes a GET endpoint
+returning "OK" (200):
+
+• User Service: GET /api/users/health
+
+• Product Service: GET /api/products/health
+
+• Order Service: GET /api/orders/health
+
+9
+
+
+
+• Shipping Service: GET /api/shipments/health
+
+• Billing Service: GET /api/transactions/health
+
+4.1.10 Create team.json
+
+In the project root (next to the root pom.xml), create team.json as described in Section 2.
+
+4.1.11 Verify the Build
+
+Start PostgreSQL via Docker:
+
+docker compose up -d
+
+(This requires the docker-compose.yaml with just the PostgreSQL service — see Section 6.)
+Then build all services from the project root:
+
+mvn clean package -DskipTests
+
+If the build succeeds, you should see BUILD SUCCESS and a JAR in each service’s target/ directory.
+To test a single service locally:
+
+cd user-service
+mvn spring-boot:run
+
+Then visit http://localhost:8080/api/users/health to confirm it responds with "OK".
+
+4.2 Final Project Structure
+
+After completing all steps, your project should look like this:
+
+amazon/
++-- pom.xml (root aggregator POM, packaging=pom)
++-- team.json (team roster)
++-- docker-compose.yaml (PostgreSQL, later: all services)
++-- .gitignore
++-- user-service/
+| +-- pom.xml (own Spring Boot parent, NOT amazon)
+| +-- Dockerfile (added in Phase D)
+| +-- src/main/java/com/teamXX/amazon/user/
+| +-- UserApplication.java (@SpringBootApplication)
+| +-- model/
+| +-- repository/
+| +-- service/
+| +-- controller/
+| +-- dto/
++-- product-service/
+| +-- (same structure)
++-- order-service/
+| +-- (same structure)
++-- shipping-service/
+| +-- (same structure)
++-- billing-service/
+
++-- (same structure)
+
+10
+
+
+
+5 Git Workflow — Initial Setup
+
+a) Initialize a Git repository in the project root.
+
+b) Create a .gitignore excluding: target/, .idea/, *.iml, .env, *.class, .DS_Store.
+
+c) Create the parent POM, all 5 child POM files, the package structure, and the team.json file.
+
+d) Make an initial commit: init: project setup by (Name_ID) (e.g: init: project setup by (Mo-
+hamed_Ayman_52_8078)) (note: this is supposed to be the only commit message that will not
+follow the commit message rule that is stated in this description).
+
+e) Create a private GitHub repository named TeamNumber-TeamName-Amazon (e.g: 40-Random-
+Amazon).
+
+f) Push to remote and rename the default branch to main.
+
+g) Branch protection: Enable “Require a pull request before merging” on main. (The rule may not
+be enforced on the free version of git so you have to enforce it manually as the grader will check
+the generated PRs)
+
+h) Add Scalable-Submissions as a collaborator.
+
+i) Each member must contribute to the project through Git using their own GitHub account. The
+auto-grader verifies all GitHub usernames from team.json appear in history of the repo. If some-
+one didn’t contribute to the project (no-commits for him/her), will be considered as
+if they didn’t work at all in the milestone and will receive a ZERO as a result in the
+milestone grade.
+
+6 Database Setup (Docker Compose)
+
+The docker-compose.yaml in the project root contains a PostgreSQL service with:
+
+• Container name: amazon-db
+
+• Port mapping: 5432:5432
+
+• Environment variables: user postgres, password postgres, database amazondb
+
+• Named volume pgdata for data persistence
+
+In Phase D (Dockerization), you will add all 5 application services to this same file.
+Verify: Run docker compose up -d (PostgreSQL only at first), start any service locally, and confirm
+it connects to the database.
+
+7 Entity Models
+
+All entities use auto-generated Long IDs. Some entities include one JSONB column implemented as a
+Map<String, Object> using the Hibernate JSONB annotations learned in Lab 4. Since all services share
+one database, tables from different services coexist in the same database schema.
+Each service defines JPA relationships (@OneToMany, @ManyToOne, join entities) between entities within
+the same service only. References to entities in other services are stored as plain Long foreign key
+columns (not JPA-managed relationships), and cross-service data access uses native SQL JOINs on the
+shared database. Remember to use @JsonIgnore on bidirectional relationships to prevent infinite recur-
+sion during JSON serialization.
+
+11
+
+
+
+7.1 User Service Entities (user-service)
+
+7.1.1 User Entity
+
+Table: users
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+name String not null
+email String not null, unique
+password String not null
+phone String not null, unique
+role ENUMa not null "CUSTOMER" or "ADMIN"
+status ENUM not null, default ACTIVE ACTIVE / DEACTIVATED
+preferences Map<String, Object> JSONB See below
+createdAt LocalDateTime not null Set on creation
+shippingAddresses List<ShippingAddress> – Relational Attribute
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+
+JSONB — preferences: Language, notification settings (email/sms booleans), default transaction
+method, preferred shipping speed.
+Relationships: One User can have Many Addresses and User is the inverse side and ShippingAddress
+is the owner side.
+
+7.1.2 ShippingAddress Entity
+
+Table: shipping_addresses
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+label String not null e.g., “Home”, “Office”
+streetAddress String not null Full street address
+city String not null
+country String not null
+zipCode String not null
+isDefault Boolean default false
+metadata Map<String, Object> JSONB See below
+createdAt LocalDateTime not null
+user User – Relational Attribute
+
+JSONB — metadata: Delivery instructions, gate code, floor number, apartment number, landmark.
+Relationships: Many Addresses can belong to One User and User is the inverse side and Shippin-
+gAddress is the owner side.
+
+7.2 Product Service Entities (product-service)
+
+7.2.1 Product Entity
+
+Table: products
+
+12
+
+
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+name String not null
+description String not null
+price Double not null
+category String not null e.g., ELECTRONICS, CLOTHING
+brand String not null
+stockQuantity Integer not null, default 0 Current inventory count
+status ENUMa not null ACTIVE / INACTIVE / OUT_OF_STOCK
+rating Double default 0.0 Running average
+totalRatings Integer default 0 Count for average calculation
+specifications Map<String, Object> JSONB See below
+createdAt LocalDateTime not null
+productReviews List<ProductReview> – Relational Attribute
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+JSONB — specifications: Varying attributes per category. Electronics: screen size, RAM, storage,
+processor. Clothing: size, color, material, fit. Books: ISBN, author, pages, publisher.
+Relationships: One Product has Many Reviews and Product is the inverse side and ProductReview
+is the owner side.
+
+7.2.2 ProductReview Entity
+
+Table: product_reviews
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+userId Long not null FK reference (not JPA-managed)
+rating Integer not null 1–5
+title String not null
+comment String not null
+verified Boolean default false Verified purchase review
+metadata Map<String, Object> JSONB See below
+createdAt LocalDateTime not null
+product Product – Relational Attribute
+
+JSONB — metadata: Helpful votes count, images list, pros/cons, purchase date, verification notes.
+Relationships: Many Reviews belong to One Product and Product is the inverse side and Produc-
+tReview is the owner side.
+
+7.3 Order Service Entities (order-service)
+
+7.3.1 Order Entity
+
+Table: orders
+
+13
+
+
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+userId Long not null FK reference (not JPA-managed)
+shippingAddressId Long nullable FK reference (set when confirmed)
+status ENUMa not null See values below
+totalAmount Double nullable Set when calculated
+metadata Map<String, Object> JSONB See below
+orderedAt LocalDateTime not null
+deliveredAt LocalDateTime nullable Set when delivered
+orderItems List<OrderItem> – Relational Attribute
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+Status values: PENDING, CONFIRMED, SHIPPED, DELIVERED, CANCELLED, RETURNED.
+JSONB — metadata: Estimated delivery date, special instructions, order source (WEB, MOBILE,
+API), gift wrapping (boolean), priority level (STANDARD, EXPRESS, SAME_DAY).
+Note: userId and shippingAddressId are plain Long columns, not JPA @ManyToOne relationships
+(User and ShippingAddress live in a different service).
+Relationships: One Order can have Many Items and Order is the inverse side while OrderItem is
+the owner side.
+
+7.3.2 OrderItem Entity
+
+Table: order_items
+An order can have multiple items. Each item references a product and has a quantity and the price at
+the time of purchase.
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+productId Long not null FK reference (not JPA-managed)
+quantity Integer not null
+priceAtPurchase Double not null Snapshot of product price
+itemOrder Integer not null 1, 2, 3...
+metadata Map<String, Object> JSONB See below
+order Order – Relational Attribute
+
+JSONB — metadata: Selected variant (size, color), gift message, customization notes, warranty selected
+(boolean).
+Relationships: Many Items can belong to One Order and Order is the inverse side while OrderItem
+is the owner side.
+
+7.4 Shipping Service Entities (shipping-service)
+
+7.4.1 Shipment Entity
+
+Table: shipments
+
+14
+
+
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+orderId Long not null FK reference (not JPA-managed)
+carrier String not null e.g., “DHL”, “FedEx”, “Aramex”
+trackingNumber String not null, unique
+status ENUMa not null See values below
+latitude Double nullable Last known position
+longitude Double nullable Last known position
+estimatedDelivery LocalDate nullable
+actualDelivery LocalDate nullable
+metadata Map<String, Object> JSONB See below
+lastUpdate LocalDateTime not null
+createdAt LocalDateTime not null
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+Status values: PROCESSING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED.
+JSONB — metadata: Weight (kg), dimensions (LxWxH), shipping method (GROUND, AIR, EX-
+PRESS), current city, delivery attempts count, signature required (boolean).
+Relationships: None within this service. orderId is a plain Long referencing the orders table in the
+shared database via native SQL.
+
+7.5 Billing Service Entities (billing-service)
+
+This service demonstrates the join entity pattern for many-to-many relationships with extra columns
+(like the OrderItem pattern from Lab 4).
+
+7.5.1 Transaction Entity
+
+Table: transactions
+Field Type Constraints Notes
+id Long PK, auto-generated
+orderId Long not null FK reference (not JPA-managed)
+userId Long not null FK reference (not JPA-managed)
+amount Double not null
+method ENUMa not null CREDIT_CARD / CASH_ON_DELIVERY / WALLET
+status ENUM not null See below
+transactionDetails Map<String, Object> JSONB See below
+createdAt LocalDateTime not null
+transactionVouchers List<TransactionVoucher> – Relational Attribute
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+Status values: PENDING, COMPLETED, FAILED, REFUNDED.
+JSONB — transactionDetails: Gateway response, card last four digits, receipt URL, failure reason.
+Relationships: One transaction can reference Many transaction vouchers and Transaction is the
+inverse side while TransactionVoucher is the owner side.
+
+7.5.2 Voucher Entity
+
+Table: vouchers
+
+15
+
+
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+code String not null, unique e.g., "WELCOME50"
+discountType ENUMa not null PERCENTAGE or FIXED
+discountValue Double not null e.g., 50.0
+maxUses Integer not null
+currentUses Integer default 0
+expiryDate LocalDateTime not null
+active Boolean default true
+metadata Map<String, Object> JSONB See below
+transactionVouchers List<TransactionVoucher> – Relational Attribute
+
+asearch about how you would save an enum as an ENUM inside SQL and what are the necessary configurations that
+you have to do for JPA
+JSONB — metadata: Eligible product categories, minimum order amount, terms and conditions,
+applicable regions.
+Relationships: One voucher can reference Many transaction vouchers and Voucher is the inverse
+side while TransactionVoucher is the owner side.
+
+7.5.3 TransactionVoucher Entity (Join Entity)
+
+Table: transaction_vouchers
+This is a join entity linking Transaction and Voucher in a many-to-many relationship with extra
+columns — the same pattern as OrderItem from Lab 4. A transaction can use multiple vouchers, and a
+voucher can be used on multiple transactions.
+
+Field Type Constraints Notes
+id Long PK, auto-generated
+discountApplied Double not null Actual amount deducted
+appliedAt LocalDateTime not null When voucher was applied
+transaction Transaction – Relational Attribute
+voucher Voucher – Relational Attribute
+
+Relationships:
+
+• Many transaction vouchers can belong to One transaction and Transaction is the inverse side
+while TransactionVoucher is the owner side.
+
+• Many transaction vouchers can belong to One voucher and Voucher is the inverse side while
+TransactionVoucher is the owner side.
+
+7.6 Relationship Summary
+
+Service Relationship Pattern Tested
+User User ↔ ShippingAddress Bidirectional
+Product Product ↔ ProductReview Bidirectional
+Order Order ↔ OrderItem Bidirectional + ordering a
+
+Shipping (no JPA relations) Cross-service via native SQL
+Billing Transaction ↔ Voucher Join entity (TransactionVoucher)
+
+aYou will use the ordering in a specific feature from the feature list
+
+16
+
+
+
+7.7 Important: Cross-Service Data Access
+
+Since all services share one PostgreSQL database, any service can query any table using native SQL.
+For example, the Order Service can JOIN orders with products or transactions in a native @Query.
+However, each service only defines JPA entity classes and JPA relationships for entities within its own
+module. Cross-table access is always via native SQL, never via JPA relationships. This pattern will be
+replaced by Micro-services Communications in Milestone 3.
+
+8 Repository Layer
+
+Each service defines a JpaRepository for each of its entities. For services with multiple entities, you
+need multiple repository interfaces. Repositories include:
+
+• Naming-convention methods for simple lookups.
+
+• Custom @Query methods with native SQL for complex queries, including JOINs against other
+services’ tables in the shared database.
+
+• @Modifying + @Transactional for UPDATE/DELETE queries.
+
+9 Features
+
+CRUD operations (create, read by ID, read all, update, delete) are the baseline for every entity in
+every service and are NOT counted as features. This means: User Service needs CRUD for both User
+and ShippingAddress, Product Service for both Product and ProductReview, Order Service for both
+Order and OrderItem, Shipping Service for Shipment, and Billing Service for Transaction, Voucher, and
+TransactionVoucher. Implement all CRUD first before starting features.
+Important Note: Do not forget to apply the Layered architecture (having repository, service
+and controller) as the test case will test that each feature is implemented according to the
+layered architecture as explained to you in the Labs.
+
+9.1 User Service Features (port 8081)
+
+9.1.1 [S1-F1] Search Users with Filters
+
+Branch: feat/user/S1-F1/<ID>
+Endpoint: GET /api/users/search?name={name}&email={email}&role={role}
+Response: List of users matching any non-null filter. Name and email support partial matching (case-
+insensitive). Return empty list if no matches.
+Note: You may use Native SQL query but you will have to find a way to handle null parameters.
+Test scenario:
+
+a) Create 3 users via CRUD: one with name “Ahmed”, role “CUSTOMER”; one with name “Sara”, role
+“ADMIN”; one with name “Ahmed Ali”, role “CUSTOMER”.
+
+b) GET /api/users/search?name=Ahmed → should return 2 users (“Ahmed” and “Ahmed Ali”).
+
+c) GET /api/users/search?role=ADMIN → should return only “Sara”.
+
+d) GET /api/users/search?name=xyz → should return empty list.
+
+e) GET /api/users/search?name=ahmed → should still return 2 (case-insensitive).
+
+17
+
+
+
+9.1.2 [S1-F2] Update User Preferences (JSONB)
+
+Branch: feat/user/S1-F2/<ID>
+Endpoint: PUT /api/users/{id}/preferences
+Request body: JSON object of preference key-value pairs.
+Behavior: Find user –throws 404 if user not found. Merge incoming preferences into existing
+map—do not overwrite. The only case that you overwrite the preferences is that if the same keys are
+already there in the preferences, otherwise if it’s a new preference then add it to the current preferences.
+Return updated user.
+Test scenario:
+
+a) Create a user with preferences {"language":"en","theme":"light"}.
+
+b) PUT /api/users/{id}/preferences with body {"theme":"dark","currency":"EGP"}.
+
+c) Verify response has {"language":"en","theme":"dark","currency":"EGP"} — “language” kept,
+“theme” updated, “currency” added.
+
+d) PUT /api/users/999/preferences → should return 404.
+
+9.1.3 [S1-F3] Get User Order Summary (DTO)
+
+Branch: feat/user/S1-F3/<ID>
+Endpoint: GET /api/users/{id}/order-summary
+Response DTO (UserOrderSummaryDTO): userId, name, totalOrders, completedOrders, cancelledOrders,
+totalSpent, averageOrderValue.
+Behavior: Find user –throws 404 if user not found. Aggregate data from the orders table for this
+user using native SQL JOINs on the shared database. Build and return DTO. 1
+
+Test scenario:
+
+a) Create a user. Create 5 orders for that user (via order-service CRUD): 3 DELIVERED with
+totalAmounts 150, 200, 350; 1 CANCELLED; 1 PENDING.
+
+b) GET /api/users/{id}/order-summary→ should return: totalOrders=5, completedOrders=3, can-
+celledOrders=1, totalSpent=700, averageOrderValue=233.33.
+
+c) Test with a user who has no orders → all values should be 0.
+
+d) Test with non-existent user ID → 404.
+
+9.1.4 [S1-F4] Deactivate User Account
+
+Branch: feat/user/S1-F4/<ID>
+Endpoint: PUT /api/users/{id}/deactivate
+Behavior (Transactional): Find user –throws 404 if user not found. Check no active orders
+exist for this user in the orders table –throw 400 if the user has active orders. Set status to
+"DEACTIVATED". Save.
+Test scenario:
+
+a) Create a user. Create an order with status PENDING for that user.
+
+b) PUT /api/users/{id}/deactivate → should return 400 (active order exists).
+
+c) Update the order status to DELIVERED.
+
+d) PUT /api/users/{id}/deactivate→ should succeed. Verify user status is now “DEACTIVATED”.
+1Since you will use native SQL here, you can construct the DTO manually from the Object[] that will be returned from
+
+the query
+
+18
+
+
+
+9.1.5 [S1-F5] Filter Users by Preference (JSONB Query)
+
+Branch: feat/user/S1-F5/<ID>
+Endpoint: GET /api/users/preferences/search?key={key}&value={value}
+Behavior: Validate key/value not blank –throws 400 if they are. Return users preferences matches
+key-value pair.
+Test scenario:
+
+a) Create 3 users: one with preferences {"language":"ar"}, one with {"language":"en"}, one with
+{"language":"ar"}.
+
+b) GET /api/users/preferences/search?key=language&value=ar → should return 2 users.
+
+c) GET /api/users/preferences/search?key=language&value=fr → empty list.
+
+d) GET /api/users/preferences/search?key=&value=ar → should return 400.
+
+9.1.6 [S1-F6] Top Buyers by Spending (Report DTO)
+
+Branch: feat/user/S1-F6/<ID>
+Endpoint: GET /api/users/reports/top-buyers?startDate={date}&endDate={date}&limit={n}
+Response DTO (TopBuyerDTO): userId, name, totalSpent, orderCount.
+Behavior: Validate dates –throws 400 if not valid (if start after end). Build the query that will
+match this behaviour and construct a DTO from the result of the query in the same way as you did in
+S1-F3.
+Test scenario:
+
+a) Create 3 users. Create delivered orders with totalAmounts: User A = 1200 total, User B = 3500
+total, User C = 400 total, all within March 2026.
+
+b) GET /api/users/reports/top-buyers?startDate=2026-03-01&endDate=2026-03-31&limit=2→
+should return User B first, then User A.
+
+c) Test with dates where no orders exist → empty list.
+
+d) Test with startDate after endDate → 400.
+
+9.1.7 [S1-F7] Set Default Shipping Address (Transactional + Relationship)
+
+Branch: feat/user/S1-F7/<ID>
+Endpoint: PUT /api/users/{userId}/addresses/{addressId}/default
+Behavior (Transactional): Find user –throws 404 if user not found. Find the ShippingAddress
+by ID and verify it belongs to this user —throw 404 if user not found or the shipping address
+not found and 400 if the passed shipping address doesn’t belong to that user. Set isDefault
+= false on all of the user’s existing addresses. Set isDefault = true on the target address. Return
+the updated user with their addresses.
+Test scenario:
+
+a) Create a user with 3 shipping addresses. Set address #2 as default.
+
+b) PUT /api/users/{userId}/addresses/{addr3Id}/default → verify address #3 is now default
+and #2 is no longer default.
+
+c) Test with non-existent user → 404.
+
+d) Test with an address ID that belongs to a different user → 400.
+
+19
+
+
+
+9.1.8 [S1-F8] Get User Profile with Shipping Addresses (Relationship DTO)
+
+Branch: feat/user/S1-F8/<ID>
+Endpoint: GET /api/users/{id}/profile
+Response DTO (UserProfileDTO): userId, name, email, phone, preferences (JSONB), shippingAddresses
+(list of address objects with label, streetAddress, city, country, zipCode, isDefault, metadata), totalAddresses
+(count).
+Behavior: Find user with their shipping addresses loaded —throws (404 if user not found). Build
+the DTO from the user entity and its shipping address collection. The DTO must include the full list of
+shipping addresses, not just IDs.
+Test scenario:
+
+a) Create a user with preferences and 3 shipping addresses (one marked default).
+
+b) GET /api/users/{id}/profile→ verify DTO contains user info, preferences, full address list with
+all fields, and totalAddresses = 3.
+
+c) Create a user with no addresses → verify shippingAddresses is empty list and totalAddresses = 0.
+
+d) Test with non-existent user → 404.
+
+9.1.9 [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
+
+Branch: feat/user/S1-F9/<ID>
+Endpoint: GET /api/users/preferences/language?lang={lang}&minOrders={n}
+Behavior: This feature is as if you want to find me all users who speak language x and have ordered at
+least n orders. Validate lang not blank –throws 400 if blank.
+Test scenario:
+
+a) Create 3 users: User A (language=ar, 5 delivered orders), User B (language=ar, 2 delivered orders),
+User C (language=en, 10 delivered orders).
+
+b) GET /api/users/preferences/language?lang=ar&minOrders=3 → should return only User A.
+
+c) GET /api/users/preferences/language?lang=ar&minOrders=1 → should return User A and
+User B.
+
+d) GET /api/users/preferences/language?lang=&minOrders=1 → 400.
+
+9.2 Product Service Features (port 8082)
+
+9.2.1 [S2-F1] Search Products by Category and Price Range
+
+Branch: feat/product/S2-F1/<ID>
+Endpoint: GET /api/products/search?category={c}&minPrice={p}&maxPrice={p}
+Behavior: Validate range —throws 400 if not valide (for example if min>max if min > max).
+eturns a list of the products that matches the search criteria ordered by price ascendingly
+Test scenario:
+
+a) Create 3 products: prices 99.99 (ELECTRONICS), 25.00 (CLOTHING), 149.99 (ELECTRONICS).
+
+b) GET /api/products/search?category=ELECTRONICS&minPrice=50&maxPrice=200 → should re-
+turn 2 products, ordered 99.99 first.
+
+c) GET /api/products/search?minPrice=20&maxPrice=30 → returns the 25.00 product (no cate-
+gory filter).
+
+d) GET /api/products/search?minPrice=200&maxPrice=50 → 400.
+
+20
+
+
+
+9.2.2 [S2-F2] Update Product Specifications (JSONB Partial Update)
+
+Branch: feat/product/S2-F2/<ID>
+Endpoint: PUT /api/products/{id}/specifications
+Request body: JSON object of specification fields to update.
+Behavior: Find product –throws 404 if product not found. Merge incoming fields into existing
+specifications map. meaning if different attributes were sent in the json body, then add it to the
+existing one, else then you will update it. Save and return.
+Test scenario:
+
+a) Create a product with specifications {"screenSize":"6.1in","RAM":"8GB","color":"Black"}.
+
+b) PUT /api/products/{id}/specifications with body {"color":"Silver","storage":"256GB"}.
+
+c) Verify response: screenSize=6.1in (kept), RAM=8GB (kept), color=Silver (updated), storage=256GB
+(added).
+
+d) Test with non-existent product → 404.
+
+9.2.3 [S2-F3] Get Product Sales Summary (DTO)
+
+Branch: feat/product/S2-F3/<ID>
+Endpoint: GET /api/products/{id}/sales?startDate={date}&endDate={date}
+Response DTO (ProductSalesDTO): productId, name, totalUnitsSold, totalRevenue, averageSellingPrice.
+Behavior: Find product –throws 404 if driver not found. Aggregate on order_items table for this
+product in date range and return the required DTO by building it the same way as mentioned before.
+Test scenario:
+
+a) Create a product. Create 5 delivered orders containing this product in March with quantities 2, 1,
+3, 1, 2 at prices 99.99.
+
+b) GET /api/products/{id}/sales?startDate=2026-03-01&endDate=2026-03-31→ totalUnitsSold=9,
+totalRevenue=899.91, averageSellingPrice=99.99.
+
+c) Test with date range where no orders exist → all zeroes.
+
+d) Test with non-existent product → 404.
+
+9.2.4 [S2-F4] Discontinue Product (Transactional)
+
+Branch: feat/product/S2-F4/<ID>
+Endpoint: PUT /api/products/{id}/discontinue
+Behavior (Transactional): Find product –throws 404 if product not found. If setting to INAC-
+TIVE, check no pending orders contain this product —throws 400 if not. Update status. Save. return
+status code 200 indicating successful transaction
+Test scenario:
+
+a) Create a product (ACTIVE). Add it to a PENDING order.
+
+b) PUT /api/products/{id}/discontinue → 400 (pending order exists).
+
+c) Deliver that order. Now try INACTIVE again → 200.
+
+d) Verify product status is INACTIVE.
+
+21
+
+
+
+9.2.5 [S2-F5] Filter Products by Specification (JSONB)
+
+Branch: feat/product/S2-F5/<ID>
+Endpoint: GET /api/products/specifications/search?key={key}&value={value}&status={status}
+Behavior: Filter products by specifications and optional status (meaning that the status is not re-
+quired to perform the filtering and the status here means if the product is ACTIVE, INACTIVE, or
+OUT_OF_STOCK.).
+Test scenario:
+
+a) Create 3 products: one with specs {"brand":"Apple"} ACTIVE, one with {"brand":"Samsung"}
+ACTIVE, one with {"brand":"Apple"} INACTIVE.
+
+b) GET /api/products/specifications/search?key=brand&value=Apple&status=ACTIVE→ returns
+1 product.
+
+c) GET /api/products/specifications/search?key=brand&value=Apple→ returns 2 products (no
+status filter).
+
+d) GET /api/products/specifications/search?key=brand&value=Sony → empty list.
+
+9.2.6 [S2-F6] Top Rated Products Report (DTO)
+
+Branch: feat/product/S2-F6/<ID>
+Endpoint: GET /api/products/reports/top-rated?limit={n}
+Response DTO (TopProductDTO): productId, name, rating, totalSales.
+Behavior: Get the Top rated (n) products and returns them as TopProductDTO.
+Test scenario:
+
+a) Create 3 products with ratings 4.9, 4.5, 4.2. Create some delivered orders with items for each.
+
+b) GET /api/products/reports/top-rated?limit=2 → returns 2 products, 4.9 first.
+
+c) GET /api/products/reports/top-rated?limit=10 → returns all 3.
+
+9.2.7 [S2-F7] Add Product Review with Rating Recalculation (Transactional)
+
+Branch: feat/product/S2-F7/<ID>
+Endpoint: POST /api/products/{id}/reviews
+Request body: userId, rating (1–5), title, comment.
+Behavior (Transactional): Find product –throws 404 if product not found. Verify user exists
+–throws 404 if user not found. Verify user has a DELIVERED order containing this product –throw
+400 if not (“must purchase before reviewing”). Validate rating 1–5 –throws 400 if not. Create
+ProductReview. Recalculate running average on product. Update product and Save. Return status code
+200 if the review was done successfully
+Test scenario:
+
+a) Create a product (rating=0, totalRatings=0). Create a user. Create a DELIVERED order with an
+item for this product.
+
+b) POST /api/products/{id}/reviews with {"userId":1,"rating":5,"title":"Great!","comment":"Love
+it"} → 200. Verify product rating=5.0, totalRatings=1.
+
+c) Add another review with rating=3 → verify rating=4.0, totalRatings=2.
+
+d) Test with rating=6 → 400. Test with user who has no delivered order for this product → 400.
+
+22
+
+
+
+9.2.8 [S2-F8] Verify Product Review (Transactional + Relationship)
+
+Branch: feat/product/S2-F8/<ID>
+Endpoint: PUT /api/products/{productId}/reviews/{reviewId}/verify
+Request body: verifiedBy.
+Behavior (Transactional): Find product –throws 404 if product not found. Find the ProductRe-
+view by ID and verify it belongs to this product –throws 404 if review not found and –throws 400
+if it doesn’t belong to the specified product. Verify the reviewer actually purchased this product —
+throw 400 if not a verified purchase. In addition, verify the verifiedBy that is the userID being sent
+in the request body is an actual Admin User –(throw 403 if not). Set verified = true. Update the
+review’s JSONB metadata to add verifiedAt timestamp and verifiedBy (from request body). Return
+the updated product with all reviews.
+Test scenario:
+
+a) Create a product. Create a user. Create a DELIVERED order with this product. Add a review
+from this user, verified=false.
+
+b) PUT /api/products/{productId}/reviews/{reviewId}/verify with {"verifiedBy":3} → ver-
+ify review is now verified=true and metadata has verifiedAt and verifiedBy.
+
+c) Test with review from a user who never purchased → 400. Test with non-ADMIN verifier → 403.
+d) Test with review that belongs to different product → 400.
+
+9.2.9 [S2-F9] Get Products with Low Stock Alert (Relationship + Report DTO)
+
+Branch: feat/product/S2-F9/<ID>
+Endpoint: GET /api/products/stock/low-stock?threshold={n}
+Response DTO (LowStockAlertDTO): productId, productName, currentStock, category, recentSalesCount
+(orders in last 30 days), hasNegativeReviews (any review with rating ≤ 2).
+Behavior: Query all products with stockQuantity ≤ threshold and status ACTIVE. For each match-
+ing product, count recent sales (last 30 days, DELIVERED). Load reviews to check for negative reviews.
+Build list of DTOs. Only include ACTIVE products.
+Test scenario:
+
+a) Create 3 products: Product A (stock=3, ACTIVE, 1 low review), Product B (stock=100, ACTIVE),
+Product C (stock=2, ACTIVE, all high reviews).
+
+b) GET /api/products/stock/low-stock?threshold=5→ returns 2 DTOs (Product A with hasNeg-
+ativeReviews=true, Product C with hasNegativeReviews=false). Product B not included.
+
+c) Test with threshold=0 → empty list (no products with stock ≤ 0).
+
+9.3 Order Service Features (port 8083)
+
+9.3.1 [S3-F1] Get Orders by Status and Date Range
+
+Branch: feat/order/S3-F1/<ID>
+Endpoint: GET /api/orders/search?status={s}&startDate={d}&endDate={d}
+Behavior: Query with date range on orderedAt and optional status of the order. Order by most recent.
+Test scenario:
+
+a) Create 5 orders: 2 DELIVERED in March, 1 PENDING in March, 2 DELIVERED in February.
+b) GET /api/orders/search?status=DELIVERED&startDate=2026-03-01&endDate=2026-03-31→ re-
+
+turns 2 orders, most recent first.
+c) GET /api/orders/search?startDate=2026-03-01&endDate=2026-03-31 → returns 3 (no status
+
+filter).
+
+23
+
+
+
+9.3.2 [S3-F2] Confirm Order and Deduct Stock (Transactional)
+
+Branch: feat/order/S3-F2/<ID>
+Endpoint: PUT /api/orders/{orderId}/confirm?shippingAddressId={addressId}
+Behavior (Transactional): Find order –throws 404 if order not found. Validate order status is
+PENDING (throws 400 if not—can only confirm a pending order). Verify the shipping address exists
+in the shipping_addresses (throws 404 if not found). For each OrderItem in the order: verify the
+product exists and has sufficient stock (throws 400 if insufficient stock and 404 if product doesn’t
+exist). Deduct stockQuantity for each product. Set the order’s shippingAddressId. Set order status
+to CONFIRMED. Calculate totalAmount by summing (quantity * priceAtPurchase) for all items. Save
+order. Return the updated order.
+Test scenario:
+
+a) Create a PENDING order with 2 items. Create products with sufficient stock. Create a shipping
+address.
+
+b) PUT /api/orders/{orderId}/confirm?shippingAddressId={addrId}→ order status=CONFIRMED,
+shippingAddressId set, product stock deducted, totalAmount calculated.
+
+c) Try confirming again → 400 (order not PENDING anymore).
+
+d) Try confirming with insufficient product stock → 400.
+
+e) Try with non-existent order → 404. Non-existent address → 404.
+
+9.3.3 [S3-F3] Get Order Price Estimate (DTO)
+
+Branch: feat/order/S3-F3/<ID>
+Endpoint: POST /api/orders/estimate
+Request body: List of {productId, quantity} objects.
+Response DTO (OrderEstimateDTO): itemCount, subtotal, shippingCost, estimatedTotal, discountApplied.
+Scenario: Before placing an order, a customer enters the products and quantities they want to buy
+and the app shows them an estimated total — just like when Amazon shows the cart summary before
+checkout. This endpoint computes that estimate. It does not create an order in the database — it only
+calculates and returns the result.
+Behavior — step by step:
+
+a) Look up each product: For each item in the request, query the products table to get the current
+price. Throw 404 if any product is not found.
+
+b) Calculate subtotal: Sum of (product price * quantity) for all items.
+
+c) Determine volume discount: Check total item count across all products. (total of items in cart)
+This simulates how e-commerce platforms offer bulk discounts.
+Based on the total item count, apply the following discount tiers:
+
+• 1–5 total items → discountApplied = 0% (no discount)
+• 6–15 total items → discountApplied = 5% (small bulk discount)
+• More than 15 total items → discountApplied = 10% (large bulk discount)
+
+d) Calculate shipping cost: Flat rate of 50.0 EGP for orders under 500 EGP subtotal, free shipping
+for 500+ EGP.
+
+e) Calculate estimated total: estimatedTotal = (subtotal * (1 - discount/100)) + shippingCost
+
+f) Build and return the DTO containing all five values.
+
+Test scenario:
+
+24
+
+
+
+a) Create 2 products: Product A (price=100), Product B (price=200).
+
+b) POST /api/orders/estimate with [{"productId":1,"quantity":2},{"productId":2,"quantity":1}]
+→ itemCount=3, subtotal=400, discountApplied=0, shippingCost=50, estimatedTotal=450.
+
+c) Try with 10 items total → discountApplied=5%.
+
+d) Verify no order was created in the database (this endpoint is read-only).
+
+9.3.4 [S3-F4] Mark Order as Delivered (Transactional Multi-Step)
+
+Branch: feat/order/S3-F4/<ID>
+Endpoint: PUT /api/orders/{id}/deliver
+Behavior (Transactional): Find order –throws 404 if order not found. Validate status SHIPPED
+–throws 400 if not. Set DELIVERED + deliveredAt. Update shipment status to DELIVERED and
+set actualDelivery. Create transaction record with status PENDING. Save order. Return.
+Test scenario:
+
+a) Create an order with status SHIPPED, totalAmount=500. Create a shipment for this order.
+
+b) PUT /api/orders/{id}/deliver → order status=DELIVERED, deliveredAt set, shipment sta-
+tus=DELIVERED, a new PENDING transaction created with amount=500.
+
+c) Try delivering again → 400 (already DELIVERED).
+
+d) Try delivering a PENDING order → 400.
+
+9.3.5 [S3-F5] Filter Orders by Metadata Field (JSONB)
+
+Branch: feat/order/S3-F5/<ID>
+Endpoint: GET /api/orders/metadata/search?key={key}&value={value}
+Behavior: Validate key/value –throws 400 if not valid. Native SQL JSONB query. Return matches.
+Test scenario:
+
+a) Create 3 orders: one with metadata {"priority":"SAME_DAY"}, two with {"priority":"STANDARD"}.
+
+b) GET /api/orders/metadata/search?key=priority&value=SAME_DAY → returns 1 order.
+
+c) GET /api/orders/metadata/search?key=&value=x → 400.
+
+9.3.6 [S3-F6] Order Analytics by Time Period (Report DTO)
+
+Branch: feat/order/S3-F6/<ID>
+Endpoint: GET /api/orders/analytics?startDate={d}&endDate={d}
+Response DTO (OrderAnalyticsDTO): totalOrders, deliveredOrders, cancelledOrders, totalRevenue,
+averageOrderValue, completionRate.
+Behavior: Calculate the required fields given for the orders from the start date till the end date. Build
+DTO.
+Test scenario:
+
+a) Create 10 orders in March: 7 DELIVERED (totalAmounts: 100,200,300,400,500,600,700), 3 CAN-
+CELLED.
+
+b) GET /api/orders/analytics?startDate=2026-03-01&endDate=2026-03-31 → totalOrders=10,
+deliveredOrders=7, cancelledOrders=3, totalRevenue=2800, averageOrderValue=400, completion-
+Rate=70.0.
+
+25
+
+
+
+9.3.7 [S3-F7] Cancel Order (Transactional)
+
+Branch: feat/order/S3-F7/<ID>
+Endpoint: PUT /api/orders/{id}/cancel
+Behavior (Transactional): Find order –throws 404 if order not found. Validate status PEND-
+ING/CONFIRMED –throws 400 if not. Set CANCELLED. If status was CONFIRMED, restore stock
+for each order item by updating product stockQuantity. Save and return status code 200 if the
+workflow was done successfully
+Test scenario:
+
+a) Create a CONFIRMED order with 2 items (stock was already deducted during confirm). Record
+current product stock levels.
+
+b) PUT /api/orders/{id}/cancel → order status=CANCELLED, product stock restored to original
+levels.
+
+c) Try cancelling a DELIVERED order → 400.
+
+d) Try cancelling a SHIPPED order → 400.
+
+9.3.8 [S3-F8] Add Items to Existing Order (Transactional + Relationship)
+
+Branch: feat/order/S3-F8/<ID>
+Endpoint: POST /api/orders/{orderId}/items
+Request body: A list of item objects, each with productId, quantity, and metadata.
+Behavior (Transactional): Find order –throws 404 if order not found. Validate order status is
+PENDING (–throws 400 if not—cannot add items to confirmed or shipped orders). For each item:
+verify product exists in products table (–throws 404 if product not found) and get its current price.
+Determine the itemOrder for each new item by continuing from the order’s current max item order (or
+starting at 1 if no items exist). Create OrderItem entities with priceAtPurchase = current product
+price and add them to the order. Save the order . Return the updated order with all its items, ordered
+by itemOrder.
+Test scenario:
+
+a) Create a PENDING order with no items.
+
+b) POST /api/orders/{orderId}/items with 2 items → verify items created with itemOrder 1 and
+2, priceAtPurchase set.
+
+c) Add 1 more item → verify itemOrder=3.
+
+d) Try adding items to a DELIVERED order → 400.
+
+e) Try adding an item with a non-existent productId → 404.
+
+9.3.9 [S3-F9] Get Order Details with Items (Relationship DTO)
+
+Branch: feat/order/S3-F9/<ID>
+Endpoint: GET /api/orders/{orderId}/details
+Response DTO (OrderDetailsDTO): orderId, userId, shippingAddressId, status, totalAmount,
+metadata (JSONB), items (list of item objects ordered by itemOrder, each with id, itemOrder, produc-
+tId, quantity, priceAtPurchase, metadata), totalItems, totalQuantity (sum of all quantities).
+Behavior: Find order with its items loaded (–throws 404 if order not found). Count items and sum
+quantities. Build the DTO with the full item list ordered by itemOrder ascending.
+Test scenario:
+
+a) Create an order with 3 items: quantities 2, 1, 3.
+
+26
+
+
+
+b) GET /api/orders/{orderId}/details → verify DTO has totalItems=3, totalQuantity=6, items
+ordered by itemOrder.
+
+c) Test with order that has no items → totalItems=0, totalQuantity=0, empty items list.
+
+d) Test with non-existent order → 404.
+
+9.4 Shipping Service Features (port 8084)
+
+9.4.1 [S4-F1] Get Latest Shipment for an Order
+
+Branch: feat/shipping/S4-F1/<ID>
+Endpoint: GET /api/shipments/order/{orderId}/latest
+Behavior: Verify order exists (–throws 404 if order not found). Query most recent shipment for
+this order. throws 404 if none.
+Test scenario:
+
+a) Create an order. Create 3 shipment updates for it with different lastUpdate timestamps.
+
+b) GET /api/shipments/order/{orderId}/latest → should return the most recent shipment.
+
+c) Test with order that has no shipments → 404.
+
+d) Test with non-existent order → 404.
+
+9.4.2 [S4-F2] Create Shipment with Tracking Metadata (JSONB)
+
+Branch: feat/shipping/S4-F2/<ID>
+Endpoint: POST /api/shipments/order/{orderId}
+Request body: carrier, trackingNumber, latitude, longitude, metadata map.
+Behavior: Verify order exists (–throws 404 if order not found). Create Shipment with status =
+PROCESSING, lastUpdate = now. Save. Return status code 201.
+Test scenario:
+
+a) Create an order.
+
+b) POST /api/shipments/order/{orderId} with carrier=“DHL”, trackingNumber=“DHL123”, lati-
+tude=30.044, longitude=31.235, metadata={"weight":2.5,"method":"EXPRESS"} → 201.
+
+c) Verify the saved shipment has lastUpdate timestamp and the metadata.
+
+d) Test with non-existent order → 404.
+
+9.4.3 [S4-F3] Find Nearby Shipments Out for Delivery (DTO with Distance)
+
+Branch: feat/shipping/S4-F3/<ID>
+Endpoint: GET /api/shipments/nearby?lat={lat}&lon={lon}&radiusKm={r}
+Response DTO (NearbyShipmentDTO): shipmentId, orderId, carrier, trackingNumber, latitude,
+longitude, distanceKm.
+Behavior: Based on latest known location per order. Filter by status = OUT_FOR_DELIVERY,
+calculate distance (euclidean distance2* 111), filter by radius, sort ascending. Map to DTOs.
+Test scenario:
+
+a) Create 3 shipments with status OUT_FOR_DELIVERY: Shipment A at (30.04, 31.23), Shipment
+B at (30.05, 31.24), Shipment C at (31.00, 32.00) (far away).
+
+2euclidean distance = sqrt((x2− x1)2 +(y2− y1)2)
+
+27
+
+
+
+b) GET /api/shipments/nearby?lat=30.044&lon=31.235&radiusKm=5 → returns Shipment A and
+B (sorted by distance), not C.
+
+c) Test with radiusKm=0.1 → might return only the closest shipment.
+
+9.4.4 [S4-F4] Batch Shipment Status Update (Transactional)
+
+Branch: feat/shipping/S4-F4/<ID>
+Endpoint: PUT /api/shipments/batch-status
+Request body: List of {shipmentId, status, latitude, longitude} objects.
+Behavior (Transactional): Validate all shipments exist (–throws 404 if any shipment was not
+found). Validate coordinates –throws 400 if not valid, like Latitude must be between -90 and
+90 Longitude must be between -180 and 180. Update each shipment’s status, coordinates, and
+lastUpdate. Save all. Return status code 201 with count.
+Test scenario:
+
+a) Create 3 shipments with status SHIPPED.
+
+b) PUT /api/shipments/batch-status with 3 updates to IN_TRANSIT → 201 with count=3.
+
+c) Verify all 3 shipments now have status IN_TRANSIT and updated coordinates.
+
+d) Test with invalid coordinates (latitude=999) → 400.
+
+e) Test with non-existent shipment ID → 404.
+
+9.4.5 [S4-F5] Filter Shipments by Metadata (JSONB Query)
+
+Branch: feat/shipping/S4-F5/<ID>
+Endpoint: GET /api/shipments/metadata/search?key={k}&operator={op}&value={v}
+Operators: eq, gt, lt.
+Behavior: Validate operator –throws 400 if not valid. For gt/lt cast JSONB to numeric. Return
+matches.
+Test scenario:
+
+a) Create shipments with metadata: weight=1.5, weight=3.0, weight=5.0.
+
+b) GET /api/shipments/metadata/search?key=weight&operator=gt&value=2.0 → returns 2 ship-
+ments (3.0 and 5.0).
+
+c) GET /api/shipments/metadata/search?key=weight&operator=eq&value=1.5 → returns 1.
+
+d) GET /api/shipments/metadata/search?key=weight&operator=xyz&value=2.0 → 400.
+
+9.4.6 [S4-F6] Get Shipments in Date Range
+
+Branch: feat/shipping/S4-F6/<ID>
+Endpoint: GET /api/shipments/history?startDate={d}&endDate={d}&status={s}
+Behavior: Query all shipments within the date range on lastUpdate with optional status filter. Order
+by lastUpdate ascending.
+Test scenario:
+
+a) Create 5 orders. Create a shipment for each: 3 with lastUpdate in March (2 DELIVERED, 1
+IN_TRANSIT), 2 with lastUpdate in February.
+
+b) GET /api/shipments/history?startDate=2026-03-01&endDate=2026-03-31 → returns 3 ship-
+ments ordered by lastUpdate ascending.
+
+28
+
+
+
+c) GET /api/shipments/history?startDate=2026-03-01&endDate=2026-03-31&status=DELIVERED
+→ returns 2.
+
+d) Test with date range where no shipments exist → empty list.
+
+9.4.7 [S4-F7] Purge Old Shipment Data (Transactional)
+
+Branch: feat/shipping/S4-F7/<ID>
+Endpoint: DELETE /api/shipments/purge?olderThanDays={n}
+Behavior (Transactional): Calculate cutoff (if the request says olderThanDays=30, then cutoff =
+today minus 30 days). Count then delete via native @Modifying query. Return deleted count.
+Test scenario:
+
+a) Create 10 shipments: 7 with lastUpdate 60 days ago, 3 with lastUpdate today.
+
+b) DELETE /api/shipments/purge?olderThanDays=30 → returns deletedCount=7.
+
+c) Verify only 3 recent shipments remain in DB.
+
+9.4.8 [S4-F8] Carrier Performance Summary (DTO)
+
+Branch: feat/shipping/S4-F8/<ID>
+Endpoint: GET /api/shipments/carrier/{carrier}/summary?startDate={d}&endDate={d}
+Response DTO (CarrierSummaryDTO): carrier, totalShipments, deliveredCount, averageDeliveryDays,
+onTimeRate.
+Behavior: Validate carrier exists (–throws 404 if carrier not found). Calculate averageDeliveryDays
+from actualDelivery - createdAt (cast to days). onTimeRate = percentage where actualDelivery
+<= estimatedDelivery. Build DTO.
+Test scenario:
+
+a) Create 5 shipments for carrier “DHL” in March: 4 DELIVERED (2 on time, 2 late), 1 IN_TRANSIT.
+
+b) GET /api/shipments/carrier/DHL/summary?startDate=2026-03-01&endDate=2026-03-31→ to-
+talShipments=5, deliveredCount=4, onTimeRate=50.0.
+
+c) Test with non-existent carrier → all zeroes.
+
+9.4.9 [S4-F9] Find Delayed Shipments (JSONB + Cross-Table DTO)
+
+Branch: feat/shipping/S4-F9/<ID>
+Endpoint: GET /api/shipments/delayed?maxDeliveryAttempts={n}
+Response DTO (DelayedShipmentDTO): shipmentId, orderId, carrier, trackingNumber, estimatedDelivery,
+daysOverdue, deliveryAttempts.
+Behavior: Find shipments where estimatedDelivery is in the past AND status is NOT DELIV-
+ERED/RETURNED. Extract deliveryAttempts from JSONB metadata (cast to numeric). Optionally
+filter by maxDeliveryAttempts. Use a native SQL query get order context(data). Calculate daysOverdue
+= CURRENT_DATE - estimatedDelivery. Map results to DTOs.
+Test scenario:
+
+a) Create 3 shipments: Shipment A (estimatedDelivery = 5 days ago, status=IN_TRANSIT, meta-
+data deliveryAttempts=2), Shipment B (estimatedDelivery = yesterday, status=OUT_FOR_DELIVERY,
+metadata deliveryAttempts=1), Shipment C (estimatedDelivery = 3 days ago, status=DELIVERED).
+
+b) GET /api/shipments/delayed?maxDeliveryAttempts=3 → returns Shipment A and B (not C
+since it’s delivered).
+
+c) Test with maxDeliveryAttempts=1 → returns only Shipment B.
+
+29
+
+
+
+9.5 Billing Service Features (port 8085)
+
+9.5.1 [S5-F1] Get Transactions by Status and Date Range
+
+Branch: feat/billing/S5-F1/<ID>
+Endpoint: GET /api/transactions/search?status={s}&startDate={d}&endDate={d}
+Behavior: Query with optional status and date range on createdAt. Return results with most recent
+first.
+Test scenario:
+
+a) Create 5 transactions: 2 COMPLETED in March, 1 REFUNDED in March, 2 COMPLETED in
+February.
+
+b) GET /api/transactions/search?status=COMPLETED&startDate=2026-03-01&endDate=2026-03-31
+→ returns 2, most recent first.
+
+c) GET /api/transactions/search?startDate=2026-03-01&endDate=2026-03-31 → returns 3 (no
+status filter).
+
+9.5.2 [S5-F2] Process Refund (Transactional + JSONB Update)
+
+Branch: feat/billing/S5-F2/<ID>
+Endpoint: PUT /api/transactions/{id}/refund
+Request body: reason (string).
+Behavior (Transactional): Find transaction –throws 404 if transaction not found. Validate
+status COMPLETED –throws 400 if not. Set REFUNDED. Add refundReason and refundedAt to
+JSONB transactionDetails. Save and return the updated transaction.
+Test scenario:
+
+a) Create a COMPLETED transaction.
+
+b) PUT /api/transactions/{id}/refund with {"reason":"wrong item shipped"}→ status=REFUNDED,
+transactionDetails has refundReason and refundedAt.
+
+c) Try refunding again → 400 (already REFUNDED).
+
+d) Try refunding a FAILED transaction → 400.
+
+9.5.3 [S5-F3] User Transaction Summary (DTO)
+
+Branch: feat/billing/S5-F3/<ID>
+Endpoint: GET /api/transactions/user/{userId}/summary
+Response DTO (UserTransactionSummaryDTO): userId, totalTransactionss, totalAmount, methodBreakdown
+(a Map<String, Double>).
+Behavior — step by step:
+
+a) Verify user exists: Check if the user exists –throws 404 if user not found
+
+b) Query transaction data grouped by method: Query the transactions of the user that has
+status as COMPLETED, then groups the results by the method column. For each group, compute
+the count and the sum of amount.
+
+c) Build the method breakdown map: Loop through the query results (Object[] rows) and
+populate a Map<String, Double> where each key is the transaction method (e.g., "CREDIT_CARD")
+and the value is the total amount for that method.
+
+d) Calculate totals: totalTransactios is the sum of all counts across all methods. totalAmount
+is the sum of all amounts across all methods.
+
+30
+
+
+
+e) Build and return the DTO with userId, totalTransactions, totalAmount, and the methodBreakdown
+map.
+
+Test scenario:
+
+a) Create a user. Create 4 COMPLETED Transactions: 2 via CREDIT_CARD (200, 350), 1 via
+CASH_ON_DELIVERY (150), 1 via WALLET (80).
+
+b) GET /api/transactions/user/{userId}/summary→ totalTransactions=4, totalAmount=780, method-
+Breakdown={"CREDIT_CARD":550,"CASH_ON_DELIVERY":150,"WALLET":80}.
+
+c) Test with non-existent user → 404.
+
+9.5.4 [S5-F4] Process Transaction for Order (Transactional)
+
+Branch: feat/billing/S5-F4/<ID>
+Endpoint: POST /api/transactions/order/{orderId}
+Request body: method, cardLastFour (optional).
+Behavior (Transactional): Verify order exists and is DELIVERED —-throws 404 if order not
+found andthrows 400 if having different status. Check no COMPLETED transaction exists for
+this order –throws 400 if not with a message älready paid¨. Update the Transaction that was
+created upon delivery it with status PENDING, populate JSONB. Save. Return status code 201
+indicating successful transaction.
+Test scenario:
+
+a) Create a DELIVERED order with totalAmount=500.
+
+b) POST /api/transactions/order/{orderId} with {"method":"CREDIT_CARD","cardLastFour":"4242"}
+→ 201. Verify transaction updated with correct amount and JSONB populated.
+
+c) Try paying again for the same order → 400 (“already paid”).
+
+d) Try paying for a PENDING order → 400.
+
+9.5.5 [S5-F5] Apply Voucher to Transaction (Transactional + Join Entity)
+
+Branch: feat/billing/S5-F5/<ID>
+Endpoint: POST /api/transactions/{transactionId}/voucher/{voucherId}
+No request body — both IDs come from the URL path.
+Scenario: A customer has a pending transaction of 500 EGP and wants to apply a voucher code before
+checkout. The system validates the voucher, calculates the discount, and creates a TransactionVoucher
+join entity linking the two — the same pattern as OrderItem from Lab 4.
+Behavior (Transactional) — step by step:
+
+a) Find transaction by transactionId — throw 404 if not found.
+
+b) Validate transaction status: The transaction’s status must be PENDING — throw 400 with
+message “cannot apply voucher to a completed/cancelled transaction” if status is COMPLETED or
+REFUNDED.
+
+c) Find voucher by voucherId — throw 404 if not found.
+
+d) Validate voucher is usable:
+
+• Voucher’s active field must be true — throw 400 if not.
+• Voucher’s expiryDate must be in the future — throw 400 if expired.
+• Voucher’s currentUses must be less than maxUses — throw 400 if limit reached.
+
+31
+
+
+
+e) Check for duplicate: Query the TransactionVoucher records for this transaction to see if this
+voucher has already been applied — throw 400 with message “voucher already applied” if found.
+
+f) Calculate the discount amount based on the voucher’s discountType:
+
+• If PERCENTAGE: discount = transaction.amount * voucher.discountValue / 100
+Example: 500 EGP transaction with a 20% voucher → 500 * 20 / 100 = 100 EGP discount.
+
+• If FIXED: discount = voucher.discountValue
+Example: 500 EGP transaction with a 75 EGP fixed voucher → 75 EGP discount.
+
+Then cap the discount: if the calculated discount exceeds the transaction amount, set it to the
+transaction amount (a voucher cannot produce a negative total).
+
+g) Create the join entity: Create a new TransactionVoucher with the computed variables.
+
+h) Update the voucher: Increment currentUses by 1.
+
+i) Save the TransactionVoucher and the updated voucher and transaction.
+
+j) Return the updated transaction with its list of applied vouchers.
+
+Test scenario:
+
+a) Create a PENDING transaction (amount=500). Create a voucher: code=“SAVE20”, PERCENT-
+AGE, discountValue=20, maxUses=3.
+
+b) POST /api/transactions/{transactionId}/voucher/{voucherId} → TransactionVoucher cre-
+ated with discountApplied=100. Voucher currentUses incremented to 1.
+
+c) Apply same voucher again → 400 (already applied).
+
+d) Create a FIXED voucher with discountValue=999. Apply to the 500 EGP transaction → discoun-
+tApplied should be capped at 500.
+
+e) Test with expired voucher → 400. Test with inactive voucher → 400.
+
+f) Test applying voucher to a COMPLETED transaction → 400.
+
+9.5.6 [S5-F6] Revenue Report by Date Range (Report DTO)
+
+Branch: feat/billing/S5-F6/<ID>
+Endpoint: GET /api/transactions/reports/revenue?startDate={d}&endDate={d}
+Response DTO (RevenueReportDTO): totalRevenue, totalTransactions, averageTransaction, refundedAmount,
+refundCount.
+Scenario: An admin wants to see how much money the platform made in a given period, and how much
+was lost to refunds.
+Behavior — step by step:
+
+a) Validate dates: Throw 400 if startDate is after endDate.
+
+b) Query Transactions in date range:
+
+c) The five metrics and how to calculate each:
+
+• totalRevenue — Sum of amount for all transactions where status = ’COMPLETED’.
+• totalTransactions — Count of transactions where status = ’COMPLETED’.
+• averageTransaction — totalRevenue / totalTransactions. Handle division by zero (re-
+
+turn 0).
+• refundedAmount — Sum of amount for all transactions where status = ’REFUNDED’.
+
+32
+
+
+
+• refundCount — Count of transactions where status = ’REFUNDED’.
+
+d) Build and return the DTO with all five values.
+
+Test scenario:
+
+a) Create transactions in March: 5 COMPLETED (amounts: 100,200,300,400,500 = total 1500), 2
+REFUNDED (amounts: 150,250 = total 400).
+
+b) GET /api/transactions/reports/revenue?startDate=2026-03-01&endDate=2026-03-31→ to-
+talRevenue=1500, totalTransactions=5, averageTransaction=300, refundedAmount=400, refund-
+Count=2.
+
+c) Test with startDate after endDate → 400.
+
+9.5.7 [S5-F7] Retry Failed Transaction (Transactional)
+
+Branch: feat/billing/S5-F7/<ID>
+Endpoint: PUT /api/transactions/{id}/retry
+No request body — the transaction ID comes from the URL path.
+Scenario: A transaction failed (e.g., card declined, network timeout). The customer wants to try again.
+Instead of creating a new transaction, the system retries the existing one — marking it as successful and
+recording that it was a retry.
+Behavior (Transactional) — step by step:
+
+a) Find transaction by id — throw 404 if not found.
+
+b) Validate status: The transaction’s status must be FAILED. You can only retry a failed transaction
+— throw 400 if the status is anything else (PENDING, COMPLETED, or REFUNDED).
+
+c) Update status: Set the transaction’s status to COMPLETED.
+
+d) Update JSONB transactionDetails: Two fields to update in the map:
+
+• retryAttempt — Read the current value (it may be 0 or a previous number), increment it by
+1, and put it back. For example, if this is the first retry: 0 → 1. If it’s the second retry: 1
+→ 2.
+
+• gatewayResponse — Overwrite with the string "approved" (simulating that the transaction
+gateway accepted it this time).
+
+So if the JSONB was:
+
+{
+"gatewayResponse":"declined",
+"cardLastFour":"4242",
+"retryAttempt":0,
+"failureReason":"insufficient funds"
+
+}
+
+After retry it becomes:
+
+{
+"gatewayResponse":"approved",
+"cardLastFour":"4242",
+"retryAttempt":1,
+"failureReason":"insufficient funds"
+
+}
+
+33
+
+
+
+e) Save the transaction.
+
+f) Return the updated transaction entity.
+
+Test scenario:
+
+a) Create a FAILED transaction with transactionDetails {"gatewayResponse":"declined","retryAttempt":0}.
+
+b) PUT /api/transactions/{id}/retry→ status=COMPLETED, retryAttempt=1, gatewayResponse=“approved”.
+
+c) Try retrying a COMPLETED transaction → 400.
+
+d) Try retrying a REFUNDED transaction → 400.
+
+9.5.8 [S5-F8] Get Transaction Details with Applied Vouchers (Join Entity DTO)
+
+Branch: feat/billing/S5-F8/<ID>
+Endpoint: GET /api/transactions/{transactionId}/details
+Response DTO (TransactionDetailsDTO): transactionId, orderId, userId, originalAmount, method,
+status, transactionDetails (JSONB), appliedVouchers (list of objects, each with voucherCode,
+discountType, discountApplied, appliedAt), totalDiscount (sum of all discounts), finalAmount
+(originalAmount - totalDiscount).
+Behavior: Find transaction with its TransactionVoucher entries loaded (404 if not found). For each
+TransactionVoucher, access the linked Voucher entity to get the voucher code and discount type. Cal-
+culate totalDiscount and finalAmount. Build DTO.
+Test scenario:
+
+a) Create a transaction (amount=500). Apply 2 voucher: one with discountApplied=100, one with
+discountApplied=75.
+
+b) GET /api/transactions/{transactionId}/details→ originalAmount=500, appliedVouchers has
+2 entries with voucher codes and discount info, totalDiscount=175, finalAmount=325.
+
+c) Test with transaction that has no voucher → totalDiscount=0, finalAmount=originalAmount.
+
+d) Test with non-existent transaction → 404.
+
+9.5.9 [S5-F9] Get Most Used Vouchers Report (Join Entity + Aggregation)
+
+Branch: feat/billing/S5-F9/<ID>
+Endpoint: GET /api/transactions/voucher/top-used?limit={n}
+Response DTO (VoucherUsageDTO): voucherId, code, discountType, discountValue, timesUsed,
+totalDiscountGiven, active, expired.
+Scenario: An admin wants to see which vouchers are performing best — which ones are used the most
+and how much discount they’ve given out in total.
+Behavior — step by step:
+
+a) Write a query that searches for the vouchers inside the transaction_vouchers table. Group
+the results by voucher. For each voucher, compute:
+
+• timesUsed — the voucher’s currentUses value.
+• totalDiscountGiven — SUM(transaction_vouchers.discount_applied) for all TransactionVoucher
+
+rows linked to this voucher. This is the total money saved by users who used this voucher.
+
+b) Order by timesUsed descending (most popular voucher first) and limit to n results.
+
+c) Map each of the results to a VoucherUsageDTO: For each result, populate:
+
+34
+
+
+
+• voucherId, code, discountType, discountValue — straight from the voucher columns.
+• timesUsed — from currentUses.
+• totalDiscountGiven — from the SUM computed in the query.
+• active — the voucher’s active field.
+• expired — a computed boolean: true if the voucher’s expiryDate is before now, false
+
+otherwise.
+
+d) Return the list of DTOs.
+
+Test scenario:
+
+a) Create 3 voucher. Apply voucher A to 5 Transactions (total discount=500), voucher B to 3 Trans-
+actions (total=225), voucher C to 1 transaction (total=50).
+
+b) GET /api/transactions/voucher/top-used?limit=2 → returns voucher A (timesUsed=5, to-
+talDiscountGiven=500) then voucher B (timesUsed=3, totalDiscountGiven=225).
+
+c) Verify “expired” field is true for voucher past their expiryDate.
+
+10 Git Workflow — Feature Development
+
+Every team member follows this workflow for every feature:
+
+a) Start from main: git checkout main && git pull origin main
+
+b) Create feature branch: git checkout -b feat/<service>/<feature-ID>/<YOUR-STUDENT-ID>
+
+c) Implement: repository methods → service logic → controller endpoint → test via Postman.
+
+d) Commit: git commit -m "feat(<service-name>): <description> (<YOUR-STUDENT-ID>)" (ex-
+cept only the first commit which is the initialization of the project)
+
+e) Push and create a Pull Request on GitHub.
+
+f) At least 1 teammate reviews and approves.
+
+g) Merge into main using a regular merge commit (“Create a merge commit” on GitHub).
+Do NOT use squash merge. A regular merge preserves the branch name in the merge com-
+mit message (e.g., Merge pull request #12 from feat/user/S1-F1/55-8078), which the auto-
+grader uses to verify who implemented which feature.
+
+h) Do NOT delete the feature branch after merging. The auto-grader will verify that each
+feature has a correctly-named branch containing the student ID. If you delete the branch, the
+grader will not be able to verify it and this may result in deductions in your grade.
+
+11 Dockerization (Phase D)
+
+a) Create a Dockerfile inside each service module using eclipse-temurin:25.0.2_10-jdk. Copy
+that service’s JAR and expose port 8080.
+
+b) Update the root docker-compose.yaml to include all 5 services alongside PostgreSQL. Each service:
+
+• Builds from its own Dockerfile (e.g., build: ./user-service)
+• Maps its host port to container port 8080 (e.g., 8081:8080)
+• Overrides datasource URL to jdbc:postgresql://postgres:5432/amazondb
+• Depends on the PostgreSQL service
+
+35
+
+
+
+c) Build: mvn clean package -DskipTests from the root.
+
+d) Run: docker compose up --build
+
+e) Verify all services respond:
+
+• localhost:8081/api/users (User Service)
+• localhost:8082/api/products (Product Service)
+• localhost:8083/api/orders (Order Service)
+• localhost:8084/api/shipments (Shipping Service)
+• localhost:8085/api/transactions (Transaction Service)
+
+f) Git: branch feat/docker/<ID>, commit with ID, PR, merge.
+
+12 Work Distribution (Recommended):
+
+3 members per service × 5 services = 15 members. Each member implements 3 features. Phase A (all
+entities + CRUD for every entity) is done collectively by the 3 members of each sub-team.
+
+13 Submission & Auto-Grader
+
+a) Repository must be private.
+
+b) Scalable-Submissions must be added as a collaborator.
+
+c) team.json must be present and valid at the project root.
+
+d) docker compose up must start PostgreSQL + all 5 services.
+
+e) Services must respond at localhost:8081 through localhost:8085.
+
+f) Git history must show feature branches merged via PRs with student IDs.
+
+g) Commits must follow feat(<service>): <desc> (<ID>) format.
+
+h) Details about the usage of the auto grader and the testing will be sent later
+
+Important: Grading is per member. A feature only counts for the member whose GitHub username
+authored the commits on a branch containing their student ID. Features with mismatched or missing IDs
+receive zero credit. (The zero will affect both, the team member and the whole team). The only case
+that the team member will receive a different grade from the rest of the team is if there is no history of
+commits that shows that this member worked in the milestone (if his/her work was done then the whole
+team will receive their grade fully and he/she will receive zero. If his/her work was missing from the
+overall work, the whole team will be deducted for the missing work and he/she will still receive zero). It is
+the responsibility of the scrum master to make sure that everyone is working and the whole requirements
+are being delivered, if there is an issue with any member(s) then a form will be sent for complains that
+you can fill it
+Deadline: The Milestone deadline is Saturday 11/04/2026 at 11:59 PM
+Submission: Submission form will be sent later to the scrum masters.
+
+36
+
+
+
+14 Appendix: JSONB Sample Data
+
+Below is one example per service showing what the JSONB columns look like in practice. A full database
+seeder will be provided separately.
+User.preferences:
+
+{
+"language": "en",
+"notifications": {"email": true, "sms": false},
+"defaultPaymentMethod": "CREDIT_CARD",
+"preferredShipping": "EXPRESS"
+
+}
+
+Product.specifications:
+
+{
+"screenSize": "6.1in",
+"RAM": "8GB",
+"storage": "256GB",
+"processor": "A17 Pro",
+"color": "Black",
+"waterResistant": true
+
+}
+
+Order.metadata:
+
+{
+"estimatedDelivery": "2026-04-15",
+"specialInstructions": "Leave at door",
+"orderSource": "MOBILE",
+"giftWrapping": true,
+"priority": "EXPRESS"
+
+}
+
+37
+
+
+
+Shipment.metadata:
+
+{
+"weight": 2.5,
+"dimensions": "30x20x15",
+"method": "AIR",
+"currentCity": "Cairo",
+"deliveryAttempts": 1,
+"signatureRequired": true
+
+}
+
+Transaction.transactionDetails:
+
+{
+"gatewayResponse": "approved",
+"cardLastFour": "4242",
+"receiptUrl": "https://receipts.example.com/abc",
+"failureReason": null
+
+}
+
+15 Appendix: Example Database Tables
+
+The following tables show what your database should look like after seeding some test data. Use these
+as a reference when testing your CRUD operations and features via Postman. All tables coexist in the
+same amazondb database.
+Note: JSONB columns are shown as formatted JSON code blocks below each table for readability. In the
+actual database, each block is stored as a single JSONB column value in the corresponding row.
+
+15.1 User Service Tables
+
+15.1.1 users table
+
+id name email password phone role status created_at
+1 Ahmed Hassan ahmed@mail.com pass123 +201011111111 CUSTOMER ACTIVE 2026-03-01 10:00
+2 Sara Mohamed sara@mail.com pass456 +201022222222 CUSTOMER ACTIVE 2026-03-02 14:30
+3 Admin User admin@shop.com admin789 +201033333333 ADMIN ACTIVE 2026-03-01 08:00
+
+JSONB column — preferences:
+User 1 (Ahmed):
+
+{
+"language": "ar",
+"notifications": {"email": true, "sms": false},
+"defaultPaymentMethod": "CREDIT_CARD",
+"preferredShipping": "STANDARD"
+
+}
+
+User 2 (Sara):
+
+{
+"language": "en",
+"notifications": {"email": true, "sms": true},
+"defaultPaymentMethod": "WALLET",
+"preferredShipping": "EXPRESS"
+
+}
+
+38
+
+
+
+User 3 (Admin):
+
+{
+"language": "en",
+"notifications": {"email": true, "sms": false},
+"defaultPaymentMethod": "CREDIT_CARD"
+
+}
+
+15.1.2 shipping_addresses table
+
+id user_id label street_address city country zip_code is_default
+1 1 Home 15 Nile St, Zamalek Cairo Egypt 11211 true
+2 1 Office 42 Smart Village, B5 Giza Egypt 12577 false
+3 2 Home 8 Alexandria Rd, Apt 3B Alexandria Egypt 21526 true
+
+JSONB column — metadata:
+Address 1 (Ahmed –- Home):
+
+{
+"floor": 5,
+"apartment": "5A",
+"landmark": "Next to Nile Pharmacy",
+"deliveryInstructions": "Ring twice"
+
+}
+
+Address 2 (Ahmed –- Office):
+
+{
+"floor": 2,
+"gateCode": "7788",
+"landmark": "Building B5 entrance",
+"deliveryInstructions": "Ask for Ahmed at reception"
+
+}
+
+Address 3 (Sara –- Home):
+
+{
+"floor": 3,
+"apartment": "3B",
+"landmark": "Blue building opposite the mosque"
+
+}
+
+15.2 Product Service Tables
+
+15.2.1 products table
+
+id name price category brand stock status rating total_ratings
+1 iPhone 16 45000 ELECTRONICS Apple 25 ACTIVE 4.7 3
+2 Galaxy S25 38000 ELECTRONICS Samsung 40 ACTIVE 4.5 2
+3 Cotton T-Shirt 350 CLOTHING Zara 200 ACTIVE 4.0 1
+4 Running Shoes 2500 SHOES Nike 0 OUT_OF_STOCK 0.0 0
+
+(description column omitted from table for space — each product has a text description)
+JSONB column — specifications:
+
+39
+
+
+
+Product 1 (iPhone 16):
+
+{
+"storage": "256GB",
+"ram": "8GB",
+"color": "Black",
+"warranty": "1 year",
+"screenSize": "6.1 inch"
+
+}
+
+Product 2 (Galaxy S25):
+
+{
+"storage": "128GB",
+"ram": "12GB",
+"color": "White",
+"warranty": "2 years",
+"screenSize": "6.2 inch"
+
+}
+
+Product 3 (Cotton T-Shirt):
+
+{
+"size": "L",
+"color": "Navy Blue",
+"material": "100% Cotton",
+"washInstructions": "Machine wash cold"
+
+}
+
+Product 4 (Running Shoes):
+
+{
+"size": "42",
+"color": "Red",
+"weight": "280g",
+"soleMaterial": "Rubber"
+
+}
+
+15.2.2 product_reviews table
+
+id product_id user_id rating title comment verified
+1 1 1 5 Amazing phone! Best phone I have ever used true
+2 1 2 4 Great but pricey Excellent camera, battery is good true
+3 2 1 5 Love it Smooth performance true
+4 3 2 4 Nice quality Soft fabric, fits well false
+
+JSONB column — metadata:
+Review 1 (Ahmed on iPhone):
+
+{
+"helpfulVotes": 12,
+"pros": ["camera", "speed"],
+"cons": ["price"],
+"purchaseDate": "2026-03-05"
+
+}
+
+Review 2 (Sara on iPhone):
+
+40
+
+
+
+{
+"helpfulVotes": 5,
+"pros": ["camera", "display"],
+"cons": ["expensive"],
+"purchaseDate": "2026-03-06"
+
+}
+
+Review 3 (Ahmed on Galaxy):
+
+{
+"helpfulVotes": 8,
+"pros": ["battery", "display"],
+"cons": [],
+"purchaseDate": "2026-03-07"
+
+}
+
+Review 4 (Sara on T-Shirt):
+
+{
+"helpfulVotes": 2,
+"pros": ["soft", "fits well"],
+"cons": ["color fades"],
+"purchaseDate": "2026-03-08"
+
+}
+
+15.3 Order Service Tables
+
+15.3.1 orders table
+
+id user_id shipping_addr_id status total_amount ordered_at delivered_at
+1 1 1 DELIVERED 45350.00 2026-03-10 09:00 2026-03-15 14:00
+2 2 3 CONFIRMED 76350.00 2026-03-18 11:30 null
+3 1 2 CANCELLED 2500.00 2026-03-19 16:00 null
+
+JSONB column — metadata:
+Order 1 (Ahmed –- Delivered):
+
+{
+"estimatedDelivery": "2026-03-16",
+"orderSource": "WEB",
+"giftWrapping": false,
+"priority": "STANDARD"
+
+}
+
+Order 2 (Sara –- Confirmed):
+
+{
+"estimatedDelivery": "2026-03-25",
+"orderSource": "MOBILE",
+"giftWrapping": true,
+"priority": "EXPRESS",
+"specialInstructions": "Handle with care"
+
+}
+
+Order 3 (Ahmed –- Cancelled):
+
+41
+
+
+
+{
+"orderSource": "WEB",
+"cancellationReason": "Changed my mind",
+"priority": "STANDARD"
+
+}
+
+15.3.2 order_items table
+
+id order_id product_id quantity price_at_purchase item_order
+1 1 1 1 45000.00 1
+2 1 3 1 350.00 2
+3 2 1 1 45000.00 1
+4 2 2 1 38000.00 2
+5 3 4 1 2500.00 1
+
+JSONB column — metadata:
+Item 1 (iPhone in Order 1):
+
+{
+"selectedVariant": {"color": "Black", "storage": "256GB"},
+"warrantySelected": true
+
+}
+
+Item 2 (T-Shirt in Order 1):
+
+{
+"selectedVariant": {"size": "L", "color": "Navy Blue"},
+"giftMessage": "Happy birthday!"
+
+}
+
+Item 3 (iPhone in Order 2):
+
+{
+"selectedVariant": {"color": "Black", "storage": "256GB"},
+"warrantySelected": true
+
+}
+
+Item 4 (Galaxy in Order 2):
+
+{
+"selectedVariant": {"color": "White", "storage": "128GB"},
+"warrantySelected": false
+
+}
+
+Item 5 (Shoes in Order 3):
+
+{
+"selectedVariant": {"size": "42", "color": "Red"},
+"customizationNotes": "Extra cushioning"
+
+}
+
+Reading the data: Order #1 was placed by Ahmed (user 1), shipped to his home address (addr 1).
+He bought an iPhone 16 and a T-Shirt for a total of 45,350 EGP. Order #2 was placed by Sara (user
+2)—she is buying both an iPhone and a Galaxy. Order #3 was cancelled by Ahmed before it shipped.
+
+42
+
+
+
+15.4 Shipping Service Tables
+
+15.4.1 shipments table
+
+id order_id carrier tracking_number status lat lon est_delivery
+1 1 Aramex ARX-2026-00451 DELIVERED 30.044 31.235 2026-03-16
+2 2 DHL DHL-2026-00782 IN_TRANSIT 30.013 31.209 2026-03-25
+
+JSONB column — metadata:
+Shipment 1 (Order 1 –- Delivered):
+
+{
+"weight": 0.5,
+"dimensions": "15x8x4 cm",
+"signatureRequired": false,
+"deliveredTo": "Reception"
+
+}
+
+Shipment 2 (Order 2 –- In Transit):
+
+{
+"weight": 1.2,
+"dimensions": "20x15x10 cm",
+"signatureRequired": true,
+"insuranceValue": 83000
+
+}
+
+Reading the data: Shipment #1 corresponds to Order #1 (Ahmed’s delivered order). Shipment #2 is
+for Sara’s confirmed order, currently in transit via DHL. Note there is no shipment for Order #3 because
+it was cancelled.
+
+15.5 Billing Service Tables
+
+15.5.1 transactions table
+
+id order_id user_id amount method status created_at
+1 1 1 45350.00 CREDIT_CARD COMPLETED 2026-03-10 09:05
+2 2 2 76350.00 WALLET COMPLETED 2026-03-18 11:35
+3 3 1 2500.00 CREDIT_CARD REFUNDED 2026-03-19 16:05
+
+JSONB column — transactionDetails:
+Transaction 1 (Ahmed –- Completed):
+
+{
+"gatewayResponse": "approved",
+"cardLastFour": "4242",
+"receiptUrl": "https://pay.example/r001"
+
+}
+
+Transaction 2 (Sara –- Completed):
+
+{
+"gatewayResponse": "approved",
+"walletBalance": 150000,
+"receiptUrl": "https://pay.example/r002"
+
+}
+
+43
+
+
+
+Transaction 3 (Ahmed –- Refunded):
+
+{
+"gatewayResponse": "approved",
+"cardLastFour": "9876",
+"refundReason": "Order cancelled",
+"refundedAt": "2026-03-19T16:30"
+
+}
+
+15.5.2 vouchers table
+
+id code discount_type value max used expiry_date active
+1 WELCOME20 PERCENTAGE 20.0 100 2 2026-06-30 23:59 true
+2 FLAT500 FIXED 500.0 50 1 2026-04-30 23:59 true
+3 EXPIRED10 PERCENTAGE 10.0 10 10 2026-02-28 23:59 false
+
+(Column headers shortened: value = discountValue, max = maxUses, used = currentUses)
+JSONB column — metadata:
+Voucher 1 (WELCOME20):
+
+{
+"eligibleCategories": ["ELECTRONICS", "CLOTHING"],
+"minimumOrder": 1000,
+"termsAndConditions": "New users only"
+
+}
+
+Voucher 2 (FLAT500):
+
+{
+"eligibleCategories": ["ELECTRONICS"],
+"minimumOrder": 5000,
+"applicableRegions": ["Cairo", "Giza"]
+
+}
+
+Voucher 3 (EXPIRED10):
+
+{
+"eligibleCategories": ["CLOTHING", "SHOES"],
+"minimumOrder": 500
+
+}
+
+15.5.3 transaction_voucher table (Join Entity)
+
+id transaction_id voucher_id discount_applied applied_at
+1 1 1 9070.00 2026-03-10 09:04
+2 2 1 15270.00 2026-03-18 11:34
+3 2 2 500.00 2026-03-18 11:34
+
+Reading the data:
+
+• Transaction #1 (Ahmed’s order, 45,350 EGP) had voucher WELCOME20 applied — 20% of 45,350
+= 9,070 EGP discount.
+
+• Transaction #2 (Sara’s order, 76,350 EGP) had two vouchers applied: WELCOME20 (20% =
+15,270 EGP) and FLAT500 (fixed 500 EGP). Total discount = 15,770 EGP.
+
+44
+
+
+
+• Transaction #3 (Ahmed’s cancelled order) had no vouchers applied.
+
+• Voucher WELCOME20 has current_uses = 2 because it was used in transactions #1 and #2.
+
+• Voucher EXPIRED10 is inactive because it has reached its max uses (10/10) and its expiry date
+has passed.
+
+15.6 How the Tables Connect (Cross-Service)
+
+Since all services share one database, you can trace data across tables:
+
+a) Ahmed (user 1) placed Order #1 containing an iPhone (product 1) and a T-Shirt (product 3).
+
+b) Order #1 was shipped to his Home address (shipping_address 1) via Shipment #1 (Aramex).
+
+c) Ahmed paid via Transaction #1 (CREDIT_CARD, 45,350 EGP) with voucher WELCOME20
+applied.
+
+d) The order was delivered on 2026-03-15 — both the order status and shipment status show DELIV-
+ERED.
+
+e) A native SQL query in the Order Service can JOIN orders with users (user_id), shipping_addresses
+(shipping_address_id), and transactions (order_id) to build a complete order history DTO.
+
+This is the kind of cross-service data access you will implement using native SQL JOINs on the shared
+database.
+
+45

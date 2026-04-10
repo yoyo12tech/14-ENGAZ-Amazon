@@ -24,12 +24,12 @@ public interface UserRepository extends JpaRepository<User, Long> {
 """, nativeQuery = true)
 List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
 
-    @Query(value = "SELECT u.id, u.name, SUM(o.total_amount) as totalSpent, COUNT(o.id) as orderCount " +
+    @Query(value = "SELECT u.id, u.name, SUM(o.total_amount) AS totalSpent, COUNT(o.id) AS orderCount " +
                    "FROM users u JOIN orders o ON u.id = o.user_id " +
                    "WHERE o.status = 'DELIVERED' " +
-                   "AND o.delivered_at >= :startDateTime AND o.delivered_at <= :endDateTime " +
+                   "AND o.ordered_at >= :startDateTime AND o.ordered_at <= :endDateTime " +
                    "GROUP BY u.id, u.name " +
-                   "ORDER BY totalSpent DESC " +
+                   "ORDER BY SUM(o.total_amount) DESC " +
                    "LIMIT :limit", nativeQuery = true)
     List<Object[]> findTopBuyers(@Param("startDateTime") LocalDateTime startDateTime,
                                  @Param("endDateTime") LocalDateTime endDateTime,
