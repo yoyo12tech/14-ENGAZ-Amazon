@@ -34,6 +34,10 @@ public class ProductReviewService {
         return reviewRepository.findById(id);
     }
 
+    public Optional<ProductReview> getReviewByProductAndId(Long productId, Long reviewId) {
+        return reviewRepository.findByIdAndProductId(reviewId, productId);
+    }
+
     public ProductReview createReview(ProductReview review) {
 
         if (review.getVerified() == null) {
@@ -96,7 +100,7 @@ public class ProductReviewService {
         if (review.getVerified() == null) {
             review.setVerified(false);
         }
-        ProductReview savedReview = reviewRepository.save(review);
+        ProductReview savedReview = reviewRepository.saveAndFlush(review);
 
         // 6. Recalculate running average rating on product
         int newTotalRatings = product.getTotalRatings() + 1;
@@ -116,8 +120,8 @@ public class ProductReviewService {
     @Transactional
     public Product verifyReview(Long productId, Long reviewId, VerifyReviewRequest request) {
 
-        // 1. Find product — 404 if not found
-        Product product = productRepository.findById(productId)
+        // 1. Ensure product exists — 404 if not found
+        productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Product not found with id: " + productId));
 

@@ -169,9 +169,7 @@ public class ProductController {
     public ResponseEntity<ProductReview> getReviewByProductAndId(
             @PathVariable Long productId,
             @PathVariable Long reviewId) {
-        return reviewService.getReviewById(reviewId)
-                .filter(review -> review.getProduct() != null
-                        && review.getProduct().getId().equals(productId))
+        return reviewService.getReviewByProductAndId(productId, reviewId)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -180,10 +178,8 @@ public class ProductController {
     public ResponseEntity<Void> deleteReviewByProductAndId(
             @PathVariable Long productId,
             @PathVariable Long reviewId) {
-        return reviewService.getReviewById(reviewId)
-                .filter(review -> review.getProduct() != null
-                        && review.getProduct().getId().equals(productId))
-                .map(review -> {
+        return reviewService.getReviewByProductAndId(productId, reviewId)
+                .map(ignoredReview -> {
                     reviewService.deleteReview(reviewId);
                     return ResponseEntity.ok().<Void>build();
                 })

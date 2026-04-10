@@ -7,11 +7,14 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ProductReviewRepository extends JpaRepository<ProductReview, Long> {
 
     List<ProductReview> findByProductId(Long productId);
+
+    Optional<ProductReview> findByIdAndProductId(Long id, Long productId);
 
     List<ProductReview> findByUserId(Long userId);
 

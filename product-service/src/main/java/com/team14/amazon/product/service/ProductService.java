@@ -49,7 +49,7 @@ public class ProductService {
             throw new IllegalStateException("Cannot discontinue product with pending or confirmed orders.");
         }
 
-        product.setStatus(ProductStatus.DISCONTINUED);
+        product.setStatus(ProductStatus.INACTIVE);
         return productRepository.save(product);
     }
 
