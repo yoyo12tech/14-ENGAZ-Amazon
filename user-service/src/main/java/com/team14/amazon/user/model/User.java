@@ -31,18 +31,18 @@ public class User {
     @Column(nullable = false, unique = true)
     private String phone;
 
-    @Enumerated(EnumType.STRING)
+    
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "role", nullable = false, columnDefinition = "user_role")
+    @Column(name = "role", nullable = false)
     private Role role;
 
 
     public enum Role {
         CUSTOMER, ADMIN
     }
-    @Enumerated(EnumType.STRING)
+    
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "user_status")
+    @Column(name = "status", nullable = false)
     private Status status = Status.ACTIVE;
     public enum Status {
         ACTIVE, DEACTIVATED
