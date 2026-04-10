@@ -29,7 +29,7 @@ public class ProductReview {
     @Column(nullable = false)
     private String comment;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private Boolean verified = false;
 
     @JdbcTypeCode(SqlTypes.JSON)
