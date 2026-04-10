@@ -91,20 +91,18 @@ public class ProductService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found"));
 
         // 2. Check no pending orders contain this product — throws 400 if not
-        // NOTE: You will need to inject an OrderService, OrderRepository, or FeignClient 
+        // NOTE: You will need to inject an OrderService, OrderRepository, or FeignClient
         // depending on your architecture to actually perform this check.
-        boolean hasPendingOrders = checkPendingOrders(id); // Placeholder method
-        
+        boolean hasPendingOrders = productRepository.existsPendingOrders(id);
+
         if (hasPendingOrders) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot discontinue product: It is currently part of a pending order.");
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Cannot discontinue product: It is currently part of a pending order."
+            );
         }
 
         // 3. Update status and save
         product.setStatus(ProductStatus.INACTIVE);
         productRepository.save(product);
-    }
-
-
-    private boolean checkPendingOrders(Long productId) {
-        return orderService.hasPendingOrdersWithProduct(productId); 
     }
