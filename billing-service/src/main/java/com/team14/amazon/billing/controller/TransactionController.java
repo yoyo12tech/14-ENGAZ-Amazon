@@ -5,6 +5,8 @@ import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.service.TransactionService;
+import com.team14.amazon.billing.dto.TransactionDetailsDTO;
+
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -68,6 +70,10 @@ public class TransactionController {
     }
 
 //    @GetMapping
+    @GetMapping("/{transactionId}/details")
+    public ResponseEntity<TransactionDetailsDTO> getTransactionDetails(@PathVariable Long transactionId) {
+        return ResponseEntity.ok(transactionService.getTransactionDetails(transactionId));
+    }
 //
 //    @GetMapping
 
