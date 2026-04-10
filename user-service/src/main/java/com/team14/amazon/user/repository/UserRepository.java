@@ -20,7 +20,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     SELECT * FROM users u
     WHERE (:name IS NULL OR u.name ILIKE CONCAT('%', :name, '%'))
       AND (:email IS NULL OR u.email ILIKE CONCAT('%', :email, '%'))
-      AND (:role IS NULL OR u.role = :role)
+      AND (:role IS NULL OR CAST(u.role AS VARCHAR) = :role)
 """, nativeQuery = true)
 List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
 
