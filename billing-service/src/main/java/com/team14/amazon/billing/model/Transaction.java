@@ -27,12 +27,10 @@ public class Transaction {
     @Column(nullable = false)
     private Double amount;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
     private Method method;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
     private Status status = Status.PENDING;

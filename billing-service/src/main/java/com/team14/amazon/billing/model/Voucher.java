@@ -20,7 +20,6 @@ public class Voucher {
     @Column(nullable = false, unique = true)
     private String code;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "discount_type", nullable = false, columnDefinition = "discount_type")
     private DiscountType discountType;
