@@ -17,10 +17,12 @@ public class OrderItemController {
         this.orderItemService = orderItemService;
     }
 
+    @PostMapping
+    public ResponseEntity<OrderItem> create(@RequestBody OrderItem item) {
+        return ResponseEntity.ok(orderItemService.create(item.getOrder().getId(), item));
+    }
 
-    //The public test wanted order to be orders
-    //check TC_S3_11
-    @PostMapping("/orders/{orderId}")
+    @PostMapping("/order/{orderId}")
     public ResponseEntity<OrderItem> create(@PathVariable Long orderId,
                                             @RequestBody OrderItem item) {
         return ResponseEntity.ok(orderItemService.create(orderId, item));

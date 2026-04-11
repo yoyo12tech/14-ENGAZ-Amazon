@@ -18,12 +18,15 @@ import java.util.Optional;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Optional<Shipment> findByTrackingNumber(String trackingNumber);
     List<Shipment> findByOrderId(Long orderId);
-    List<Shipment> findByStatus(Shipment.Status status);
-//    @Query("SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId")
+    @Query(value = "SELECT * FROM shipments WHERE CAST(status AS TEXT) = :status", nativeQuery = true)
+    List<Shipment> findByStatusNative(@Param("status") String status);
+
+    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId", nativeQuery = true)
     boolean existsOrderById(@Param("orderId") Long orderId);
     Boolean existsByOrderId(Long orderId);
     @Query("SELECT s FROM Shipment s WHERE s.orderId = :orderId ORDER BY s.lastUpdate DESC LIMIT 1")
     Optional<Shipment> findLatestShipmentByOrderId(@Param("orderId") Long orderId);
+    
     // S4-F7: Purge old shipments
     @Modifying
     @Transactional
@@ -39,7 +42,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     @Query(value = "SELECT * FROM shipments WHERE (metadata->>:key)::numeric < :value", nativeQuery = true)
     List<Shipment> findByMetadataLt(@Param("key") String key, @Param("value") double value);
 
-    @Query(value = "SELECT * FROM shipments WHERE last_update BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp) AND (:status IS NULL OR status = :status) ORDER BY last_update ASC", nativeQuery = true)
+    @Query(value = "SELECT * FROM shipments WHERE last_update BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp) AND (:status IS NULL OR CAST(status AS TEXT) = :status) ORDER BY last_update ASC", nativeQuery = true)
     List<Shipment> findByDateRangeAndStatus(
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate,
@@ -52,7 +55,7 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
                (s.metadata->>'deliveryAttempts')::int as attempts
         FROM shipments s
         WHERE s.estimated_delivery < CURRENT_TIMESTAMP
-        AND s.status NOT IN ('DELIVERED', 'RETURNED')
+        AND CAST(s.status AS TEXT) NOT IN ('DELIVERED', 'RETURNED')
         AND (:maxAttempts IS NULL OR (s.metadata->>'deliveryAttempts')::int <= :maxAttempts)
         """, nativeQuery = true)
     List<Object[]> findDelayedShipments(Integer maxAttempts);

@@ -20,9 +20,8 @@ public class Voucher {
     @Column(nullable = false, unique = true)
     private String code;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "discount_type", nullable = false, columnDefinition = "discount_type")
+    @Column(name = "discount_type", nullable = false)
     private DiscountType discountType;
 
     @Column(nullable = false)
@@ -31,14 +30,14 @@ public class Voucher {
     @Column(nullable = false)
     private Integer maxUses;
 
-    @Column(columnDefinition = "integer default 0")
+    @Column(nullable = false)
     private Integer currentUses = 0;
 
     @Column(nullable = false)
     private LocalDateTime expiryDate;
 
-    @Column(columnDefinition = "boolean default true")
-    private Boolean active;
+    @Column(nullable = false)
+    private Boolean active = true;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -47,6 +46,16 @@ public class Voucher {
     @JsonManagedReference("voucher-transactionvoucher")
     @OneToMany(mappedBy = "voucher")
     private List<TransactionVoucher> transactionVoucher;
+
+    @PrePersist
+    protected void onCreate() {
+        if (this.active == null) {
+            this.active = true;
+        }
+        if (this.currentUses == null) {
+            this.currentUses = 0;
+        }
+    }
 
     public Long getId() {
         return this.id;

@@ -33,17 +33,18 @@ public class VoucherController {
     }
 
     @PutMapping("/{id}")
-    public Voucher updateVoucher(Voucher voucher){
+    public Voucher updateVoucher(@PathVariable Long id, @RequestBody Voucher voucher) {
+        voucher.setId(id);
         return voucherService.updateVoucher(voucher);
     }
 
     @DeleteMapping("/{id}")
-    public void deleteVoucher(Long id){
+    public void deleteVoucher(@PathVariable  Long id){
         voucherService.deleteVoucher(id);
     }
 
     @GetMapping("/search")
-    public Voucher findVoucherByCode(String code){
+    public Voucher findVoucherByCode(@RequestParam String code) {
         return voucherService.findVoucherByCode(code);
     }
 
