@@ -41,4 +41,5 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
 
     @Query(value = "SELECT status FROM orders WHERE id = :orderId", nativeQuery = true)
     String findOrderStatusByOrderId(@Param("orderId") Long orderId);
+
 }
