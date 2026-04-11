@@ -3,7 +3,8 @@ package com.team14.amazon.order.service;
 
 import com.team14.amazon.order.DTO.OrderDetailsDTO;
 import com.team14.amazon.order.DTO.OrderItemDTO;
-import java.util.Comparator;
+
+import java.util.*;
 import java.util.stream.Collectors;
 import com.team14.amazon.order.DTO.OrderItemRequestDTO;
 import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
@@ -12,6 +13,7 @@ import com.team14.amazon.order.DTO.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
+import com.team14.amazon.order.repository.OrderItemRepository;
 import com.team14.amazon.order.repository.OrderRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -32,13 +34,19 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 
 import java.util.List;
 @Service
 public class OrderService {
+    private final OrderRepository orderRepository;
+    private final OrderItemService orderItemService;
+    private final OrderItemRepository orderItemRepository;
+
+    public OrderService(OrderRepository orderRepository, OrderItemService orderItemService, OrderItemRepository orderItemRepository) {
+        this.orderRepository = orderRepository;
+        this.orderItemService = orderItemService;
+        this.orderItemRepository = orderItemRepository;
+    }
 
     @Transactional
     public Order addItemsToOrder(Long orderId, List<OrderItemRequestDTO> itemsDto) {
@@ -48,11 +56,14 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cannot add items to non-pending orders");
         }
+//old code
+//        int currentMaxItemOrder = order.getOrderItems().stream()
+//                .mapToInt(OrderItem::getItemOrder)
+//                .max()
+//                .orElse(0);
 
-        int currentMaxItemOrder = order.getOrderItems().stream()
-                .mapToInt(OrderItem::getItemOrder)
-                .max()
-                .orElse(0);
+        int currentMaxItemOrder = orderItemRepository.findMaxItemOrderByOrderId(orderId);
+
 
         for (OrderItemRequestDTO dto : itemsDto) {
             Double price = orderRepository.getProductPrice(dto.productId())
@@ -69,10 +80,14 @@ public class OrderService {
             newItem.setOrder(order);
 
             order.getOrderItems().add(newItem);
+            orderItemService.create(orderId,newItem);
         }
 
         return orderRepository.save(order);
+
     }
+
+
     @Transactional
     public void cancelOrder(Long id) {
         Order order = orderRepository.findById(id)
@@ -92,11 +107,7 @@ public class OrderService {
         orderRepository.save(order);
     }
 
-    private final OrderRepository orderRepository;
 
-    public OrderService(OrderRepository orderRepository) {
-        this.orderRepository = orderRepository;
-    }
 
     public Order create(Order order) {
         return orderRepository.save(order);
@@ -123,6 +134,8 @@ public class OrderService {
     }
 
 
+
+    //Anouar code
     public List<Order> search(String status, String startDateStr, String endDateStr) {
 
         // Define strict date format
@@ -160,6 +173,11 @@ public class OrderService {
             );
         }
     }
+
+
+
+
+    //claude code
     public OrderDetailsDTO getOrderDetails(Long orderId) {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
@@ -225,7 +243,7 @@ public class OrderService {
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(23, 59, 59);
 
-        List<Order> orders = orderRepository.findOrdersBetween(start, end);
+        List<Order> orders = orderRepository.findByOrderedAtBetweenOrderByOrderedAtDesc(start, end);
 
         long totalOrders = orders.size();
         long deliveredOrders = orders.stream().filter(o -> o.getStatus() == OrderStatus.DELIVERED).count();
@@ -286,8 +304,58 @@ public class OrderService {
     }
 
 
+
+//    @Transactional
+//    public Order confirmOrder(Long orderId, Long shippingAddressId) {
+//        // Find order with items
+//        Order order = orderRepository.findById(orderId)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
+//
+//        if (order.getStatus() != OrderStatus.PENDING) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending");
+//        }
+//
+//        // Check shipping address exists
+//        if (!orderRepository.existsShippingAddressById(shippingAddressId)) {
+//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipping address not found");
+//        }
+//
+//        double totalAmount = 0.0;
+//
+//        //Im using the virtual memory, this will work correct as long
+//        //as i update the virtual in memory when i save an orderItem
+//        for (OrderItem item : order.getOrderItems()) {
+//            // Use repository to check product existence and stock
+//            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
+//            if (product == null || product.isEmpty()) {
+//                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + item.getProductId());
+//            }
+//
+//            Integer stockQuantity = (Integer) product.get("stock_quantity");
+//            if (stockQuantity == null || stockQuantity < item.getQuantity()) {
+//                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient stock for product: " + item.getProductId());
+//            }
+//
+//            // Deduct stock via update query, check rows affected
+//            int updated = orderRepository.updateProductStock(item.getProductId(), (Integer)item.getQuantity());
+//            if (updated == 0) {
+//                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to deduct stock (insufficient) for product: " + item.getProductId());
+//            }
+//
+//            totalAmount += item.getQuantity() * item.getPriceAtPurchase();
+//        }
+//
+//        order.setShippingAddressId(shippingAddressId);
+//        order.setStatus(OrderStatus.CONFIRMED);
+//        order.setTotalAmount(totalAmount);
+//
+//        return orderRepository.save(order);
+//    }
+
+
+    @Transactional
     public Order confirmOrder(Long orderId, Long shippingAddressId) {
-        // Find order with items
+
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
 
@@ -295,31 +363,43 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not pending");
         }
 
-        // Check shipping address exists
         if (!orderRepository.existsShippingAddressById(shippingAddressId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipping address not found");
         }
 
         double totalAmount = 0.0;
 
-        //Im using the virtual memory, this will work correct as long
-        //as i update the virtual in memory when i save an orderItem
-        for (OrderItem item : order.getOrderItems()) {
-            // Use repository to check product existence and stock
+        // FORCE initialization safety
+        List<OrderItem> items = order.getOrderItems();
+
+        if (items == null || items.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order has no items");
+        }
+
+        for (OrderItem item : items) {
+
             Map<String, Object> product = orderRepository.findProductById(item.getProductId());
+
             if (product == null || product.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + item.getProductId());
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found: " + item.getProductId());
             }
 
             Integer stockQuantity = (Integer) product.get("stock_quantity");
+
             if (stockQuantity == null || stockQuantity < item.getQuantity()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Insufficient stock for product: " + item.getProductId());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Insufficient stock for product: " + item.getProductId());
             }
 
-            // Deduct stock via update query, check rows affected
-            int updated = orderRepository.updateProductStock(item.getProductId(), (Integer)item.getQuantity());
+            int updated = orderRepository.updateProductStock(
+                    item.getProductId(),
+                    item.getQuantity()
+            );
+
             if (updated == 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Failed to deduct stock (insufficient) for product: " + item.getProductId());
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Failed to deduct stock for product: " + item.getProductId());
             }
 
             totalAmount += item.getQuantity() * item.getPriceAtPurchase();
@@ -329,7 +409,17 @@ public class OrderService {
         order.setStatus(OrderStatus.CONFIRMED);
         order.setTotalAmount(totalAmount);
 
-        return orderRepository.save(order);
+        Order saved = orderRepository.save(order);
+
+        // 🔥 IMPORTANT: ensure items are returned properly ordered
+        saved.setOrderItems(
+                saved.getOrderItems()
+                        .stream()
+                        .sorted(Comparator.comparingInt(OrderItem::getItemOrder))
+                        .toList()
+        );
+
+        return saved;
     }
 }
 

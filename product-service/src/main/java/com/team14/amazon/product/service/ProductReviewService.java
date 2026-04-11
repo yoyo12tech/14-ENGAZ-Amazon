@@ -35,7 +35,15 @@ public class ProductReviewService {
         return reviewRepository.findById(id);
     }
 
+    public Optional<ProductReview> getReviewByProductAndId(Long productId, Long reviewId) {
+        return reviewRepository.findByIdAndProductId(reviewId, productId);
+    }
+
     public ProductReview createReview(ProductReview review) {
+
+        if (review.getVerified() == null) {
+            review.setVerified(false);
+        }
         return reviewRepository.save(review);
     }
 
@@ -64,7 +72,7 @@ public class ProductReviewService {
 
     // ─── S2-F7: Add Product Review with Rating Recalculation (Transactional) ────
     @Transactional
-    public Product addReviewWithRatingRecalculation(Long productId, ProductReview review) {
+    public ProductReview addReviewWithRatingRecalculation(Long productId, ProductReview review) {
 
         // 1. Find product — 404 if not found
         Product product = productRepository.findById(productId)
@@ -90,7 +98,10 @@ public class ProductReviewService {
 
         // 5. Create and save the review
         review.setProduct(product);
-        reviewRepository.save(review);
+        if (review.getVerified() == null) {
+            review.setVerified(false);
+        }
+        ProductReview savedReview = reviewRepository.saveAndFlush(review);
 
         // 6. Recalculate running average rating on product
         int newTotalRatings = product.getTotalRatings() + 1;
@@ -100,8 +111,9 @@ public class ProductReviewService {
         product.setTotalRatings(newTotalRatings);
         product.setRating(newRating);
 
-        // 7. Save updated product and return it
-        return productRepository.save(product);
+        // 7. Save updated product and return the created review payload
+        productRepository.save(product);
+        return savedReview;
     }
 
     // ─── S2-F8: Verify Product Review (Transactional + Relationship) ─────────────
@@ -109,8 +121,8 @@ public class ProductReviewService {
     @Transactional
     public Product verifyReview(Long productId, Long reviewId, VerifyReviewRequest request) {
 
-        // 1. Find product — 404 if not found
-        Product product = productRepository.findById(productId)
+        // 1. Ensure product exists — 404 if not found
+        productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException(
                         "Product not found with id: " + productId));
 
