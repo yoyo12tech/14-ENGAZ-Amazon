@@ -26,6 +26,7 @@ public class ProductReviewService {
         this.productRepository = productRepository;
     }
 
+
     public List<ProductReview> getAllReviews() {
         return reviewRepository.findAll();
     }
