@@ -3,6 +3,7 @@ package com.team14.amazon.order.repository;
 
 import java.util.Optional;
 import com.team14.amazon.order.model.Order;
+import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -30,6 +31,8 @@ import java.util.List;
 
 @Repository
 public interface OrderRepository extends JpaRepository<Order, Long> {
+
+
 
 
     @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
@@ -76,9 +79,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
 
-    @Query("SELECT o FROM Order o WHERE o.orderedAt BETWEEN :startDate AND :endDate")
-    List<Order> findOrdersBetween(@Param("startDate") LocalDateTime startDate,
-                                  @Param("endDate") LocalDateTime endDate);
+//    @Query("SELECT o FROM Order o WHERE o.orderedAt BETWEEN :startDate AND :endDate")
+//    List<Order> findOrdersBetween(@Param("startDate") LocalDateTime startDate,
+//                                  @Param("endDate") LocalDateTime endDate);
 
 
 
@@ -96,8 +99,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
     Double findProductPriceById(@Param("productId") Long productId);
 
-    @Query(value = "SELECT COUNT(*) > 0 FROM shipments WHERE id = :addressId", nativeQuery = true)
+
+    //old code
+    @Query(value = "SELECT COUNT(*) > 0 FROM shipping_addresses WHERE id = :addressId", nativeQuery = true)
     boolean existsShippingAddressById(@Param("addressId") Long addressId);
+
 
     @Query(value = "SELECT * FROM products WHERE id = :productId", nativeQuery = true)
     Map<String, Object> findProductById(@Param("productId") Long productId);

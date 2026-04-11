@@ -3,6 +3,7 @@ package com.team14.amazon.order.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -21,6 +22,7 @@ public class Order {
     private Long id;
 
     // Plain Long — userId lives in user-service, no JPA relationship
+
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
@@ -32,6 +34,7 @@ public class Order {
     @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;
 
+
     // Nullable — set when calculated
     @Column
     private Double totalAmount;
@@ -41,12 +44,20 @@ public class Order {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata = new HashMap<>();
 
+
+    @CreationTimestamp
     @Column(nullable = false)
     private LocalDateTime orderedAt;
 
     // Nullable — set when delivered
-    @Column
-    private LocalDateTime deliveredAt;
+    @Column(nullable = true)
+    private LocalDateTime deliveredAt =null;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+
 
     // Inverse side — Order does NOT own the FK
     // @JsonIgnore prevents infinite recursion (Lab 4 slide 25)
@@ -54,12 +65,24 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
 
+
     @PrePersist
-    protected void onCreate() {
-        if (this.orderedAt == null) {
-            this.orderedAt = LocalDateTime.now();
+    protected void prePersist() {
+//        if (this.createdAt == null) {
+//            this.createdAt = LocalDateTime.now();
+//        }
+        if(this.status == null) {
+            this.status = OrderStatus.PENDING;
         }
+
+        this.deliveredAt = null;
+
+//        if(this.orderedAt == null) {
+//            this.orderedAt = LocalDateTime.now();
+//        }
     }
+
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
