@@ -22,10 +22,10 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
-    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
-    public ResponseEntity<String> handleBadRequests(Exception e) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-    }
+//    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
+//    public ResponseEntity<String> handleBadRequests(Exception e) {
+//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+//    }
 
     @PostMapping
     public Transaction createTransaction(@RequestBody Transaction transaction){
@@ -62,7 +62,6 @@ public class TransactionController {
     public ResponseEntity<Transaction> processOrderTransaction(
             @PathVariable Long orderId,
             @RequestBody ProcessTransactionRequest request) {
-        // Tests expect a 201 Created status
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(transactionService.processOrderTransaction(orderId, request));
     }

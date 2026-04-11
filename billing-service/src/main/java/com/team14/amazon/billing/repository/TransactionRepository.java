@@ -38,4 +38,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("startDate") LocalDateTime startDate,
             @Param("endDate") LocalDateTime endDate
     );
+
+    @Query(value = "SELECT status FROM orders WHERE id = :orderId", nativeQuery = true)
+    String findOrderStatusByOrderId(@Param("orderId") Long orderId);
 }

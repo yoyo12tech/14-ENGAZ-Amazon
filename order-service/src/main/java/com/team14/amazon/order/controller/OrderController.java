@@ -159,7 +159,7 @@ public class OrderController {
             @RequestBody(required = false) DeliverRequest request) {
         String method = (request != null && request.getMethod() != null)
                 ? request.getMethod() : "CASH_ON_DELIVERY";
-        return ResponseEntity.ok(orderService.markAsDelivered(id, method));
+        return ResponseEntity.ok(orderService.markAsDelivered(id));
     }
 
 

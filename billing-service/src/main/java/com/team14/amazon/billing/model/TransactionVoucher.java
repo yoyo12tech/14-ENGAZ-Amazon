@@ -28,6 +28,11 @@ public class TransactionVoucher {
     @JoinColumn(name = "voucher_id", nullable = false)
     private Voucher voucher;
 
+    @PrePersist
+    protected void OnCreate(){
+        this.appliedAt = LocalDateTime.now();
+    }
+
     public Long getId() {
         return this.id;
     }
