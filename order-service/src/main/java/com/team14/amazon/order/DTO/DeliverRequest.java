@@ -1,4 +1,4 @@
-package com.team14.amazon.order.DTO;
+package com.team14.amazon.order.dto;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 

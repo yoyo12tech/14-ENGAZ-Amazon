@@ -1,11 +1,11 @@
 package com.team14.amazon.order.controller;
 
 
-import com.team14.amazon.order.DTO.OrderDetailsDTO;
-import com.team14.amazon.order.DTO.OrderItemRequestDTO;
-import com.team14.amazon.order.DTO.OrderAnalyticsDTO;
-import com.team14.amazon.order.DTO.DeliverRequest;
-import com.team14.amazon.order.DTO.OrderEstimateDTO;
+import com.team14.amazon.order.dto.OrderDetailsDTO;
+import com.team14.amazon.order.dto.OrderItemRequestDTO;
+import com.team14.amazon.order.dto.OrderAnalyticsDTO;
+import com.team14.amazon.order.dto.DeliverRequest;
+import com.team14.amazon.order.dto.OrderEstimateDTO;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.service.OrderItemService;

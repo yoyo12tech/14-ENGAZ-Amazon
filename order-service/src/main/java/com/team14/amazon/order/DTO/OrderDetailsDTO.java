@@ -1,4 +1,4 @@
-package com.team14.amazon.order.DTO;
+package com.team14.amazon.order.dto;
 import com.team14.amazon.order.model.OrderStatus;
 import java.util.List;
 import java.util.Map;
