@@ -49,6 +49,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     );
 
 
+
     // S2-F1: Search by optional category and price range, ordered by price ascending
     // JPQL — uses entity field names (Lab 4 slide 43-44)
     @Query("SELECT p FROM Product p WHERE " +
