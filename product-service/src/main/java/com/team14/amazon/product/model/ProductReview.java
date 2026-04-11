@@ -29,7 +29,7 @@ public class ProductReview {
     @Column(nullable = false)
     private String comment;
 
-    @Column
+    @Column(nullable = false, columnDefinition = "boolean default false")
     private Boolean verified = false;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -44,6 +44,13 @@ public class ProductReview {
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @PrePersist
+    void setDefaults() {
+        if (verified == null) {
+            verified = false;
+        }
+    }
 
     public Long getId() {
         return id;
