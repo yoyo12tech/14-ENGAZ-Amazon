@@ -125,15 +125,21 @@ public class ProductController {
     }
 
 
+    @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<List<Product>> handleTypeMismatch(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException ex) {
+        // Return 200 [] for invalid Enum parameters gracefully
+        return ResponseEntity.ok(java.util.Collections.emptyList());
+    }
+
     // S2-F1: Search products by category and price range
     @GetMapping("/search")
     public ResponseEntity<?> searchProducts(
-            @RequestParam(required = false) String category,
+            @RequestParam(required = false) com.team14.amazon.product.model.ProductCategory category,
             @RequestParam(required = false) Double minPrice,
             @RequestParam(required = false) Double maxPrice) {
         try {
             List<Product> results = productService.searchProducts(category, minPrice, maxPrice);
-            return ResponseEntity.ok(results);
+            return ResponseEntity.ok(results != null ? results : java.util.Collections.emptyList());
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
         }
@@ -156,13 +162,8 @@ public class ProductController {
             @PathVariable Long id,
             @RequestBody ProductReview review) {
         try {
-            reviewService.addReviewWithRatingRecalculation(id, review);
-
-            // Return the updated product so callers can assert rating/totalRatings after posting.
-            return productService.getProductById(id)
-                    .<ResponseEntity<?>>map(ResponseEntity::ok)
-                    .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
-                            .body("Product not found with id: " + id));
+            ProductReview savedReview = reviewService.addReviewWithRatingRecalculation(id, review);
+            return ResponseEntity.status(HttpStatus.CREATED).body(savedReview);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         } catch (IllegalArgumentException e) {

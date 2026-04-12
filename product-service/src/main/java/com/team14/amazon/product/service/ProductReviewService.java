@@ -40,9 +40,6 @@ public class ProductReviewService {
 
     public ProductReview createReview(ProductReview review) {
 
-        if (review.getVerified() == null) {
-            review.setVerified(false);
-        }
         return reviewRepository.save(review);
     }
 
@@ -77,10 +74,10 @@ public class ProductReviewService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
 
-        // 2. Verify user exists — 404 if not found
+        // 2. Verify user exists — 400 if not found
         boolean userExists = reviewRepository.existsUserById(review.getUserId());
         if (!userExists) {
-            throw new ResourceNotFoundException("User not found with id: " + review.getUserId());
+            throw new IllegalArgumentException("User not found with id: " + review.getUserId());
         }
 
         // 3. Verify user has a DELIVERED order containing this product — 400 if not
@@ -97,15 +94,12 @@ public class ProductReviewService {
 
         // 5. Create and save the review
         review.setProduct(product);
-        if (review.getVerified() == null) {
-            review.setVerified(false);
-        }
         ProductReview savedReview = reviewRepository.saveAndFlush(review);
 
         // 6. Recalculate running average rating on product
         int newTotalRatings = product.getTotalRatings() + 1;
         double newRating = ((product.getRating() * product.getTotalRatings()) + review.getRating())
-                / newTotalRatings;
+                / (double) newTotalRatings;
 
         product.setTotalRatings(newTotalRatings);
         product.setRating(newRating);

@@ -36,7 +36,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     FROM products p
     LEFT JOIN order_items oi ON oi.product_id = p.id
     LEFT JOIN orders o       ON o.id = oi.order_id
-                            AND o.status = 'DELIVERED'
+                            AND CAST(o.status AS text) = 'DELIVERED'
                             AND o.ordered_at >= CAST(:startDate AS timestamp)
                             AND o.ordered_at <  CAST(:endDate   AS timestamp)
     WHERE p.id = :productId
@@ -52,12 +52,12 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // S2-F1: Search by optional category and price range, ordered by price ascending
     // JPQL — uses entity field names (Lab 4 slide 43-44)
     @Query("SELECT p FROM Product p WHERE " +
-            "(:category IS NULL OR p.category = :category) AND " +
-            "(:minPrice IS NULL OR p.price >= :minPrice) AND " +
-            "(:maxPrice IS NULL OR p.price <= :maxPrice) " +
+            "(:#{#category == null} = true OR p.category = :category) AND " +
+            "(:#{#minPrice == null} = true OR p.price >= :minPrice) AND " +
+            "(:#{#maxPrice == null} = true OR p.price <= :maxPrice) " +
             "ORDER BY p.price ASC")
     List<Product> searchProducts(
-            @Param("category") String category,
+            @Param("category") com.team14.amazon.product.model.ProductCategory category,
             @Param("minPrice") Double minPrice,
             @Param("maxPrice") Double maxPrice
     );
@@ -65,7 +65,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     // S2-F9: Find ACTIVE products whose stockQuantity is at or below the threshold
     @Query(value = "SELECT * FROM products p " +
             "WHERE p.stock_quantity <= :threshold " +
-            "AND p.status = 'ACTIVE'::product_status",
+            "AND CAST(p.status AS text) = 'ACTIVE'",
             nativeQuery = true)
     List<Product> findActiveProductsWithStockAtOrBelow(@Param("threshold") int threshold);
 
@@ -74,7 +74,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE oi.product_id = :productId
-              AND o.status IN ('PENDING', 'CONFIRMED')
+              AND CAST(o.status AS text) IN ('PENDING', 'CONFIRMED')
             """, nativeQuery = true)
     boolean hasActiveOrders(@Param("productId") Long productId);
 
@@ -92,35 +92,34 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     @Query(value = """
             SELECT *
             FROM products p
-            WHERE jsonb_extract_path_text(p.specifications, CAST(:key AS text)) = :value
-              AND (CAST(:status AS text) IS NULL OR p.status::text = CAST(:status AS text))
+            WHERE p.specifications->>:key = :value
+              AND (:#{#status == null} = true OR CAST(p.status AS text) = :#{#status != null ? status.name() : 'NONE'})
             """, nativeQuery = true)
     List<Product> findBySpecification(
             @Param("key") String key,
             @Param("value") String value,
-            @Param("status") String status
+            @Param("status") ProductStatus status
     );
 
     @Query(value = """
             SELECT p.id,
                    p.name,
                    p.rating,
-                   COALESCE(SUM(CASE WHEN o.status = 'DELIVERED' THEN oi.quantity ELSE 0 END), 0) AS totalSales
+                   COALESCE(SUM(CASE WHEN CAST(o.status AS text) = 'DELIVERED' THEN oi.quantity ELSE 0 END), 0) AS totalSales
             FROM products p
             LEFT JOIN order_items oi ON oi.product_id = p.id
             LEFT JOIN orders o ON o.id = oi.order_id
             GROUP BY p.id, p.name, p.rating
-            ORDER BY p.rating DESC, totalSales DESC, p.id ASC
-            LIMIT :limit
+            ORDER BY p.rating DESC
             """, nativeQuery = true)
-    List<Object[]> findTopRatedProducts(@Param("limit") int limit);
+    List<Object[]> findTopRatedProducts(org.springframework.data.domain.Pageable pageable);
 
     @Query(value = """
             SELECT COALESCE(SUM(oi.quantity), 0)
             FROM order_items oi
             JOIN orders o ON o.id = oi.order_id
             WHERE oi.product_id = :productId
-              AND o.status = 'DELIVERED'
+              AND CAST(o.status AS text) = 'DELIVERED'
               AND o.ordered_at >= :since
             """, nativeQuery = true)
     long countRecentDeliveredSales(

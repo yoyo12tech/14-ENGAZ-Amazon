@@ -143,7 +143,7 @@ public class ProductService {
     }
     // S2-F1: Search products by optional category and price range
     // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
-    public List<Product> searchProducts(String category, Double minPrice, Double maxPrice) {
+    public List<Product> searchProducts(com.team14.amazon.product.model.ProductCategory category, Double minPrice, Double maxPrice) {
         if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
             throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
         }
@@ -151,13 +151,12 @@ public class ProductService {
     }
 
     public List<Product> searchBySpecification(String key, String value, ProductStatus status) {
-        String statusValue = status != null ? status.name() : null;
-        return productRepository.findBySpecification(key, value, statusValue);
+        return productRepository.findBySpecification(key, value, status);
     }
 
     public List<TopProductDTO> getTopRatedProducts(int limit) {
         int normalizedLimit = limit > 0 ? limit : 10;
-        List<Object[]> rows = productRepository.findTopRatedProducts(normalizedLimit);
+        List<Object[]> rows = productRepository.findTopRatedProducts(org.springframework.data.domain.PageRequest.of(0, normalizedLimit));
 
         List<TopProductDTO> result = new ArrayList<>();
         for (Object[] row : rows) {

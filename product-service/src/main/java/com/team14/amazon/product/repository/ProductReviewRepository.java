@@ -29,7 +29,7 @@ public interface ProductReviewRepository extends JpaRepository<ProductReview, Lo
             JOIN order_items oi ON oi.order_id = o.id
             WHERE o.user_id   = :userId
               AND oi.product_id = :productId
-              AND o.status      = 'DELIVERED'
+              AND CAST(o.status AS text) = 'DELIVERED'
             """, nativeQuery = true)
     boolean userHasDeliveredOrderForProduct(
             @Param("userId") Long userId,
