@@ -30,7 +30,7 @@ public class ProductReview {
     private String comment;
 
     @Column(nullable = false, columnDefinition = "boolean default false")
-    private Boolean verified = false;
+    private boolean verified = false;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -47,9 +47,6 @@ public class ProductReview {
 
     @PrePersist
     void setDefaults() {
-        if (verified == null) {
-            verified = false;
-        }
     }
 
     public Long getId() {
@@ -92,11 +89,11 @@ public class ProductReview {
         this.comment = comment;
     }
 
-    public Boolean getVerified() {
+    public boolean getVerified() {
         return verified;
     }
 
-    public void setVerified(Boolean verified) {
+    public void setVerified(boolean verified) {
         this.verified = verified;
     }
 

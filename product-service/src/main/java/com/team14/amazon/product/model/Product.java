@@ -27,8 +27,10 @@ public class Product {
     @Column(nullable = false)
     private Double price;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false)
-    private String category;
+    private ProductCategory category;
 
     @Column(nullable = false)
     private String brand;
@@ -99,11 +101,11 @@ public class Product {
         this.price = price;
     }
 
-    public String getCategory() {
+    public ProductCategory getCategory() {
         return category;
     }
 
-    public void setCategory(String category) {
+    public void setCategory(ProductCategory category) {
         this.category = category;
     }
 
