@@ -53,7 +53,7 @@ public class Order {
     @Column(nullable = true)
     private LocalDateTime deliveredAt =null;
 
-    @CreationTimestamp
+   // @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -67,10 +67,8 @@ public class Order {
 
 
     @PrePersist
-    protected void prePersist() {
-//        if (this.createdAt == null) {
-//            this.createdAt = LocalDateTime.now();
-//        }
+    protected void onCreate() {
+            this.createdAt = LocalDateTime.now();
         if(this.status == null) {
             this.status = OrderStatus.PENDING;
         }

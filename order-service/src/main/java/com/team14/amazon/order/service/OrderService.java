@@ -272,7 +272,7 @@ public class OrderService {
 
 
     @Transactional
-    public Order markAsDelivered(Long id, String method) {
+    public Order markAsDelivered(Long id) {
         Order order = orderRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + id));
 
@@ -297,7 +297,7 @@ public class OrderService {
                 amount,
                 "PENDING",
                 now,
-                method // dynamic from body takes "CREDIT_CARD|CASH_ON_DELIVERY|WALLET", in the body of the postman req
+                "CASH_ON_DELIVERY" // dynamic from body takes "CREDIT_CARD|CASH_ON_DELIVERY|WALLET", in the body of the postman req
         );
 
         return orderRepository.save(order);

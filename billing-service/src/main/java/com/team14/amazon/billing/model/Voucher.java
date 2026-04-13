@@ -31,13 +31,13 @@ public class Voucher {
     private Integer maxUses;
 
     @Column(nullable = false)
-    private Integer currentUses = 0;
+    private Integer currentUses;
 
     @Column(nullable = false)
     private LocalDateTime expiryDate;
 
     @Column(nullable = false)
-    private Boolean active = true;
+    private Boolean active;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -49,12 +49,8 @@ public class Voucher {
 
     @PrePersist
     protected void onCreate() {
-        if (this.active == null) {
-            this.active = true;
-        }
-        if (this.currentUses == null) {
-            this.currentUses = 0;
-        }
+        this.active = true;
+        this.currentUses = 0;
     }
 
     public Long getId() {

@@ -177,20 +177,34 @@ public class TransactionService {
             return matches;
         }).toList();
     }
+    @Transactional
     public Transaction processOrderTransaction(Long orderId, ProcessTransactionRequest request) {
-        Transaction existing = transactionRepository.findByOrderId(orderId);
-
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No transaction found for order: " + orderId);
+        // 1. Verify order exists → 404 if not
+        String orderStatus = transactionRepository.findOrderStatusByOrderId(orderId);
+        if (orderStatus == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "Order not found: " + orderId);
         }
+
+        // 2. Verify order is DELIVERED → 400 if not
+        if (!orderStatus.equalsIgnoreCase("DELIVERED")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only DELIVERED orders can be processed");
+        }
+
+        // 3. Find the transaction created at delivery time
+        Transaction existing = transactionRepository.findByOrderId(orderId);
+        if (existing == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No transaction found for order: " + orderId);
+        }
+
+        // 4. Check already paid → 400
         if (existing.getStatus() == Status.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "already paid");
         }
-        if (existing.getStatus() != Status.PENDING) {
-            // If the test expects 400 for PENDING, throw it here
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only DELIVERED orders can be processed");
-        }
 
+        // 5. Process
         existing.setMethod(request.getMethod());
         existing.setStatus(Status.COMPLETED);
 
