@@ -22,6 +22,104 @@ services:
       timeout: 5s
       retries: 5
 
+  mongo:
+    image: mongo:latest
+    container_name: amazon-mongo
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpass
+      MONGO_INITDB_DATABASE: amazonmongo
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD", "mongosh", "--eval", "db.adminCommand('ping')" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:latest
+    container_name: amazon-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --requirepass redispass --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-a", "redispass", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: elasticsearch:8.19.12
+    container_name: amazon-elasticsearch
+    ports:
+      - "9200:9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - es-data:/usr/share/elasticsearch/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  neo4j:
+    image: neo4j:latest
+    container_name: amazon-neo4j
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/neo4jpass
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD", "neo4j", "status" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  cassandra:
+    image: cassandra:latest
+    container_name: amazon-cassandra
+    ports:
+      - "9042:9042"
+    environment:
+      CASSANDRA_CLUSTER_NAME: amazoncluster
+      CASSANDRA_DC: datacenter1
+      CASSANDRA_KEYSPACE: amazonks
+      MAX_HEAP_SIZE: 512M
+      HEAP_NEWSIZE: 128M
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
+
+
   # User Service
   user-service:
     build:
@@ -38,6 +136,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
         - amazon-network
     restart: unless-stopped
@@ -59,6 +161,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -79,6 +187,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      neo4j:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -99,6 +213,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      cassandra:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -119,12 +239,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
 volumes:
   pgdata:
     name: pgdata
+  mongo-data:
+  es-data:
+  neo4j-data:
+  cassandra-data:
 networks:
     amazon-network:
         name: amazon-network
