@@ -1,19 +1,29 @@
 spring:
+  application:
+    name: user-service
+
   datasource:
     url: jdbc:postgresql://postgres:5432/amazondb
     username: postgres
     password: postgres
+
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: true
+
   data:
     mongodb:
       uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      auto-index-creation: false
+
     redis:
       host: redis
       port: 6379
       password: redispass
+
+  cache:
+    type: redis
 
 jwt:
   secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
@@ -21,3 +31,11 @@ jwt:
 
 server:
   port: 8080
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    defaults:
+      enabled: false
