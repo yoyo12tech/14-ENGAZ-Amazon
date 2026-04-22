@@ -25,6 +25,7 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @JsonIgnore
     @Column(nullable = false)
     private String password;
 
@@ -34,7 +35,7 @@ public class User {
     
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "role", nullable = false)
-    private Role role;
+    private Role role = Role.CUSTOMER;
 
 
     public enum Role {
