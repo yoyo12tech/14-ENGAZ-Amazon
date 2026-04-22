@@ -26,7 +26,7 @@ spring:
       password: redispass
 
   cassandra:
-    contact-points: cassandra
+    contact-points: localhost
     port: 9042
     local-datacenter: datacenter1
     keyspace-name: amazonks
