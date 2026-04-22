@@ -217,7 +217,7 @@ services:
       redis:
         condition: service_started
       cassandra:
-        condition: service_started
+        condition: service_healthy
     networks:
       - amazon-network
     restart: unless-stopped
