@@ -134,6 +134,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -154,6 +158,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      elasticsearch:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -174,6 +184,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
+      neo4j:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
@@ -220,6 +236,10 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      mongo:
+        condition: service_started
+      redis:
+        condition: service_started
     networks:
       - amazon-network
     restart: unless-stopped
