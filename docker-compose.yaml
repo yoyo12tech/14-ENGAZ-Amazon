@@ -97,7 +97,7 @@ services:
       start_period: 30s
 
   cassandra:
-    image: cassandra:4.1
+    image: cassandra:latest
     container_name: amazon-cassandra
     ports:
       - "9042:9042"
