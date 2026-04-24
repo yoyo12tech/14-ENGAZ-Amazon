@@ -3,6 +3,8 @@ package com.team14.amazon.user.service;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.UserRepository;
 import com.team14.amazon.user.repository.ShippingAddressRepository;
+import com.team14.amazon.user.security.JwtService;
+import com.team14.amazon.user.observer.EntityObserver;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -30,10 +32,16 @@ public class PasswordHashingTest {
     @Mock
     private PasswordEncoder passwordEncoder;
 
+    @Mock
+    private JwtService jwtService;
+
+    @Mock
+    private EntityObserver mongoEventLogger;
+
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
-        userService = new UserService(userRepository, shippingAddressRepository, passwordEncoder);
+        userService = new UserService(userRepository, shippingAddressRepository, passwordEncoder, jwtService, mongoEventLogger);
     }
 
     @Test
