@@ -20,17 +20,19 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import com.team14.amazon.user.dto.TopBuyerDTO;
 import com.team14.amazon.user.dto.UserOrderSummaryDTO;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final ShippingAddressRepository shippingAddressRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    // Updated constructor to inject the ShippingAddressRepository
     public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<User> getAllUsers() {
@@ -53,6 +55,9 @@ public class UserService {
         // Default role on registration: CUSTOMER
         user.setRole(User.Role.CUSTOMER);
 
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+
         return userRepository.save(user);
     }
 
@@ -61,6 +66,7 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
         user.setRole(role);
+
         return userRepository.save(user);
     }
 
