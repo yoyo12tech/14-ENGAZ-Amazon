@@ -1,27 +1,24 @@
 package com.team14.amazon.user.service;
 
-import com.team14.amazon.user.dto.UserProfileDTO;
+import com.team14.amazon.user.dto.*;
 import com.team14.amazon.user.model.ShippingAddress;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.repository.ShippingAddressRepository;
 import com.team14.amazon.user.repository.UserRepository;
+import com.team14.amazon.user.observer.EntityObserver;
+import com.team14.amazon.user.security.JwtService;
+import jakarta.annotation.PostConstruct;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
-import com.team14.amazon.user.dto.TopBuyerDTO;
-import com.team14.amazon.user.dto.UserOrderSummaryDTO;
-import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 public class UserService {
@@ -29,12 +26,83 @@ public class UserService {
     private final UserRepository userRepository;
     private final ShippingAddressRepository shippingAddressRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtService jwtService;
+    private final EntityObserver mongoEventLogger;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
-    // Updated constructor to inject the PasswordEncoder
-    public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, 
+                       ShippingAddressRepository shippingAddressRepository, 
+                       PasswordEncoder passwordEncoder,
+                       JwtService jwtService,
+                       EntityObserver mongoEventLogger) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jwtService = jwtService;
+        this.mongoEventLogger = mongoEventLogger;
+    }
+
+    @PostConstruct
+    public void init() {
+        register(mongoEventLogger);
+    }
+
+    public void register(EntityObserver observer) {
+        observers.add(observer);
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    public void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
+    }
+
+    @Transactional
+    public AuthResponseDTO registerUser(RegisterRequestDTO request) {
+        // a) Validate blank fields
+        if (isBlank(request.getName()) || isBlank(request.getEmail()) || 
+            isBlank(request.getPassword()) || isBlank(request.getPhone())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All fields are required and cannot be blank");
+        }
+
+        // b) Check unique email/phone
+        if (userRepository.findByEmail(request.getEmail()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
+        }
+        if (userRepository.findByPhone(request.getPhone()).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone is already registered");
+        }
+
+        // c, d) Create user with BCrypt password, CUSTOMER role, and ACTIVE status
+        User user = new User();
+        user.setName(request.getName());
+        user.setEmail(request.getEmail());
+        user.setPhone(request.getPhone());
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setRole(User.Role.CUSTOMER);
+        user.setStatus(User.Status.ACTIVE);
+
+        user = userRepository.save(user);
+
+        // e) Log REGISTERED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", user.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("email", user.getEmail()));
+        notifyObservers("REGISTERED", eventPayload);
+
+        // f) Generate token
+        String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
+        
+        return new AuthResponseDTO(token, jwtService.getExpirationMs());
+    }
+
+    private boolean isBlank(String str) {
+        return str == null || str.trim().isEmpty();
     }
 
     public List<User> getAllUsers() {
