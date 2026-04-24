@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,8 +29,7 @@ public class UserService {
     private final ShippingAddressRepository shippingAddressRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // Updated constructor to inject the PasswordEncoder
-    public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
@@ -54,8 +52,20 @@ public class UserService {
             throw new IllegalArgumentException("Phone number is already in use.");
         }
 
-        // Hash the password before saving
+        // Default role on registration: CUSTOMER
+        user.setRole(User.Role.CUSTOMER);
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
+
+
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateUserRole(Long id, User.Role role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setRole(role);
 
         return userRepository.save(user);
     }
@@ -82,8 +92,7 @@ public class UserService {
             existingUser.setPreferences(updatedUser.getPreferences());
 
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
-                // Hash the new password before saving
-                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
+                existingUser.setPassword(updatedUser.getPassword());
             }
 
             return userRepository.save(existingUser);
