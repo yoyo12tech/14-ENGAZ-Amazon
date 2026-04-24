@@ -21,17 +21,20 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import com.team14.amazon.user.dto.TopBuyerDTO;
 import com.team14.amazon.user.dto.UserOrderSummaryDTO;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final ShippingAddressRepository shippingAddressRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    // Updated constructor to inject the ShippingAddressRepository
-    public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository) {
+    // Updated constructor to inject the PasswordEncoder
+    public UserService(UserRepository userRepository, ShippingAddressRepository shippingAddressRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     public List<User> getAllUsers() {
@@ -50,6 +53,9 @@ public class UserService {
         if (userRepository.findByPhone(user.getPhone()).isPresent()) {
             throw new IllegalArgumentException("Phone number is already in use.");
         }
+
+        // Hash the password before saving
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         return userRepository.save(user);
     }
@@ -76,7 +82,8 @@ public class UserService {
             existingUser.setPreferences(updatedUser.getPreferences());
 
             if (updatedUser.getPassword() != null && !updatedUser.getPassword().trim().isEmpty()) {
-                existingUser.setPassword(updatedUser.getPassword());
+                // Hash the new password before saving
+                existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
             }
 
             return userRepository.save(existingUser);
