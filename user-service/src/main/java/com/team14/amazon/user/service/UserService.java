@@ -9,7 +9,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -51,6 +50,17 @@ public class UserService {
             throw new IllegalArgumentException("Phone number is already in use.");
         }
 
+        // Default role on registration: CUSTOMER
+        user.setRole(User.Role.CUSTOMER);
+
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User updateUserRole(Long id, User.Role role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setRole(role);
         return userRepository.save(user);
     }
 

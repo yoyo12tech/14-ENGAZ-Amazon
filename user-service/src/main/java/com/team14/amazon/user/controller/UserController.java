@@ -154,4 +154,19 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
         }
     }
-}
+
+    @PutMapping("/{id}/role")
+    public ResponseEntity<User> updateRole(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        String roleStr = body.get("role");
+        if (roleStr == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            User.Role role = User.Role.valueOf(roleStr.toUpperCase());
+            User updatedUser = userService.updateUserRole(id, role);
+            return ResponseEntity.ok(updatedUser);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+    }
