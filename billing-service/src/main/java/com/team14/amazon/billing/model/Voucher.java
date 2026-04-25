@@ -21,7 +21,7 @@ public class Voucher {
     private String code;
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "discount_type", nullable = false, columnDefinition = "voucher_disound_type")
+    @Column(name = "discount_type", nullable = false)
     private DiscountType discountType;
 
     @Column(nullable = false)
