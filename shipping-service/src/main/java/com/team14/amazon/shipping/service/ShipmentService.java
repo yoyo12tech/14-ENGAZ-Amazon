@@ -11,6 +11,8 @@ import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import com.team14.amazon.shipping.observer.EntityObserver;
+import java.util.ArrayList;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
@@ -23,6 +25,7 @@ import java.util.stream.Collectors;
 public class ShipmentService {
 
     private final ShipmentRepository shipmentRepository;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
     public ShipmentService(ShipmentRepository shipmentRepository) {
         this.shipmentRepository = shipmentRepository;
@@ -47,8 +50,10 @@ public class ShipmentService {
             if (shipment.getStatus() == null) {
                 shipment.setStatus(Shipment.Status.PROCESSING);
             }
-            
-            return shipmentRepository.save(shipment);
+
+        Shipment saved = shipmentRepository.save(shipment);
+        notifyObservers("SHIPMENT_CREATED", saved);
+        return saved;
     }
     public Optional<Shipment> updateShipment(Long id, Shipment updatedShipment) {
         return shipmentRepository.findById(id).map(existingShipment -> {
@@ -62,8 +67,24 @@ public class ShipmentService {
             existingShipment.setMetadata(updatedShipment.getMetadata());
             existingShipment.setLastUpdate(LocalDateTime.now());
 
-            return shipmentRepository.save(existingShipment);
+            Shipment saved = shipmentRepository.save(existingShipment);
+            notifyObservers("SHIPMENT_UPDATED", saved);
+            return saved;
         });
+    }
+
+    public void register(EntityObserver observer) {
+        observers.add(observer);
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    private void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
     }
 
     @Transactional
@@ -75,6 +96,7 @@ public class ShipmentService {
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
+            notifyObservers("SHIPMENT_DELETED", id);
             return true;
         }
         return false;
@@ -123,7 +145,9 @@ public class ShipmentService {
         shipment.setStatus(Shipment.Status.PROCESSING);
         shipment.setLastUpdate(LocalDateTime.now());
 
-        return shipmentRepository.save(shipment);
+        Shipment saved = shipmentRepository.save(shipment);
+        notifyObservers("SHIPMENT_CREATED", saved);
+        return saved;
   
      }
     public Shipment getLatestShipmentForOrder(Long orderId){
@@ -168,8 +192,10 @@ public class ShipmentService {
         }
 
         shipmentRepository.saveAll(toSave);
+        notifyObservers("SHIPMENT_BATCH_UPDATED", toSave);
         return toSave.size();
-    }    public List<Shipment> filterByMetadata(String key, String operator, String value) {
+    }
+    public List<Shipment> filterByMetadata(String key, String operator, String value) {
         return switch (operator) {
             case "eq" -> shipmentRepository.findByMetadataEq(key, value);
             case "gt" -> {
