@@ -31,8 +31,8 @@ public class UserService {
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
 
-    public UserService(UserRepository userRepository,
-                       ShippingAddressRepository shippingAddressRepository,
+    public UserService(UserRepository userRepository, 
+                       ShippingAddressRepository shippingAddressRepository, 
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        EntityObserver mongoEventLogger) {
@@ -98,7 +98,32 @@ public class UserService {
 
         // f) Generate token
         String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
+        
+        return new AuthResponseDTO(token, jwtService.getExpirationMs());
+    }
 
+    @Transactional
+    public AuthResponseDTO loginUser(LoginRequestDTO request) {
+        // a) Find user by email — intentionally 401 (not 404) to prevent account enumeration
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+
+        // b) Verify password against stored BCrypt hash — 401 if mismatch
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+
+        // c) Log LOGGED_IN event to MongoDB via Observer
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", user.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("email", user.getEmail()));
+        notifyObservers("LOGGED_IN", eventPayload);
+
+        // d) Generate token with sub=email, uid=id, role=role
+        String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
+
+        // e) Return token + expiration with 200
         return new AuthResponseDTO(token, jwtService.getExpirationMs());
     }
 
@@ -232,7 +257,8 @@ public class UserService {
         return userRepository.findAll().stream()
                 .filter(user -> user.getPreferences() != null && value.equals(user.getPreferences().get(key)))
                 .toList();
-}
+    }
+
     public void deactivateUser(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));

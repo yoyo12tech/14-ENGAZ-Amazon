@@ -1,6 +1,7 @@
 package com.team14.amazon.user.controller;
 
 import com.team14.amazon.user.dto.AuthResponseDTO;
+import com.team14.amazon.user.dto.LoginRequestDTO;
 import com.team14.amazon.user.dto.RegisterRequestDTO;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
@@ -20,5 +21,11 @@ public class AuthController {
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponseDTO register(@jakarta.validation.Valid @RequestBody RegisterRequestDTO request) {
         return userService.registerUser(request);
+    }
+
+    @PostMapping("/login")
+    @ResponseStatus(HttpStatus.OK)
+    public AuthResponseDTO login(@jakarta.validation.Valid @RequestBody LoginRequestDTO request) {
+        return userService.loginUser(request);
     }
 }
