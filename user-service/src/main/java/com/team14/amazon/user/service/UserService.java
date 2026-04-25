@@ -29,23 +29,27 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EntityObserver mongoEventLogger;
+    private final EntityObserver redisCacheObserver;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public UserService(UserRepository userRepository, 
                        ShippingAddressRepository shippingAddressRepository, 
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       EntityObserver mongoEventLogger) {
+                       EntityObserver mongoEventLogger,
+                       EntityObserver redisCacheObserver) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.mongoEventLogger = mongoEventLogger;
+        this.redisCacheObserver = redisCacheObserver;
     }
 
     @PostConstruct
     public void init() {
         register(mongoEventLogger);
+        register(redisCacheObserver);
     }
 
     public void register(EntityObserver observer) {
