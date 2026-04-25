@@ -29,12 +29,12 @@ public class Transaction {
 
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "method", nullable = false)
+    @Column(name = "method", nullable = false, columnDefinition = "transaction_method DEFAULT 'CASH_ON_DELIVERY'")
     private Method method;
 
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, columnDefinition = "transaction_status DEFAULT 'PENDING'")
     private Status status = Status.PENDING;
 
     @JdbcTypeCode(SqlTypes.JSON)
