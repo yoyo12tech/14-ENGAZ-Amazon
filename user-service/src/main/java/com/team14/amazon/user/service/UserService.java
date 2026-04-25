@@ -31,23 +31,27 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EntityObserver mongoEventLogger;
+    private final EntityObserver redisCacheObserver;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public UserService(UserRepository userRepository, 
                        ShippingAddressRepository shippingAddressRepository, 
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       EntityObserver mongoEventLogger) {
+                       EntityObserver mongoEventLogger,
+                       EntityObserver redisCacheObserver) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.mongoEventLogger = mongoEventLogger;
+        this.redisCacheObserver = redisCacheObserver;
     }
 
     @PostConstruct
     public void init() {
         register(mongoEventLogger);
+        register(redisCacheObserver);
     }
 
     public void register(EntityObserver observer) {
@@ -162,9 +166,19 @@ public class UserService {
     public User updateUserRole(Long id, UserRole role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User.Role oldRole = user.getRole();
         user.setRole(role);
 
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+
+        // Log ROLE_CHANGED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", updatedUser.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("oldRole", oldRole, "newRole", role));
+        notifyObservers("ROLE_CHANGED", eventPayload);
+
+        return updatedUser;
     }
 
 
@@ -350,15 +364,15 @@ public class UserService {
 
         avgOrderValue = Math.round(avgOrderValue * 100.0) / 100.0;
 
-        return new UserOrderSummaryDTO(
-                user.getId(),
-                user.getName(),
-                totalOrders,
-                completedOrders,
-                cancelledOrders,
-                totalSpent,
-                avgOrderValue
-        );
+        return UserOrderSummaryDTO.builder()
+                .userId(user.getId())
+                .name(user.getName())
+                .totalOrders(totalOrders)
+                .completedOrders(completedOrders)
+                .cancelledOrders(cancelledOrders)
+                .totalSpent(totalSpent)
+                .averageOrderValue(avgOrderValue)
+                .build();
     }
 
     public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {
