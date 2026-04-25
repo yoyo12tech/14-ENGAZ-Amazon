@@ -29,13 +29,12 @@ public class Transaction {
 
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "method", nullable = false, columnDefinition = "transaction_method DEFAULT 'CASH_ON_DELIVERY'")
-    private Method method;
-
+    @Column(name = "method", nullable = false)
+    private TransactionMethod method;
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "transaction_status DEFAULT 'PENDING'")
-    private Status status = Status.PENDING;
+    @Column(name = "status", nullable = false)
+    private TransactionStatus status = TransactionStatus.PENDING;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -70,11 +69,11 @@ public class Transaction {
         return this.amount;
     }
 
-    public Method getMethod() {
+    public TransactionMethod getMethod() {
         return this.method;
     }
 
-    public Status getStatus(){
+    public TransactionStatus getStatus(){
         return this.status;
     }
 
@@ -105,11 +104,11 @@ public class Transaction {
         this.amount = amount;
     }
 
-    public void setMethod(Method method) {
+    public void setMethod(TransactionMethod method) {
         this.method = method;
     }
 
-    public void setStatus(Status status) {
+    public void setStatus(TransactionStatus status) {
         this.status = status;
     }
 

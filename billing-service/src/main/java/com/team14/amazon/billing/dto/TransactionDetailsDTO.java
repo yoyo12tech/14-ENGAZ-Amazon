@@ -1,7 +1,7 @@
 package com.team14.amazon.billing.dto;
 
-import com.team14.amazon.billing.model.Method;
-import com.team14.amazon.billing.model.Status;
+import com.team14.amazon.billing.model.TransactionMethod;
+import com.team14.amazon.billing.model.TransactionStatus;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -12,8 +12,8 @@ public class TransactionDetailsDTO {
     private Long orderId;
     private Long userId;
     private Double originalAmount;
-    private Method method;
-    private Status status;
+    private TransactionMethod method;
+    private TransactionStatus status;
     private LocalDateTime createdAt;
     private Map<String, Object> transactionDetails;
     private List<AppliedVoucherDetail> appliedVouchers;
@@ -21,7 +21,7 @@ public class TransactionDetailsDTO {
     private Double finalAmount;
 
     public TransactionDetailsDTO(Long transactionId, Long orderId, Long userId,
-                                  Double originalAmount, Method method, Status status,
+                                  Double originalAmount, TransactionMethod method, TransactionStatus status,
                                   LocalDateTime createdAt, Map<String, Object> transactionDetails,
                                   List<AppliedVoucherDetail> appliedVouchers,
                                   Double totalDiscount, Double finalAmount) {
@@ -42,8 +42,8 @@ public class TransactionDetailsDTO {
     public Long getOrderId() { return orderId; }
     public Long getUserId() { return userId; }
     public Double getOriginalAmount() { return originalAmount; }
-    public Method getMethod() { return method; }
-    public Status getStatus() { return status; }
+    public TransactionMethod getMethod() { return method; }
+    public TransactionStatus getStatus() { return status; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public Map<String, Object> getTransactionDetails() { return transactionDetails; }
     public List<AppliedVoucherDetail> getAppliedVouchers() { return appliedVouchers; }
