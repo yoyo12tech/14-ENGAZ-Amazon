@@ -153,16 +153,35 @@ public class UserService {
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
-        return userRepository.save(user);
+        User createdUser = userRepository.save(user);
+
+        // Log USER_CREATED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", createdUser.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("email", createdUser.getEmail()));
+        notifyObservers("USER_CREATED", eventPayload);
+
+        return createdUser;
     }
 
     @Transactional
     public User updateUserRole(Long id, User.Role role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User.Role oldRole = user.getRole();
         user.setRole(role);
 
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+
+        // Log ROLE_CHANGED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", updatedUser.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("oldRole", oldRole, "newRole", role));
+        notifyObservers("ROLE_CHANGED", eventPayload);
+
+        return updatedUser;
     }
 
 
@@ -192,16 +211,32 @@ public class UserService {
                 existingUser.setPassword(passwordEncoder.encode(updatedUser.getPassword()));
             }
 
-            return userRepository.save(existingUser);
+            User savedUser = userRepository.save(existingUser);
+
+            // Log USER_UPDATED event
+            Map<String, Object> eventPayload = new HashMap<>();
+            eventPayload.put("userId", savedUser.getId());
+            eventPayload.put("timestamp", LocalDateTime.now());
+            eventPayload.put("details", Map.of("email", savedUser.getEmail()));
+            notifyObservers("USER_UPDATED", eventPayload);
+
+            return savedUser;
         });
     }
 
     public boolean deleteUser(Long id) {
-        if (userRepository.existsById(id)) {
-            userRepository.deleteById(id);
+        return userRepository.findById(id).map(user -> {
+            userRepository.delete(user);
+            
+            // Log USER_DELETED event
+            Map<String, Object> eventPayload = new HashMap<>();
+            eventPayload.put("userId", id);
+            eventPayload.put("timestamp", LocalDateTime.now());
+            eventPayload.put("details", Map.of("email", user.getEmail()));
+            notifyObservers("USER_DELETED", eventPayload);
+            
             return true;
-        }
-        return false;
+        }).orElse(false);
     }
 
     public List<User> searchUsers(String name, String email, String role) {
@@ -270,6 +305,13 @@ public class UserService {
 
         user.setStatus(User.Status.DEACTIVATED);
         userRepository.save(user);
+
+        // Log USER_DEACTIVATED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", id);
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("email", user.getEmail()));
+        notifyObservers("USER_DEACTIVATED", eventPayload);
     }
 
     public UserProfileDTO getUserProfile(Long userId) {
@@ -319,7 +361,16 @@ public class UserService {
         targetAddress.setDefault(true);
 
         // 6. Save and return the updated user
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // Log DEFAULT_ADDRESS_SET event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", userId);
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("addressId", addressId));
+        notifyObservers("DEFAULT_ADDRESS_SET", eventPayload);
+
+        return savedUser;
     }
 
     public List<User> findUsersByLanguageAndMinOrders(String lang, Integer minOrders) {
@@ -376,6 +427,15 @@ public class UserService {
 
         user.setPreferences(existingPreferences);
 
-        return userRepository.save(user);
-    }
-}
+        User savedUser = userRepository.save(user);
+
+        // Log USER_UPDATED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", id);
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("email", savedUser.getEmail()));
+        notifyObservers("USER_UPDATED", eventPayload);
+
+        return savedUser;
+        }
+        }
