@@ -4,24 +4,28 @@ import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
 @Document(collection = "shipment_events")
 public class ShipmentEvent {
 
     @Id
     private String id;
-    private String eventType;
-    private Object payload;
+    private Long shipmentId;
+    private String action;
     private LocalDateTime timestamp;
+    private Map<String, Object> details;
 
-    public ShipmentEvent(String eventType, Object payload) {
-        this.eventType = eventType;
-        this.payload = payload;
+    public ShipmentEvent(Long shipmentId, String action, Map<String, Object> details) {
+        this.shipmentId = shipmentId;
+        this.action = action;
+        this.details = details;
         this.timestamp = LocalDateTime.now();
     }
 
     public String getId() { return id; }
-    public String getEventType() { return eventType; }
-    public Object getPayload() { return payload; }
+    public Long getShipmentId() { return shipmentId; }
+    public String getAction() { return action; }
     public LocalDateTime getTimestamp() { return timestamp; }
+    public Map<String, Object> getDetails() { return details; }
 }

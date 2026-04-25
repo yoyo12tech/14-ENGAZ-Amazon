@@ -6,6 +6,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.stereotype.Component;
 
+import java.util.Map;
+
 @Component
 public class MongoEventLogger implements EntityObserver {
 
@@ -17,9 +19,9 @@ public class MongoEventLogger implements EntityObserver {
     }
 
     @Override
-    public void onEvent(String eventType, Object payload) {
+    public void onEvent(String action, Long shipmentId, Map<String, Object> details) {
         try {
-            ShipmentEvent event = new ShipmentEvent(eventType, payload);
+            ShipmentEvent event = new ShipmentEvent(shipmentId, action, details);
             mongoTemplate.save(event);
         } catch (Exception e) {
             log.warn("Failed to log shipment event to MongoDB: {}", e.getMessage());

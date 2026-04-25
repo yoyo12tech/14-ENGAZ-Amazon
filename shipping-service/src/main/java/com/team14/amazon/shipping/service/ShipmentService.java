@@ -12,13 +12,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.observer.EntityObserver;
-import java.util.ArrayList;
+
+import java.util.*;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,7 +50,11 @@ public class ShipmentService {
             }
 
         Shipment saved = shipmentRepository.save(shipment);
-        notifyObservers("SHIPMENT_CREATED", saved);
+        notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
+                "orderId", saved.getOrderId(),
+                "carrier", saved.getCarrier(),
+                "status", saved.getStatus().name()
+        ));
         return saved;
     }
     public Optional<Shipment> updateShipment(Long id, Shipment updatedShipment) {
@@ -68,7 +70,11 @@ public class ShipmentService {
             existingShipment.setLastUpdate(LocalDateTime.now());
 
             Shipment saved = shipmentRepository.save(existingShipment);
-            notifyObservers("SHIPMENT_UPDATED", saved);
+            notifyObservers("SHIPMENT_UPDATED", saved.getId(), Map.of(
+                    "orderId", saved.getOrderId(),
+                    "carrier", saved.getCarrier(),
+                    "status", saved.getStatus().name()
+            ));
             return saved;
         });
     }
@@ -81,9 +87,9 @@ public class ShipmentService {
         observers.remove(observer);
     }
 
-    private void notifyObservers(String eventType, Object payload) {
+    private void notifyObservers(String action, Long shipmentId, Map<String, Object> details) {
         for (EntityObserver observer : observers) {
-            observer.onEvent(eventType, payload);
+            observer.onEvent(action, shipmentId, details);
         }
     }
 
@@ -96,7 +102,7 @@ public class ShipmentService {
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
-            notifyObservers("SHIPMENT_DELETED", id);
+            notifyObservers("SHIPMENT_DELETED", id, Map.of());
             return true;
         }
         return false;
@@ -146,7 +152,11 @@ public class ShipmentService {
         shipment.setLastUpdate(LocalDateTime.now());
 
         Shipment saved = shipmentRepository.save(shipment);
-        notifyObservers("SHIPMENT_CREATED", saved);
+        notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
+                "orderId", saved.getOrderId(),
+                "carrier", saved.getCarrier(),
+                "status", saved.getStatus().name()
+        ));
         return saved;
   
      }
@@ -192,7 +202,9 @@ public class ShipmentService {
         }
 
         shipmentRepository.saveAll(toSave);
-        notifyObservers("SHIPMENT_BATCH_UPDATED", toSave);
+        notifyObservers("BATCH_STATUS_UPDATED", null, Map.of(
+                "updatedCount", toSave.size()
+        ));
         return toSave.size();
     }
     public List<Shipment> filterByMetadata(String key, String operator, String value) {
