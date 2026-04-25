@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,8 +31,8 @@ public class UserService {
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
 
-    public UserService(UserRepository userRepository,
-                       ShippingAddressRepository shippingAddressRepository,
+    public UserService(UserRepository userRepository, 
+                       ShippingAddressRepository shippingAddressRepository, 
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        EntityObserver mongoEventLogger) {
@@ -65,7 +66,7 @@ public class UserService {
     public AuthResponseDTO registerUser(RegisterRequestDTO request) {
         // a) Validate blank fields
         if (isBlank(request.getName()) || isBlank(request.getEmail()) ||
-                isBlank(request.getPassword()) || isBlank(request.getPhone())) {
+            isBlank(request.getPassword()) || isBlank(request.getPhone())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All fields are required and cannot be blank");
         }
 
@@ -97,7 +98,7 @@ public class UserService {
 
         // f) Generate token
         String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
-
+        
         return new AuthResponseDTO(token, jwtService.getExpirationMs());
     }
 
@@ -147,11 +148,23 @@ public class UserService {
             throw new IllegalArgumentException("Phone number is already in use.");
         }
 
-        // Hash the password before saving
+        // Default role on registration: CUSTOMER
+        user.setRole(User.Role.CUSTOMER);
+
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
         return userRepository.save(user);
     }
+
+    @Transactional
+    public User updateUserRole(Long id, User.Role role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        user.setRole(role);
+
+        return userRepository.save(user);
+    }
+
 
     public Optional<User> updateUser(Long id, User updatedUser) {
         return userRepository.findById(id).map(existingUser -> {
