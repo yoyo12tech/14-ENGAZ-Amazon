@@ -1,8 +1,8 @@
 package com.team14.amazon.billing.service;
 
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
-import com.team14.amazon.billing.model.Method;
-import com.team14.amazon.billing.model.Status;
+import com.team14.amazon.billing.model.TransactionMethod;
+import com.team14.amazon.billing.model.TransactionStatus;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
@@ -73,11 +73,11 @@ public class TransactionService {
         return transactionRepository.findByUserId(id);
     }
 
-    public List<Transaction> findByMethod(Method method){
+    public List<Transaction> findByMethod(TransactionMethod method){
         return transactionRepository.findByMethod(method);
     }
 
-    public List<Transaction> findByStatus(Status status){
+    public List<Transaction> findByStatus(TransactionStatus status){
         return transactionRepository.findByStatus(status);
     }
 
@@ -103,10 +103,10 @@ public class TransactionService {
         long refundCount = 0;
 
         for (Transaction t : transactions) {
-            if (t.getStatus() == Status.COMPLETED) {
+            if (t.getStatus() == TransactionStatus.COMPLETED) {
                 totalRevenue += t.getAmount();
                 totalTransactions++;
-            } else if (t.getStatus() == Status.REFUNDED) {
+            } else if (t.getStatus() == TransactionStatus.REFUNDED) {
                 refundedAmount += t.getAmount();
                 refundCount++;
             }
@@ -125,7 +125,7 @@ public class TransactionService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId, Status.COMPLETED);
+        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId, TransactionStatus.COMPLETED);
 
         long totalTransactions = 0;
         double totalAmount = 0.0;
@@ -200,13 +200,13 @@ public class TransactionService {
         }
 
         // 4. Check already paid → 400
-        if (existing.getStatus() == Status.COMPLETED) {
+        if (existing.getStatus() == TransactionStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "already paid");
         }
 
         // 5. Process
         existing.setMethod(request.getMethod());
-        existing.setStatus(Status.COMPLETED);
+        existing.setStatus(TransactionStatus.COMPLETED);
 
         Map<String, Object> details = new HashMap<>();
         if (existing.getTransactionDetails() != null) {
@@ -224,11 +224,11 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
-        if (transaction.getStatus() != Status.COMPLETED) {
+        if (transaction.getStatus() != TransactionStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only COMPLETED transactions are eligible for a refund.");
         }
 
-        transaction.setStatus(Status.REFUNDED);
+        transaction.setStatus(TransactionStatus.REFUNDED);
 
         Map<String, Object> details = new HashMap<>();
         if (transaction.getTransactionDetails() != null) {
@@ -246,7 +246,7 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction with id: " + transactionId + " was not found"));
 
         //transaction status
-        if (transaction.getStatus() != Status.PENDING) {
+        if (transaction.getStatus() != TransactionStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "cannot apply voucher to a completed/cancelled transaction");
         }
@@ -303,11 +303,11 @@ public class TransactionService {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
 
-        if (transaction.getStatus() != Status.FAILED) {
+        if (transaction.getStatus() != TransactionStatus.FAILED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only FAILED transactions can be retried"); // Was incorrectly set to NOT_FOUND
         }
 
-        transaction.setStatus(Status.COMPLETED);
+        transaction.setStatus(TransactionStatus.COMPLETED);
 
         Map<String, Object> details = new HashMap<>();
         if (transaction.getTransactionDetails() != null) {
