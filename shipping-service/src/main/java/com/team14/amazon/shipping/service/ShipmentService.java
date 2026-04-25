@@ -88,15 +88,25 @@ public class ShipmentService {
                     Double distance = Math.sqrt(
                             Math.pow(s.getLatitude() - lat, 2) + Math.pow(s.getLongitude() - lon, 2)
                     ) * 111;
-                    return new NearbyShipmentDTO(
-                            s.getId(),
-                            s.getOrderId(),
-                            s.getCarrier(),
-                            s.getTrackingNumber(),
-                            s.getLatitude(),
-                            s.getLongitude(),
-                            distance
-                    );
+//                    return new NearbyShipmentDTO(
+//                            s.getId(),
+//                            s.getOrderId(),
+//                            s.getCarrier(),
+//                            s.getTrackingNumber(),
+//                            s.getLatitude(),
+//                            s.getLongitude(),
+//                            distance
+//                    );
+                    return NearbyShipmentDTO
+                            .builder()
+                            .shipmentId(s.getId())
+                            .orderId(s.getOrderId())
+                            .carrier(s.getCarrier())
+                            .trackingNumber(s.getTrackingNumber())
+                            .latitude(s.getLatitude())
+                            .longitude(s.getLongitude())
+                            .distanceKm(distance)
+                            .build();
 
                 })
                 .filter(dto -> dto.getDistanceKm() <= radiusKm)
