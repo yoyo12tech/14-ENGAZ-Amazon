@@ -32,18 +32,18 @@ public class User {
     @Column(nullable = false, unique = true)
     private String phone;
 
-    
+
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "role", nullable = false)
-    private Role role;
+    @Column(name = "role", nullable = false, columnDefinition = "user_role DEFAULT 'CUSTOMER'")
+    private Role role = Role.CUSTOMER;
 
 
     public enum Role {
         CUSTOMER, ADMIN
     }
-    
+
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, columnDefinition = "user_status DEFAULT 'ACTIVE'")
     private Status status = Status.ACTIVE;
     public enum Status {
         ACTIVE, DEACTIVATED
@@ -91,4 +91,3 @@ public class User {
     public List<ShippingAddress> getShippingAddresses() { return shippingAddresses; }
     public void setShippingAddresses(List<ShippingAddress> shippingAddresses) { this.shippingAddresses = shippingAddresses; }
 }
-
