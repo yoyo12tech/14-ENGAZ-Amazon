@@ -362,15 +362,15 @@ public class UserService {
 
         avgOrderValue = Math.round(avgOrderValue * 100.0) / 100.0;
 
-        return new UserOrderSummaryDTO(
-                user.getId(),
-                user.getName(),
-                totalOrders,
-                completedOrders,
-                cancelledOrders,
-                totalSpent,
-                avgOrderValue
-        );
+        return UserOrderSummaryDTO.builder()
+                .userId(user.getId())
+                .name(user.getName())
+                .totalOrders(totalOrders)
+                .completedOrders(completedOrders)
+                .cancelledOrders(cancelledOrders)
+                .totalSpent(totalSpent)
+                .averageOrderValue(avgOrderValue)
+                .build();
     }
 
     public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {
