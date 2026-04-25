@@ -160,9 +160,19 @@ public class UserService {
     public User updateUserRole(Long id, User.Role role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        User.Role oldRole = user.getRole();
         user.setRole(role);
 
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+
+        // Log ROLE_CHANGED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", updatedUser.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("oldRole", oldRole, "newRole", role));
+        notifyObservers("ROLE_CHANGED", eventPayload);
+
+        return updatedUser;
     }
 
 
