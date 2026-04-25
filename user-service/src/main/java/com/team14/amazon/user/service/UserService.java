@@ -15,7 +15,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -166,7 +165,7 @@ public class UserService {
     public User updateUserRole(Long id, UserRole role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
-        User.Role oldRole = user.getRole();
+        UserRole oldRole = user.getRole();
         user.setRole(role);
 
         User updatedUser = userRepository.save(user);
