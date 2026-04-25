@@ -3,7 +3,7 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/amazondb   # Changed: 'postgres' -> 'localhost' (IntelliJ runs outside Docker)
+    url: jdbc:postgresql://postgres:5432/amazondb
     username: postgres
     password: postgres
 
@@ -16,15 +16,16 @@ spring:
         format_sql: true
 
   data:
+    mongodb:
+      uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+
     redis:
-      host: localhost   # Changed: 'redis' -> 'localhost'
+      host: redis
       port: 6379
       password: redispass
 
   cache:
     type: redis
-  mongodb:
-    uri: mongodb://root:rootpass@localhost:27017/amazonmongo?authSource=admin
 
 jwt:
   secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
