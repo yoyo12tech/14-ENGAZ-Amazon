@@ -18,8 +18,9 @@ import java.util.Optional;
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
     Optional<Shipment> findByTrackingNumber(String trackingNumber);
     List<Shipment> findByOrderId(Long orderId);
-    @Query(value = "SELECT * FROM shipments WHERE CAST(status AS TEXT) = :status", nativeQuery = true)
-    List<Shipment> findByStatusNative(@Param("status") String status);
+//    @Query(value = "SELECT * FROM shipments WHERE CAST(status AS TEXT) = :status", nativeQuery = true)
+@Query(value = "SELECT * FROM shipments WHERE status::text = :status", nativeQuery = true)
+List<Shipment> findByStatusNative(@Param("status") String status);
 
     @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId", nativeQuery = true)
     boolean existsOrderById(@Param("orderId") Long orderId);

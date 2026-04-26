@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
 import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
 import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
 import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
@@ -11,18 +12,19 @@ import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import com.team14.amazon.shipping.observer.EntityObserver;
+
+import java.util.*;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 public class ShipmentService {
 
     private final ShipmentRepository shipmentRepository;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
     public ShipmentService(ShipmentRepository shipmentRepository) {
         this.shipmentRepository = shipmentRepository;
@@ -47,8 +49,14 @@ public class ShipmentService {
             if (shipment.getStatus() == null) {
                 shipment.setStatus(Shipment.Status.PROCESSING);
             }
-            
-            return shipmentRepository.save(shipment);
+
+        Shipment saved = shipmentRepository.save(shipment);
+        notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
+                "orderId", saved.getOrderId(),
+                "carrier", saved.getCarrier(),
+                "status", saved.getStatus().name()
+        ));
+        return saved;
     }
     public Optional<Shipment> updateShipment(Long id, Shipment updatedShipment) {
         return shipmentRepository.findById(id).map(existingShipment -> {
@@ -62,8 +70,28 @@ public class ShipmentService {
             existingShipment.setMetadata(updatedShipment.getMetadata());
             existingShipment.setLastUpdate(LocalDateTime.now());
 
-            return shipmentRepository.save(existingShipment);
+            Shipment saved = shipmentRepository.save(existingShipment);
+            notifyObservers("SHIPMENT_UPDATED", saved.getId(), Map.of(
+                    "orderId", saved.getOrderId(),
+                    "carrier", saved.getCarrier(),
+                    "status", saved.getStatus().name()
+            ));
+            return saved;
         });
+    }
+
+    public void register(EntityObserver observer) {
+        observers.add(observer);
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    private void notifyObservers(String action, Long shipmentId, Map<String, Object> details) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(action, shipmentId, details);
+        }
     }
 
     @Transactional
@@ -75,6 +103,7 @@ public class ShipmentService {
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
+            notifyObservers("SHIPMENT_DELETED", id, Map.of());
             return true;
         }
         return false;
@@ -123,7 +152,13 @@ public class ShipmentService {
         shipment.setStatus(Shipment.Status.PROCESSING);
         shipment.setLastUpdate(LocalDateTime.now());
 
-        return shipmentRepository.save(shipment);
+        Shipment saved = shipmentRepository.save(shipment);
+        notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
+                "orderId", saved.getOrderId(),
+                "carrier", saved.getCarrier(),
+                "status", saved.getStatus().name()
+        ));
+        return saved;
   
      }
     public Shipment getLatestShipmentForOrder(Long orderId){
@@ -168,8 +203,12 @@ public class ShipmentService {
         }
 
         shipmentRepository.saveAll(toSave);
+        notifyObservers("BATCH_STATUS_UPDATED", null, Map.of(
+                "updatedCount", toSave.size()
+        ));
         return toSave.size();
-    }    public List<Shipment> filterByMetadata(String key, String operator, String value) {
+    }
+    public List<Shipment> filterByMetadata(String key, String operator, String value) {
         return switch (operator) {
             case "eq" -> shipmentRepository.findByMetadataEq(key, value);
             case "gt" -> {
@@ -226,27 +265,30 @@ public class ShipmentService {
 //                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0, // averageDeliveryDays
 //                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0  // onTimeRate
 //        );
-        return CarrierSummaryDTO.builder()
-                .carrier(row[0] != null ? row[0].toString() : carrier)
-                .totalShipments(row[1] != null ? ((Number) row[1]).longValue() : 0L)
-                .deliveredCount(row[2] != null ? ((Number) row[2]).longValue() : 0L)
-                .averageDeliveryDays(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
-                .onTimeRate(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0)
-                .build();
-
+//        return CarrierSummaryDTO.builder()
+//                .carrier(row[0] != null ? row[0].toString() : carrier)
+//                .totalShipments(row[1] != null ? ((Number) row[1]).longValue() : 0L)
+//                .deliveredCount(row[2] != null ? ((Number) row[2]).longValue() : 0L)
+//                .averageDeliveryDays(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
+//                .onTimeRate(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0)
+//                .build();
+        return ObjectArrayDtoAdapter.adaptToCarrierSummaryDTO(row, carrier);
     }
 
     public List<DelayedShipmentDTO> getDelayedShipments(Integer maxAttempts) {
+//        return shipmentRepository.findDelayedShipments(maxAttempts).stream()
+//                .map(row -> DelayedShipmentDTO.builder()
+//                        .shipmentId(((Number) row[0]).longValue())
+//                        .orderId(((Number) row[1]).longValue())
+//                        .carrier((String) row[2])
+//                        .trackingNumber((String) row[3])
+//                        .estimatedDelivery((LocalDateTime) row[4])
+//                        .daysOverdue(((Number) row[5]).longValue())
+//                        .deliveryAttempts((Integer) row[6])
+//                        .build()
+//                ).toList();
         return shipmentRepository.findDelayedShipments(maxAttempts).stream()
-                .map(row -> DelayedShipmentDTO.builder()
-                        .shipmentId(((Number) row[0]).longValue())
-                        .orderId(((Number) row[1]).longValue())
-                        .carrier((String) row[2])
-                        .trackingNumber((String) row[3])
-                        .estimatedDelivery((LocalDateTime) row[4])
-                        .daysOverdue(((Number) row[5]).longValue())
-                        .deliveryAttempts((Integer) row[6])
-                        .build()
-                ).toList();
+                .map(ObjectArrayDtoAdapter::adaptToDelayedShipmentDTO)
+                .toList();
     }
 }
