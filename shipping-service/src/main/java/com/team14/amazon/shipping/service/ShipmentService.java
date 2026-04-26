@@ -88,15 +88,25 @@ public class ShipmentService {
                     Double distance = Math.sqrt(
                             Math.pow(s.getLatitude() - lat, 2) + Math.pow(s.getLongitude() - lon, 2)
                     ) * 111;
-                    return new NearbyShipmentDTO(
-                            s.getId(),
-                            s.getOrderId(),
-                            s.getCarrier(),
-                            s.getTrackingNumber(),
-                            s.getLatitude(),
-                            s.getLongitude(),
-                            distance
-                    );
+//                    return new NearbyShipmentDTO(
+//                            s.getId(),
+//                            s.getOrderId(),
+//                            s.getCarrier(),
+//                            s.getTrackingNumber(),
+//                            s.getLatitude(),
+//                            s.getLongitude(),
+//                            distance
+//                    );
+                    return NearbyShipmentDTO
+                            .builder()
+                            .shipmentId(s.getId())
+                            .orderId(s.getOrderId())
+                            .carrier(s.getCarrier())
+                            .trackingNumber(s.getTrackingNumber())
+                            .latitude(s.getLatitude())
+                            .longitude(s.getLongitude())
+                            .distanceKm(distance)
+                            .build();
 
                 })
                 .filter(dto -> dto.getDistanceKm() <= radiusKm)
@@ -195,31 +205,48 @@ public class ShipmentService {
 
         // If list is empty, the carrier had no shipments in this range
         if (results == null || results.isEmpty()) {
-            return new CarrierSummaryDTO(carrier, 0L, 0L, 0.0, 0.0);
+            //return new CarrierSummaryDTO(carrier, 0L, 0L, 0.0, 0.0);
+            return CarrierSummaryDTO.builder()
+                    .carrier(carrier)
+                    .totalShipments(0L)
+                    .deliveredCount(0L)
+                    .averageDeliveryDays(0.0)
+                    .onTimeRate(0.0)
+                    .build();
+
         }
 
         // Since we grouped by carrier, there is only one row in the list
         Object[] row = results.getFirst();
 
-        return new CarrierSummaryDTO(
-                row[0] != null ? row[0].toString() : carrier, // carrier name
-                row[1] != null ? ((Number) row[1]).longValue() : 0L, // totalShipments
-                row[2] != null ? ((Number) row[2]).longValue() : 0L, // deliveredCount
-                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0, // averageDeliveryDays
-                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0  // onTimeRate
-        );
+//        return new CarrierSummaryDTO(
+//                row[0] != null ? row[0].toString() : carrier, // carrier name
+//                row[1] != null ? ((Number) row[1]).longValue() : 0L, // totalShipments
+//                row[2] != null ? ((Number) row[2]).longValue() : 0L, // deliveredCount
+//                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0, // averageDeliveryDays
+//                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0  // onTimeRate
+//        );
+        return CarrierSummaryDTO.builder()
+                .carrier(row[0] != null ? row[0].toString() : carrier)
+                .totalShipments(row[1] != null ? ((Number) row[1]).longValue() : 0L)
+                .deliveredCount(row[2] != null ? ((Number) row[2]).longValue() : 0L)
+                .averageDeliveryDays(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
+                .onTimeRate(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0)
+                .build();
+
     }
 
     public List<DelayedShipmentDTO> getDelayedShipments(Integer maxAttempts) {
         return shipmentRepository.findDelayedShipments(maxAttempts).stream()
-                .map(row -> new DelayedShipmentDTO(
-                        ((Number) row[0]).longValue(),
-                        ((Number) row[1]).longValue(),
-                        (String) row[2],
-                        (String) row[3],
-                        (java.time.LocalDateTime) row[4],
-                        ((Number) row[5]).longValue(),
-                        (Integer) row[6]
-                )).toList();
+                .map(row -> DelayedShipmentDTO.builder()
+                        .shipmentId(((Number) row[0]).longValue())
+                        .orderId(((Number) row[1]).longValue())
+                        .carrier((String) row[2])
+                        .trackingNumber((String) row[3])
+                        .estimatedDelivery((LocalDateTime) row[4])
+                        .daysOverdue(((Number) row[5]).longValue())
+                        .deliveryAttempts((Integer) row[6])
+                        .build()
+                ).toList();
     }
 }
