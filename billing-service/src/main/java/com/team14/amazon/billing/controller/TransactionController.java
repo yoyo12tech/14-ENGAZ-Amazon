@@ -1,10 +1,8 @@
 package com.team14.amazon.billing.controller;
 
-
 import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.service.TransactionService;
-
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -18,7 +16,7 @@ import java.util.List;
 public class TransactionController {
     private final TransactionService transactionService;
 
-    public TransactionController(TransactionService transactionService){
+    public TransactionController(TransactionService transactionService) {
         this.transactionService = transactionService;
     }
 
@@ -28,17 +26,17 @@ public class TransactionController {
 //    }
 
     @PostMapping
-    public Transaction createTransaction(@RequestBody Transaction transaction){
+    public Transaction createTransaction(@RequestBody Transaction transaction) {
         return transactionService.createTransaction(transaction);
     }
 
     @GetMapping("/{id}")
-    public Transaction getTransactionById(@PathVariable Long id){
+    public Transaction getTransactionById(@PathVariable Long id) {
         return transactionService.findTransactionById(id);
     }
 
     @GetMapping
-    public List<Transaction> getAllTransactions(){
+    public List<Transaction> getAllTransactions() {
         return transactionService.findAllTransactions();
     }
 
@@ -47,7 +45,6 @@ public class TransactionController {
         transaction.setId(id); // Ensure the ID matches the path
         return transactionService.updateTransaction(transaction);
     }
-
 
     @PutMapping("/{id}/refund")
     public ResponseEntity<Transaction> processRefund(
@@ -61,9 +58,10 @@ public class TransactionController {
     @PostMapping("/order/{orderId}")
     public ResponseEntity<Transaction> processOrderTransaction(
             @PathVariable Long orderId,
+            @RequestParam(name = "simulateFailure", defaultValue = "false") boolean simulateFailure,
             @RequestBody ProcessTransactionRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(transactionService.processOrderTransaction(orderId, request));
+                .body(transactionService.processOrderTransaction(orderId, request, simulateFailure));
     }
 
     @PutMapping("/{id}/retry")
@@ -89,13 +87,10 @@ public class TransactionController {
         return transactionService.getUserTransactionSummary(userId);
     }
 
-//    @GetMapping
     @GetMapping("/{transactionId}/details")
     public ResponseEntity<TransactionDetailsDTO> getTransactionDetails(@PathVariable Long transactionId) {
         return ResponseEntity.ok(transactionService.getTransactionDetails(transactionId));
     }
-//
-//    @GetMapping
 
     @GetMapping("/reports/revenue")
     public RevenueReportDTO getRevenueReport(@RequestParam String startDate, @RequestParam String endDate) {

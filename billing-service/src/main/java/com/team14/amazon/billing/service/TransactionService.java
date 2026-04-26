@@ -1,15 +1,14 @@
 package com.team14.amazon.billing.service;
 
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
-import com.team14.amazon.billing.model.TransactionMethod;
-import com.team14.amazon.billing.model.TransactionStatus;
-import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.model.*;
+import com.team14.amazon.billing.observer.EntityObserver;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -19,13 +18,14 @@ import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.NoSuchElementException;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
+
 import com.team14.amazon.billing.dto.AppliedVoucherDetail;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 
@@ -34,50 +34,105 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final VoucherRepository voucherRepository;
     private final TransactionVoucherRepository transactionVoucherRepository;
+    private final List<EntityObserver> observers;
 
-    public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository, TransactionVoucherRepository transactionVoucherRepository) {
+    public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
+            TransactionVoucherRepository transactionVoucherRepository,
+            List<EntityObserver> observers) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
+        this.observers = new ArrayList<>(observers);
     }
 
-    public Transaction createTransaction(Transaction transaction){
-        return transactionRepository.save(transaction);
+    public void register(EntityObserver observer) {
+        if (observer != null && !observers.contains(observer)) {
+            observers.add(observer);
+        }
     }
 
-    public Transaction findTransactionById(Long id){
-        return transactionRepository.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
     }
 
-    public List<Transaction> findAllTransactions(){
+    private void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
+    }
+
+    private Map<String, Object> auditPayload(Long transactionId, String method, Double amount,
+            Map<String, Object> details) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("transactionId", transactionId);
+        payload.put("method", method);
+        payload.put("amount", amount);
+        payload.put("details", details);
+        return payload;
+    }
+
+    public Transaction createTransaction(Transaction transaction) {
+        Transaction saved = transactionRepository.save(transaction);
+
+        Map<String, Object> details = new HashMap<>();
+        details.put("source", "CRUD_API");
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+
+        notifyObservers("SYSTEM_CREATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+
+        return saved;
+    }
+
+    public Transaction findTransactionById(Long id) {
+        return transactionRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
+    }
+
+    public List<Transaction> findAllTransactions() {
         return transactionRepository.findAll();
     }
 
     public Transaction updateTransaction(Transaction transaction) {
-        // Check if it exists to throw an error if missing, then save the NEW data
         if (!transactionRepository.existsById(transaction.getId())) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found");
         }
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+
+        Map<String, Object> details = new HashMap<>();
+        details.put("source", "CRUD_API");
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+
+        notifyObservers("SYSTEM_UPDATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+
+        return saved;
     }
 
-    public void deleteTransaction(Long id){
+    public void deleteTransaction(Long id) {
+        Transaction existing = transactionRepository.findById(id).orElse(null);
         transactionRepository.deleteById(id);
+
+        if (existing != null) {
+            Map<String, Object> details = new HashMap<>();
+            details.put("source", "CRUD_API");
+            String methodName = existing.getMethod() != null ? existing.getMethod().name() : null;
+
+            notifyObservers("SYSTEM_DELETE", auditPayload(id, methodName, existing.getAmount(), details));
+        }
     }
 
-    public Transaction findByOrderId(Long id){
+    public Transaction findByOrderId(Long id) {
         return transactionRepository.findByOrderId(id);
     }
 
-    public Transaction findByUserId(Long id){
+    public Transaction findByUserId(Long id) {
         return transactionRepository.findByUserId(id);
     }
 
-    public List<Transaction> findByMethod(TransactionMethod method){
+    public List<Transaction> findByMethod(TransactionMethod method) {
         return transactionRepository.findByMethod(method);
     }
 
-    public List<Transaction> findByStatus(TransactionStatus status){
+    public List<Transaction> findByStatus(TransactionStatus status) {
         return transactionRepository.findByStatus(status);
     }
 
@@ -125,7 +180,8 @@ public class TransactionService {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId, TransactionStatus.COMPLETED);
+        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId,
+                TransactionStatus.COMPLETED);
 
         long totalTransactions = 0;
         double totalAmount = 0.0;
@@ -146,8 +202,8 @@ public class TransactionService {
 
     public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
         List<Transaction> transactions = transactionRepository.findAll(
-                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC, "createdAt")
-        );
+                org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
+                        "createdAt"));
 
         return transactions.stream().filter(t -> {
             boolean matches = true;
@@ -177,35 +233,62 @@ public class TransactionService {
             return matches;
         }).toList();
     }
+
     @Transactional
-    public Transaction processOrderTransaction(Long orderId, ProcessTransactionRequest request) {
-        // 1. Verify order exists → 404 if not
+    public Transaction processOrderTransaction(Long orderId, ProcessTransactionRequest request,
+            boolean simulateFailure) {
         String orderStatus = transactionRepository.findOrderStatusByOrderId(orderId);
         if (orderStatus == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Order not found: " + orderId);
         }
 
-        // 2. Verify order is DELIVERED → 400 if not
         if (!orderStatus.equalsIgnoreCase("DELIVERED")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Only DELIVERED orders can be processed");
         }
 
-        // 3. Find the transaction created at delivery time
         Transaction existing = transactionRepository.findByOrderId(orderId);
         if (existing == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "No transaction found for order: " + orderId);
         }
 
-        // 4. Check already paid → 400
         if (existing.getStatus() == TransactionStatus.COMPLETED) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "already paid");
         }
 
-        // 5. Process
-        existing.setMethod(request.getMethod());
+        TransactionMethod effectiveMethod = existing.getMethod();
+        if (request.getMethod() != null) {
+            effectiveMethod = request.getMethod();
+        }
+
+        if (!simulateFailure) {
+            Map<String, Object> createdEventDetails = new HashMap<>();
+            createdEventDetails.put("orderId", orderId);
+            String methodName = effectiveMethod != null ? effectiveMethod.name() : null;
+            notifyObservers("CREATED",
+                    auditPayload(existing.getId(), methodName, existing.getAmount(), createdEventDetails));
+        }
+
+        existing.setMethod(effectiveMethod);
+        if (simulateFailure) {
+            existing.setStatus(TransactionStatus.FAILED);
+            Map<String, Object> details = new HashMap<>();
+            if (existing.getTransactionDetails() != null) {
+                details.putAll(existing.getTransactionDetails());
+            }
+            details.put("simulateFailure", true);
+            existing.setTransactionDetails(details);
+            Transaction saved = transactionRepository.save(existing);
+            Map<String, Object> failedDetails = new HashMap<>();
+            failedDetails.put("orderId", orderId);
+            failedDetails.put("reason", "SIMULATED_FAILURE");
+            String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+            notifyObservers("FAILED", auditPayload(saved.getId(), methodName, saved.getAmount(), failedDetails));
+            return saved;
+        }
+
         existing.setStatus(TransactionStatus.COMPLETED);
 
         Map<String, Object> details = new HashMap<>();
@@ -218,14 +301,22 @@ public class TransactionService {
         }
         existing.setTransactionDetails(details);
 
-        return transactionRepository.save(existing);
+        Transaction saved = transactionRepository.save(existing);
+        Map<String, Object> completedDetails = new HashMap<>();
+        completedDetails.put("orderId", orderId);
+        completedDetails.put("gatewayResponse", "approved");
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+        notifyObservers("COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), completedDetails));
+        return saved;
     }
+
     public Transaction processRefund(Long transactionId, String reason) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
         if (transaction.getStatus() != TransactionStatus.COMPLETED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only COMPLETED transactions are eligible for a refund.");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Only COMPLETED transactions are eligible for a refund.");
         }
 
         transaction.setStatus(TransactionStatus.REFUNDED);
@@ -238,73 +329,80 @@ public class TransactionService {
         details.put("refundedAt", LocalDateTime.now().toString());
         transaction.setTransactionDetails(details);
 
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        Map<String, Object> refundDetails = new HashMap<>();
+        refundDetails.put("refundReason", reason);
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+        notifyObservers("REFUNDED", auditPayload(saved.getId(), methodName, saved.getAmount(), refundDetails));
+        return saved;
     }
+
     @Transactional
     public Transaction applyVoucher(Long transactionId, Long voucherId) {
-        //Find transaction
-        Transaction transaction = transactionRepository.findById(transactionId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction with id: " + transactionId + " was not found"));
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Transaction with id: " + transactionId + " was not found"));
 
-        //transaction status
         if (transaction.getStatus() != TransactionStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "cannot apply voucher to a completed/cancelled transaction");
         }
-        //Find voucher
-        Voucher voucher = voucherRepository.findById(voucherId).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                "Voucher with id: " + voucherId + " was not found"));
+        Voucher voucher = voucherRepository.findById(voucherId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Voucher with id: " + voucherId + " was not found"));
 
         int currentUses = voucher.getCurrentUses() != null ? voucher.getCurrentUses() : 0;
         int maxUses = voucher.getMaxUses() != null ? voucher.getMaxUses() : Integer.MAX_VALUE;
         double txAmount = transaction.getAmount() != null ? transaction.getAmount() : 0.0;
         double discValue = voucher.getDiscountValue() != null ? voucher.getDiscountValue() : 0.0;
-        //check voucher usability
         if (!voucher.getActive()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher is inactive");
         }
         if (voucher.getExpiryDate().isBefore(LocalDateTime.now())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher has expired");
         }
-        if (voucher.getCurrentUses() >= voucher.getMaxUses()) {
+        if (currentUses >= maxUses) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Voucher usage limit reached");
         }
 
-        //check for dups
         if (transactionVoucherRepository.existsByTransactionIdAndVoucherId(transactionId, voucherId)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "voucher already applied");
         }
 
-        //calculate discount
         double discount;
         discount = (voucher.getDiscountType() == DiscountType.PERCENTAGE) ? (txAmount * discValue / 100) : discValue;
         discount = Math.min(discount, txAmount);
 
-        //create join entity
         TransactionVoucher transactionVoucher = new TransactionVoucher();
         transactionVoucher.setTransaction(transaction);
         transactionVoucher.setVoucher(voucher);
         transactionVoucher.setDiscountApplied(discount);
         transactionVoucher.setAppliedAt(LocalDateTime.now());
 
+        voucher.setCurrentUses(currentUses + 1);
 
-            //increment use
-        voucher.setCurrentUses(voucher.getCurrentUses() + 1);
-
-            //save
         voucherRepository.save(voucher);
         transactionVoucherRepository.save(transactionVoucher);
-        //refresh transaction's voucher list
-        transaction.getTransactionVouchers().add(transactionVoucher);
-        transactionRepository.save(transaction);
-
-        return transaction;
+        if (transaction.getTransactionVouchers() == null) {
+            transaction.setTransactionVouchers(new ArrayList<>());
         }
-    public Transaction retryTransaction (Long transactionId){
+        transaction.getTransactionVouchers().add(transactionVoucher);
+        Transaction saved = transactionRepository.save(transaction);
+
+        Map<String, Object> voucherDetails = new HashMap<>();
+        voucherDetails.put("voucherId", voucherId);
+        voucherDetails.put("discountApplied", discount);
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+        notifyObservers("VOUCHER_APPLIED", auditPayload(saved.getId(), methodName, saved.getAmount(), voucherDetails));
+        return saved;
+    }
+
+    public Transaction retryTransaction(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
 
         if (transaction.getStatus() != TransactionStatus.FAILED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only FAILED transactions can be retried"); // Was incorrectly set to NOT_FOUND
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only FAILED transactions can be retried");
         }
 
         transaction.setStatus(TransactionStatus.COMPLETED);
@@ -321,46 +419,50 @@ public class TransactionService {
         details.put("gatewayResponse", "approved");
         transaction.setTransactionDetails(details);
 
-        return transactionRepository.save(transaction);
+        Transaction saved = transactionRepository.save(transaction);
+        Map<String, Object> eventDetails = new HashMap<>();
+        eventDetails.put("retryAttempt", retryAttempt + 1);
+        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
+        notifyObservers("RETRY_COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), eventDetails));
+        return saved;
     }
-        public TransactionDetailsDTO getTransactionDetails (Long transactionId){
-            Transaction transaction = transactionRepository.findById(transactionId)
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
 
-            List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
-                    ? List.of()
-                    : transaction.getTransactionVouchers().stream()
-                    .map(tv -> new AppliedVoucherDetail(
-                            tv.getVoucher().getCode(),
-                            tv.getVoucher().getDiscountType(),
-                            tv.getDiscountApplied(),
-                            tv.getAppliedAt()
-                    )).toList();
+    public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
 
-            double totalDiscount = appliedVouchers.stream()
-                    .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
-                    .sum();
+        List<AppliedVoucherDetail> appliedVouchers = transaction.getTransactionVouchers() == null
+                ? List.of()
+                : transaction.getTransactionVouchers().stream()
+                        .map(tv -> new AppliedVoucherDetail(
+                                tv.getVoucher().getCode(),
+                                tv.getVoucher().getDiscountType(),
+                                tv.getDiscountApplied(),
+                                tv.getAppliedAt()))
+                        .toList();
 
-            double finalAmount = transaction.getAmount() - totalDiscount;
+        double totalDiscount = appliedVouchers.stream()
+                .mapToDouble(AppliedVoucherDetail::getDiscountApplied)
+                .sum();
 
-            return new TransactionDetailsDTO(
-                    transaction.getId(),
-                    transaction.getOrderId(),
-                    transaction.getUserId(),
-                    transaction.getAmount(),
-                    transaction.getMethod(),
-                    transaction.getStatus(),
-                    transaction.getCreatedAt(),
-                    transaction.getTransactionDetails(),
-                    appliedVouchers,
-                    totalDiscount,
-                    finalAmount
-            );
-        }
-    public List<VoucherUsageDTO> getTopUsedVouchers ( int limit) {
+        double finalAmount = transaction.getAmount() - totalDiscount;
+
+        return new TransactionDetailsDTO(
+                transaction.getId(),
+                transaction.getOrderId(),
+                transaction.getUserId(),
+                transaction.getAmount(),
+                transaction.getMethod(),
+                transaction.getStatus(),
+                transaction.getCreatedAt(),
+                transaction.getTransactionDetails(),
+                appliedVouchers,
+                totalDiscount,
+                finalAmount);
+    }
+
+    public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
     }
 }
-
-
