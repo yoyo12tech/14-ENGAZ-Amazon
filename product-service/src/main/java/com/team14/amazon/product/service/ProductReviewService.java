@@ -2,16 +2,20 @@ package com.team14.amazon.product.service;
 
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
+import com.team14.amazon.product.observer.EntityObserver;
 import com.team14.amazon.product.repository.ProductRepository;
 import com.team14.amazon.product.repository.ProductReviewRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -19,11 +23,30 @@ public class ProductReviewService {
 
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final EntityObserver mongoEventLogger;
 
     public ProductReviewService(ProductReviewRepository reviewRepository,
-                                ProductRepository productRepository) {
+                                ProductRepository productRepository,
+                                @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
+        this.mongoEventLogger = mongoEventLogger;
+    }
+
+    private Map<String, Object> reviewPayload(Long productId, Long reviewId, Long userId, Map<String, Object> details) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("productId", productId);
+        payload.put("timestamp", LocalDateTime.now());
+
+        Map<String, Object> mergedDetails = new HashMap<>();
+        if (details != null) {
+            mergedDetails.putAll(details);
+        }
+        mergedDetails.put("reviewId", reviewId);
+        mergedDetails.put("userId", userId);
+        mergedDetails.put("source", "REVIEW");
+        payload.put("details", mergedDetails);
+        return payload;
     }
 
     public List<ProductReview> getAllReviews() {
@@ -106,6 +129,14 @@ public class ProductReviewService {
 
         // 7. Save updated product and return the created review payload
         productRepository.save(product);
+
+        mongoEventLogger.onEvent("REVIEW_ADDED", reviewPayload(
+                productId,
+                savedReview.getId(),
+                savedReview.getUserId(),
+                Map.of("rating", savedReview.getRating())
+        ));
+
         return savedReview;
     }
 
@@ -159,7 +190,14 @@ public class ProductReviewService {
         review.setMetadata(metadata);
 
         // 8. Save the review
-        reviewRepository.save(review);
+        ProductReview savedReview = reviewRepository.save(review);
+
+        mongoEventLogger.onEvent("REVIEW_VERIFIED", reviewPayload(
+                productId,
+                savedReview.getId(),
+                savedReview.getUserId(),
+                Map.of("verifiedBy", request.verifiedBy())
+        ));
 
         // 9. Reload the product with all its reviews and return
         return productRepository.findById(productId)

@@ -38,7 +38,7 @@ public class MongoEventLogger implements EntityObserver {
             }
         } catch (Exception e) {
             // Soft dependency: event logging must not break write operations.
-            log.warn("Failed to log product event to MongoDB: {}", e.getMessage());
+            log.warn("Failed to log product event to MongoDB. action={}, payload={}", action, payload, e);
         }
     }
 }
