@@ -22,6 +22,8 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import com.team14.amazon.user.adapter.ObjectArrayDtoAdapter;
+
 @Service
 public class UserService {
 
@@ -282,12 +284,7 @@ public class UserService {
 
         List<Object[]> rawResults = userRepository.findTopBuyers(startDateTime, endDateTime, limit);
 
-        return rawResults.stream().map(row -> new TopBuyerDTO(
-                ((Number) row[0]).longValue(),
-                (String) row[1],
-                row[2] != null ? ((Number) row[2]).doubleValue() : 0.0,
-                ((Number) row[3]).longValue()
-        )).collect(Collectors.toList());
+        return rawResults.stream().map(ObjectArrayDtoAdapter::adaptToTopBuyerDTO).collect(Collectors.toList());
     }
 
     public List<User> findUsersByPreference(String key, String value) {
@@ -396,23 +393,7 @@ public class UserService {
                 ? (Object[]) raw[0]
                 : raw;
 
-        long totalOrders     = row[0] != null ? ((Number) row[0]).longValue()   : 0L;
-        long completedOrders = row[1] != null ? ((Number) row[1]).longValue()   : 0L;
-        long cancelledOrders = row[2] != null ? ((Number) row[2]).longValue()   : 0L;
-        double totalSpent    = row[3] != null ? ((Number) row[3]).doubleValue() : 0.0;
-        double avgOrderValue = row[4] != null ? ((Number) row[4]).doubleValue() : 0.0;
-
-        avgOrderValue = Math.round(avgOrderValue * 100.0) / 100.0;
-
-        return UserOrderSummaryDTO.builder()
-                .userId(user.getId())
-                .name(user.getName())
-                .totalOrders(totalOrders)
-                .completedOrders(completedOrders)
-                .cancelledOrders(cancelledOrders)
-                .totalSpent(totalSpent)
-                .averageOrderValue(avgOrderValue)
-                .build();
+        return ObjectArrayDtoAdapter.adaptToUserOrderSummaryDTO(user, row);
     }
 
     public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {
