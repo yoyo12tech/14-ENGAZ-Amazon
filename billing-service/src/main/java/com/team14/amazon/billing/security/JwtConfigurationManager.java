@@ -41,26 +41,38 @@ public final class JwtConfigurationManager {
             if (root == null) {
                 throw new IllegalStateException("application.yml is empty");
             }
+
+            // Primary location: jwt.secret (same as user-service/product-service).
+            Object jwtObj = root.get("jwt");
+            if (jwtObj instanceof Map) {
+                Map<String, Object> jwt = (Map<String, Object>) jwtObj;
+                Object secretObj = jwt.get("secret");
+                if (secretObj != null && !String.valueOf(secretObj).isBlank()) {
+                    return String.valueOf(secretObj);
+                }
+            }
+
+            // Backward compatibility with older billing config: data.jwt.secret.
             Object dataObj = root.get("data");
             if (!(dataObj instanceof Map)) {
-                throw new IllegalStateException("data.jwt.secret missing: no data map in application.yml");
+                throw new IllegalStateException("jwt.secret missing in application.yml");
             }
             Map<String, Object> data = (Map<String, Object>) dataObj;
-            Object jwtObj = data.get("jwt");
-            if (!(jwtObj instanceof Map)) {
-                throw new IllegalStateException("data.jwt.secret missing: no jwt map under data");
+            Object nestedJwtObj = data.get("jwt");
+            if (!(nestedJwtObj instanceof Map)) {
+                throw new IllegalStateException("jwt.secret missing in application.yml");
             }
-            Map<String, Object> jwt = (Map<String, Object>) jwtObj;
-            Object secretObj = jwt.get("secret");
+            Map<String, Object> nestedJwt = (Map<String, Object>) nestedJwtObj;
+            Object secretObj = nestedJwt.get("secret");
             if (secretObj == null || String.valueOf(secretObj).isBlank()) {
-                throw new IllegalStateException("data.jwt.secret must not be blank");
+                throw new IllegalStateException("jwt.secret must not be blank");
             }
 
            return String.valueOf(secretObj);
         } catch (IllegalStateException e) {
             throw e;
         } catch (Exception e) {
-            throw new IllegalStateException("Failed to load data.jwt.secret from application.yml", e);
+            throw new IllegalStateException("Failed to load jwt.secret from application.yml", e);
         }
     }
 }
