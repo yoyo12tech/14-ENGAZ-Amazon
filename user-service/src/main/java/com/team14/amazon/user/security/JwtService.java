@@ -24,17 +24,17 @@ public class JwtService {
         return createToken(claims, email);
     }
 
-//    public boolean validateToken(String token) {
-//        try {
-//            Jwts.parserBuilder()
-//                .setSigningKey(getSigningKey())
-//                .build()
-//                .parseClaimsJws(token);
-//            return true;
-//        } catch (Exception e) {
-//            return false;
-//        }
-//    }
+   public boolean validateToken(String token) {
+       try {
+           Jwts.parserBuilder()
+               .setSigningKey(getSigningKey())
+               .build()
+               .parseClaimsJws(token);
+           return true;
+       } catch (Exception e) {
+           return false;
+       }
+   }
 
     public String getEmailFromToken(String token) {
         return Jwts.parserBuilder()
