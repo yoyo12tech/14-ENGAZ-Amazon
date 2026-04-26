@@ -1,3 +1,7 @@
+data:
+  jwt:
+    secret: "v9y$B&E)H@MbQeThWmZq4t7w!z%C*F-JaNdRfUjXn2r5"
+
 spring:
   application:
     name: billing-service
@@ -26,10 +30,6 @@ spring:
 
   cache:
     type: redis
-
-jwt:
-  secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
-  expiration: 86400000
 
 server:
   port: 8080

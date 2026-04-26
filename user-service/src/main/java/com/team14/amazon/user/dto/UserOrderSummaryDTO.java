@@ -93,4 +93,4 @@ public class UserOrderSummaryDTO {
             return new UserOrderSummaryDTO(userId, name, totalOrders, completedOrders, cancelledOrders, totalSpent, averageOrderValue);
         }
     }
-    }
+}
