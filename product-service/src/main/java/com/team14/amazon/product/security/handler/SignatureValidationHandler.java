@@ -15,8 +15,18 @@ public class SignatureValidationHandler extends AuthHandler {
             ctx.setError(401, "Invalid or expired token");
             return;
         }
-        ctx.setUserId(jwtService.extractUserId(ctx.getToken()));
-        ctx.setRole(jwtService.extractRole(ctx.getToken()));
+        try {
+            ctx.setUserId(jwtService.extractUserId(ctx.getToken()));
+            ctx.setRole(jwtService.extractRole(ctx.getToken()));
+        } catch (Exception ex) {
+            ctx.setError(401, "Invalid token claims");
+            return;
+        }
+
+        if (ctx.getRole() == null || ctx.getRole().isBlank()) {
+            ctx.setError(401, "Invalid token claims");
+            return;
+        }
         next(ctx);
     }
 }

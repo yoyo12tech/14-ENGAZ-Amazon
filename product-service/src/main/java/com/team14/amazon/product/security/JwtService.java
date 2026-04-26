@@ -1,6 +1,7 @@
 package com.team14.amazon.product.security;
 
 import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.stereotype.Service;
 
@@ -25,18 +26,30 @@ public class JwtService {
     }
 
     public String extractEmail(String token) {
-        return Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
-                .parseClaimsJws(token).getBody().getSubject();
+        return extractClaims(token).getSubject();
     }
 
     public Long extractUserId(String token) {
-        return Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
-                .parseClaimsJws(token).getBody().get("uid", Long.class);
+        Object uid = extractClaims(token).get("uid");
+        if (uid instanceof Number number) {
+            return number.longValue();
+        }
+        if (uid instanceof String text && !text.isBlank()) {
+            return Long.parseLong(text);
+        }
+        return null;
     }
 
     public String extractRole(String token) {
-        return Jwts.parserBuilder().setSigningKey(getSigningKey()).build()
-                .parseClaimsJws(token).getBody().get("role", String.class);
+        return extractClaims(token).get("role", String.class);
+    }
+
+    private Claims extractClaims(String token) {
+        return Jwts.parserBuilder()
+                .setSigningKey(getSigningKey())
+                .build()
+                .parseClaimsJws(token)
+                .getBody();
     }
 
     private SecretKey getSigningKey() {

@@ -8,7 +8,12 @@ public class TokenExtractionHandler extends AuthHandler {
             ctx.setError(401, "Token missing");
             return;
         }
-        ctx.setToken(authHeader.substring(7));
+        String token = authHeader.substring(7).trim();
+        if (token.isBlank()) {
+            ctx.setError(401, "Token missing");
+            return;
+        }
+        ctx.setToken(token);
         next(ctx);
     }
 }
