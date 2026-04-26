@@ -3,6 +3,8 @@ package com.team14.amazon.user.service;
 import com.team14.amazon.user.dto.*;
 import com.team14.amazon.user.model.ShippingAddress;
 import com.team14.amazon.user.model.User;
+import com.team14.amazon.user.model.UserRole;
+import com.team14.amazon.user.model.UserStatus;
 import com.team14.amazon.user.repository.ShippingAddressRepository;
 import com.team14.amazon.user.repository.UserRepository;
 import com.team14.amazon.user.observer.EntityObserver;
@@ -12,7 +14,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
@@ -31,23 +32,27 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final EntityObserver mongoEventLogger;
+    private final EntityObserver redisCacheObserver;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public UserService(UserRepository userRepository, 
                        ShippingAddressRepository shippingAddressRepository, 
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       EntityObserver mongoEventLogger) {
+                       EntityObserver mongoEventLogger,
+                       EntityObserver redisCacheObserver) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.mongoEventLogger = mongoEventLogger;
+        this.redisCacheObserver = redisCacheObserver;
     }
 
     @PostConstruct
     public void init() {
         register(mongoEventLogger);
+        register(redisCacheObserver);
     }
 
     public void register(EntityObserver observer) {
@@ -86,8 +91,8 @@ public class UserService {
         user.setEmail(request.getEmail());
         user.setPhone(request.getPhone());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(User.Role.CUSTOMER);
-        user.setStatus(User.Status.ACTIVE);
+        user.setRole(UserRole.CUSTOMER);
+        user.setStatus(UserStatus.ACTIVE);
 
         user = userRepository.save(user);
 
@@ -151,7 +156,7 @@ public class UserService {
         }
 
         // Default role on registration: CUSTOMER
-        user.setRole(User.Role.CUSTOMER);
+        user.setRole(UserRole.CUSTOMER);
 
         user.setPassword(passwordEncoder.encode(user.getPassword()));
 
@@ -159,12 +164,22 @@ public class UserService {
     }
 
     @Transactional
-    public User updateUserRole(Long id, User.Role role) {
+    public User updateUserRole(Long id, UserRole role) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+        UserRole oldRole = user.getRole();
         user.setRole(role);
 
-        return userRepository.save(user);
+        User updatedUser = userRepository.save(user);
+
+        // Log ROLE_CHANGED event
+        Map<String, Object> eventPayload = new HashMap<>();
+        eventPayload.put("userId", updatedUser.getId());
+        eventPayload.put("timestamp", LocalDateTime.now());
+        eventPayload.put("details", Map.of("oldRole", oldRole, "newRole", role));
+        notifyObservers("ROLE_CHANGED", eventPayload);
+
+        return updatedUser;
     }
 
 
@@ -228,7 +243,7 @@ public class UserService {
 
         try {
             // validate role (IMPORTANT)
-            return User.Role.valueOf(role.trim().toUpperCase()).name();
+            return UserRole.valueOf(role.trim().toUpperCase()).name();
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid role. Must be CUSTOMER or ADMIN.");
         }
@@ -265,7 +280,7 @@ public class UserService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
         }
 
-        user.setStatus(User.Status.DEACTIVATED);
+        user.setStatus(UserStatus.DEACTIVATED);
         userRepository.save(user);
     }
 

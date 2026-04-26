@@ -54,13 +54,41 @@ public class UserOrderSummaryDTO {
         private Double totalSpent;
         private Double averageOrderValue;
 
-        public Builder userId(Long userId) { this.userId = userId; return this; }
-        public Builder name(String name) { this.name = name; return this; }
-        public Builder totalOrders(Long totalOrders) { this.totalOrders = totalOrders; return this; }
-        public Builder completedOrders(Long completedOrders) { this.completedOrders = completedOrders; return this; }
-        public Builder cancelledOrders(Long cancelledOrders) { this.cancelledOrders = cancelledOrders; return this; }
-        public Builder totalSpent(Double totalSpent) { this.totalSpent = totalSpent; return this; }
-        public Builder averageOrderValue(Double averageOrderValue) { this.averageOrderValue = averageOrderValue; return this; }
+        public Builder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public Builder name(String name) {
+            this.name = name;
+            return this;
+        }
+
+        public Builder totalOrders(Long totalOrders) {
+            this.totalOrders = totalOrders;
+            return this;
+        }
+
+        public Builder completedOrders(Long completedOrders) {
+            this.completedOrders = completedOrders;
+            return this;
+        }
+
+        public Builder cancelledOrders(Long cancelledOrders) {
+            this.cancelledOrders = cancelledOrders;
+            return this;
+        }
+
+        public Builder totalSpent(Double totalSpent) {
+            this.totalSpent = totalSpent;
+            return this;
+        }
+
+        public Builder averageOrderValue(Double averageOrderValue) {
+            this.averageOrderValue = averageOrderValue;
+            return this;
+        }
+
         public UserOrderSummaryDTO build() {
             return new UserOrderSummaryDTO(userId, name, totalOrders, completedOrders, cancelledOrders, totalSpent, averageOrderValue);
         }
