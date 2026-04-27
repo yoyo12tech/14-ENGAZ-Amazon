@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.controller;
 
+import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.billing.model.Voucher;
 
 import com.team14.amazon.billing.service.VoucherService;
@@ -11,15 +12,20 @@ import java.util.List;
 @RequestMapping("/api/vouchers")
 public class VoucherController {
     private final VoucherService voucherService;
+    private final BillingCacheInvalidationService cacheInvalidationService;
 
-    public VoucherController(VoucherService voucherService) {
+    public VoucherController(VoucherService voucherService,
+                             BillingCacheInvalidationService cacheInvalidationService) {
         this.voucherService = voucherService;
+        this.cacheInvalidationService = cacheInvalidationService;
     }
 
 
     @PostMapping
     public Voucher createVoucher(@RequestBody Voucher voucher){
-        return voucherService.createVoucher(voucher);
+        Voucher created = voucherService.createVoucher(voucher);
+        cacheInvalidationService.evictVoucherCaches(created.getId());
+        return created;
     }
 
     @GetMapping("/{id}")
@@ -35,12 +41,15 @@ public class VoucherController {
     @PutMapping("/{id}")
     public Voucher updateVoucher(@PathVariable Long id, @RequestBody Voucher voucher) {
         voucher.setId(id);
-        return voucherService.updateVoucher(voucher);
+        Voucher updated = voucherService.updateVoucher(voucher);
+        cacheInvalidationService.evictVoucherCaches(updated.getId());
+        return updated;
     }
 
     @DeleteMapping("/{id}")
     public void deleteVoucher(@PathVariable  Long id){
         voucherService.deleteVoucher(id);
+        cacheInvalidationService.evictVoucherCaches(id);
     }
 
     @GetMapping("/search")
