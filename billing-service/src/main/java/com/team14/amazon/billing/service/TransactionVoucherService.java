@@ -1,8 +1,10 @@
 package com.team14.amazon.billing.service;
 
+import com.team14.amazon.billing.cache.BillingCacheNames;
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.TransactionVoucher;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +26,11 @@ public class TransactionVoucherService {
         return transactionVoucherRepository.save(transactionVoucher);
     }
 
+    @Cacheable(
+            cacheNames = BillingCacheNames.TRANSACTION_VOUCHER,
+            key = "T(com.team14.amazon.billing.cache.BillingCacheNames).entityKey(#id)",
+            unless = "#result == null || #result.isEmpty()"
+    )
     public Optional<TransactionVoucher> getById(Long id) {
         return transactionVoucherRepository.findById(id);
     }

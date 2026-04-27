@@ -1,6 +1,7 @@
 package com.team14.amazon.billing.service;
 
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
+import com.team14.amazon.billing.cache.BillingCacheNames;
 import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.observer.EntityObserver;
 import com.team14.amazon.billing.dto.RevenueReportDTO;
@@ -12,6 +13,7 @@ import com.team14.amazon.billing.repository.VoucherRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
@@ -83,6 +85,7 @@ public class TransactionService {
         return saved;
     }
 
+    @Cacheable(cacheNames = BillingCacheNames.TRANSACTION, key = "T(com.team14.amazon.billing.cache.BillingCacheNames).entityKey(#id)")
     public Transaction findTransactionById(Long id) {
         return transactionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
@@ -136,6 +139,10 @@ public class TransactionService {
         return transactionRepository.findByStatus(status);
     }
 
+    @Cacheable(
+            cacheNames = BillingCacheNames.S5_F6,
+            key = "'start:' + #startDateStr + '|end:' + #endDateStr"
+    )
     public RevenueReportDTO getRevenueReport(String startDateStr, String endDateStr) {
         LocalDateTime startDate;
         LocalDateTime endDate;
@@ -175,6 +182,7 @@ public class TransactionService {
         return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
     }
 
+    @Cacheable(cacheNames = BillingCacheNames.S5_F3, key = "'userId:' + #userId")
     public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
         if (!transactionRepository.existsByUserId(userId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
@@ -200,6 +208,10 @@ public class TransactionService {
         return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
     }
 
+    @Cacheable(
+            cacheNames = BillingCacheNames.S5_F1,
+            key = "'status:' + (#statusStr == null ? 'all' : #statusStr) + '|start:' + (#startDateStr == null ? 'all' : #startDateStr) + '|end:' + (#endDateStr == null ? 'all' : #endDateStr)"
+    )
     public List<Transaction> searchTransactions(String statusStr, String startDateStr, String endDateStr) {
         List<Transaction> transactions = transactionRepository.findAll(
                 org.springframework.data.domain.Sort.by(org.springframework.data.domain.Sort.Direction.DESC,
@@ -226,7 +238,7 @@ public class TransactionService {
                 try {
                     end = java.time.LocalDate.parse(endDateStr).atTime(java.time.LocalTime.MAX);
                 } catch (Exception e) {
-                    end = java.time.LocalDateTime.parse(endDateStr); // Fallback for full timestamps
+                    end = java.time.LocalDateTime.parse(endDateStr);
                 }
                 matches = matches && !t.getCreatedAt().isAfter(end);
             }
@@ -427,6 +439,7 @@ public class TransactionService {
         return saved;
     }
 
+    @Cacheable(cacheNames = BillingCacheNames.S5_F8, key = "'transactionId:' + #transactionId")
     public TransactionDetailsDTO getTransactionDetails(Long transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
@@ -461,6 +474,7 @@ public class TransactionService {
                 finalAmount);
     }
 
+    @Cacheable(cacheNames = BillingCacheNames.S5_F9, key = "'limit:' + #limit")
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);

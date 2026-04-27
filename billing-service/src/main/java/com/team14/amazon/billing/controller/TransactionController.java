@@ -1,5 +1,6 @@
 package com.team14.amazon.billing.controller;
 
+import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.service.TransactionService;
@@ -15,9 +16,12 @@ import java.util.List;
 @RequestMapping("/api/transactions")
 public class TransactionController {
     private final TransactionService transactionService;
+    private final BillingCacheInvalidationService cacheInvalidationService;
 
-    public TransactionController(TransactionService transactionService) {
+    public TransactionController(TransactionService transactionService,
+                                 BillingCacheInvalidationService cacheInvalidationService) {
         this.transactionService = transactionService;
+        this.cacheInvalidationService = cacheInvalidationService;
     }
 
 //    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
@@ -27,7 +31,9 @@ public class TransactionController {
 
     @PostMapping
     public Transaction createTransaction(@RequestBody Transaction transaction) {
-        return transactionService.createTransaction(transaction);
+        Transaction created = transactionService.createTransaction(transaction);
+        cacheInvalidationService.evictTransactionCaches(created.getId());
+        return created;
     }
 
     @GetMapping("/{id}")
@@ -42,8 +48,10 @@ public class TransactionController {
 
     @PutMapping("/{id}")
     public Transaction updateTransaction(@PathVariable Long id, @RequestBody Transaction transaction) {
-        transaction.setId(id); // Ensure the ID matches the path
-        return transactionService.updateTransaction(transaction);
+        transaction.setId(id);
+        Transaction updated = transactionService.updateTransaction(transaction);
+        cacheInvalidationService.evictTransactionCaches(updated.getId());
+        return updated;
     }
 
     @PutMapping("/{id}/refund")
@@ -52,7 +60,9 @@ public class TransactionController {
             @RequestBody(required = false) Map<String, String> body) {
 
         String reason = (body != null && body.containsKey("reason")) ? body.get("reason") : "Requested by user";
-        return ResponseEntity.ok(transactionService.processRefund(id, reason));
+        Transaction updated = transactionService.processRefund(id, reason);
+        cacheInvalidationService.evictTransactionCaches(updated.getId());
+        return ResponseEntity.ok(updated);
     }
 
     @PostMapping("/order/{orderId}")
@@ -60,18 +70,23 @@ public class TransactionController {
             @PathVariable Long orderId,
             @RequestParam(name = "simulateFailure", defaultValue = "false") boolean simulateFailure,
             @RequestBody ProcessTransactionRequest request) {
+        Transaction updated = transactionService.processOrderTransaction(orderId, request, simulateFailure);
+        cacheInvalidationService.evictTransactionCaches(updated.getId());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(transactionService.processOrderTransaction(orderId, request, simulateFailure));
+                .body(updated);
     }
 
     @PutMapping("/{id}/retry")
     public ResponseEntity<Transaction> retryTransaction(@PathVariable Long id) {
-        return ResponseEntity.ok(transactionService.retryTransaction(id));
+        Transaction updated = transactionService.retryTransaction(id);
+        cacheInvalidationService.evictTransactionCaches(updated.getId());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     public void deleteTransaction(@PathVariable Long id) {
         transactionService.deleteTransaction(id);
+        cacheInvalidationService.evictTransactionCaches(id);
     }
 
     @GetMapping("/search")
@@ -109,6 +124,7 @@ public class TransactionController {
             @PathVariable Long voucherId) {
 
         Transaction updated = transactionService.applyVoucher(transactionId, voucherId);
+        cacheInvalidationService.evictTransactionAndVoucherCaches(updated.getId(), voucherId);
         return ResponseEntity.status(HttpStatus.CREATED).body(updated);
     }
 }
