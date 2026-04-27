@@ -6,6 +6,9 @@ import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
 import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.Caching;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
@@ -34,10 +37,16 @@ public class ShipmentService {
         return shipmentRepository.findAll();
     }
 
+    @Cacheable(value = "shipping-service::shipment", key = "#id")
     public Optional<Shipment> getShipmentById(Long id) {
         return shipmentRepository.findById(id);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::S4-F1", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public Shipment createShipment(Shipment shipment) {
             if (shipment.getTrackingNumber() != null && 
                 shipmentRepository.findByTrackingNumber(shipment.getTrackingNumber()).isPresent()) {
@@ -58,6 +67,13 @@ public class ShipmentService {
         ));
         return saved;
     }
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::shipment", key = "#id"),
+            @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F6", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F8", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public Optional<Shipment> updateShipment(Long id, Shipment updatedShipment) {
         return shipmentRepository.findById(id).map(existingShipment -> {
             existingShipment.setOrderId(updatedShipment.getOrderId());
@@ -93,13 +109,22 @@ public class ShipmentService {
             observer.onEvent(action, shipmentId, details);
         }
     }
-
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::S4-F6", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public int purgeShipments(int olderThanDays) {
         java.time.LocalDateTime cutoff = java.time.LocalDateTime.now().minusDays(olderThanDays);
         return shipmentRepository.purgeOldShipments(cutoff);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::shipment", key = "#id"),
+            @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F6", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public boolean deleteShipment(Long id) {
         if (shipmentRepository.existsById(id)) {
             shipmentRepository.deleteById(id);
@@ -109,6 +134,7 @@ public class ShipmentService {
         return false;
     }
 
+    @Cacheable(value = "shipping-service::S4-F3", key = "#lat + '::' + #lon + '::' + #radiusKm")
     public List<NearbyShipmentDTO> findNearbyShipments(Double lat, Double lon, Double radiusKm ){
         return shipmentRepository.findByStatusNative(Shipment.Status.OUT_FOR_DELIVERY.name())
                 .stream()
@@ -142,6 +168,11 @@ public class ShipmentService {
                 .sorted(Comparator.comparingDouble(NearbyShipmentDTO::getDistanceKm))
                 .collect(Collectors.toList());
     }
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::S4-F1", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public Shipment createShipment(Long orderId, Shipment shipment){
         if(!shipmentRepository.existsOrderById(orderId)){
             throw new ResponseStatusException(
@@ -161,6 +192,7 @@ public class ShipmentService {
         return saved;
   
      }
+    @Cacheable(value = "shipping-service::S4-F1", key = "#orderId")
     public Shipment getLatestShipmentForOrder(Long orderId){
         if(!shipmentRepository.existsByOrderId(orderId)){
             throw new ResponseStatusException(
@@ -172,9 +204,15 @@ public class ShipmentService {
                 HttpStatus.NOT_FOUND,
                 "The Order provided is still being processed!"));
         }
-  
-  
+
+
     @Transactional
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F6", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F8", allEntries = true),
+            @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
+    })
     public int batchUpdateStatus(List<BatchStatusUpdateRequest> updates) {
         List<Shipment> toSave = new ArrayList<>();
 
@@ -231,13 +269,13 @@ public class ShipmentService {
                     "Invalid operator. Must be one of: eq, gt, lt");
         };
     }
-
+    @Cacheable(value = "shipping-service::S4-F6", key = "#startDate + '::' + #endDate + '::' + #status")
     public List<Shipment> getShipmentsInDateRange(LocalDateTime startDate, LocalDateTime endDate, String status) {
         String resolvedStatus = (status == null || status.isBlank()) ? null : status;
         return shipmentRepository.findByDateRangeAndStatus(startDate, endDate, resolvedStatus);
     }
 
-
+    @Cacheable(value = "shipping-service::S4-F8", key = "#carrier + '::' + #start + '::' + #end")
     public CarrierSummaryDTO getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end) {
         // Get the list of results
         List<Object[]> results = shipmentRepository.getCarrierSummary(carrier, start, end);
@@ -274,7 +312,7 @@ public class ShipmentService {
 //                .build();
         return ObjectArrayDtoAdapter.adaptToCarrierSummaryDTO(row, carrier);
     }
-
+    @Cacheable(value = "shipping-service::S4-F9", key = "#maxAttempts")
     public List<DelayedShipmentDTO> getDelayedShipments(Integer maxAttempts) {
 //        return shipmentRepository.findDelayedShipments(maxAttempts).stream()
 //                .map(row -> DelayedShipmentDTO.builder()

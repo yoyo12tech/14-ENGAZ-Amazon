@@ -4,8 +4,11 @@ import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
+import com.team14.amazon.product.observer.EntityObserver;
 import com.team14.amazon.product.repository.ProductReviewRepository;
 import com.team14.amazon.product.repository.ProductRepository;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -22,11 +25,44 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductReviewRepository reviewRepository;
+    private final EntityObserver mongoEventLogger;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
     public ProductService(ProductRepository productRepository,
-                          ProductReviewRepository reviewRepository) {
+                          ProductReviewRepository reviewRepository,
+                          @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.productRepository = productRepository;
         this.reviewRepository  = reviewRepository;
+        this.mongoEventLogger = mongoEventLogger;
+    }
+
+    @PostConstruct
+    public void init() {
+        register(mongoEventLogger);
+    }
+
+    public void register(EntityObserver observer) {
+        if (observer != null) {
+            observers.add(observer);
+        }
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    public void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
+    }
+
+    private Map<String, Object> productPayload(Long productId, Map<String, Object> details) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("productId", productId);
+        payload.put("timestamp", LocalDateTime.now());
+        payload.put("details", details != null ? details : Map.of());
+        return payload;
     }
 
     //Below are the main crud methods for the product
@@ -50,7 +86,10 @@ public class ProductService {
         }
 
         product.setStatus(ProductStatus.INACTIVE);
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
+                Map.of("status", saved.getStatus().name(), "source", "CRUD")));
+        return saved;
     }
 
     public Product createProduct(Product product) {
@@ -65,7 +104,10 @@ public class ProductService {
         product.setRating(0.0);
         product.setTotalRatings(0);
 
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        notifyObservers("PRODUCT_CREATED", productPayload(saved.getId(),
+                Map.of("name", saved.getName(), "source", "CRUD")));
+        return saved;
     }
 
 
@@ -74,6 +116,7 @@ public class ProductService {
     public boolean deleteProduct(Long id) {
         if (productRepository.existsById(id)) {
             productRepository.deleteById(id);
+            notifyObservers("PRODUCT_DELETED", productPayload(id, Map.of("source", "CRUD")));
             return true;
         }
         return false;
@@ -94,19 +137,26 @@ public class ProductService {
             existingProduct.setStatus(updatedProduct.getStatus());
             existingProduct.setSpecifications(updatedProduct.getSpecifications());
 
-            return productRepository.save(existingProduct);
+            Product saved = productRepository.save(existingProduct);
+            notifyObservers("PRODUCT_UPDATED", productPayload(saved.getId(),
+                    Map.of("name", saved.getName(), "source", "CRUD")));
+            return saved;
         });
     }
     // S2-F2: JSONB partial update — merge incoming specs into existing map
     public Optional<Product> updateSpecifications(Long id, Map<String, Object> incomingSpecs) {
         return productRepository.findById(id).map(product -> {
+            Map<String, Object> specsToMerge = incomingSpecs != null ? incomingSpecs : Map.of();
             Map<String, Object> existing = product.getSpecifications();
             if (existing == null) {
                 existing = new HashMap<>();
             }
-            existing.putAll(incomingSpecs); // add new keys, overwrite matching keys
+            existing.putAll(specsToMerge); // add new keys, overwrite matching keys
             product.setSpecifications(existing);
-            return productRepository.save(product);
+            Product saved = productRepository.save(product);
+            notifyObservers("SPECIFICATIONS_UPDATED", productPayload(saved.getId(),
+                    Map.of("updatedKeys", specsToMerge.keySet(), "source", "CRUD")));
+            return saved;
         });
     }
 

@@ -17,7 +17,8 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin}}
+
 
     redis:
       host: redis
