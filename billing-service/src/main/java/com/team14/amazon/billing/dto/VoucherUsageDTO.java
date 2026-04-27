@@ -88,4 +88,63 @@ public class VoucherUsageDTO {
     public void setExpired(Boolean expired) {
         this.expired = expired;
     }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private Long voucherId;
+        private String code;
+        private DiscountType discountType;
+        private Double discountValue;
+        private Integer timesUsed;
+        private Double totalDiscountGiven;
+        private Boolean active;
+        private Boolean expired;
+
+        public Builder voucherId(Long voucherId) {
+            this.voucherId = voucherId;
+            return this;
+        }
+
+        public Builder code(String code) {
+            this.code = code;
+            return this;
+        }
+
+        public Builder discountType(DiscountType discountType) {
+            this.discountType = discountType;
+            return this;
+        }
+
+        public Builder discountValue(Double discountValue) {
+            this.discountValue = discountValue;
+            return this;
+        }
+
+        public Builder timesUsed(Integer timesUsed) {
+            this.timesUsed = timesUsed;
+            return this;
+        }
+
+        public Builder totalDiscountGiven(Double totalDiscountGiven) {
+            this.totalDiscountGiven = totalDiscountGiven;
+            return this;
+        }
+
+        public Builder active(Boolean active) {
+            this.active = active;
+            return this;
+        }
+
+        public Builder expired(Boolean expired) {
+            this.expired = expired;
+            return this;
+        }
+
+        public VoucherUsageDTO build() {
+            return new VoucherUsageDTO(voucherId, code, discountType, discountValue, timesUsed, totalDiscountGiven, active, expired);
+        }
+    }
 }

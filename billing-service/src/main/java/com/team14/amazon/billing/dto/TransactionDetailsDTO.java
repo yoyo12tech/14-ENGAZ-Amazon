@@ -49,4 +49,81 @@ public class TransactionDetailsDTO {
     public List<AppliedVoucherDetail> getAppliedVouchers() { return appliedVouchers; }
     public Double getTotalDiscount() { return totalDiscount; }
     public Double getFinalAmount() { return finalAmount; }
+
+    public static Builder builder() {
+        return new Builder();
+    }
+
+    public static class Builder {
+        private Long transactionId;
+        private Long orderId;
+        private Long userId;
+        private Double originalAmount;
+        private TransactionMethod method;
+        private TransactionStatus status;
+        private LocalDateTime createdAt;
+        private Map<String, Object> transactionDetails;
+        private List<AppliedVoucherDetail> appliedVouchers;
+        private Double totalDiscount;
+        private Double finalAmount;
+
+        public Builder transactionId(Long transactionId) {
+            this.transactionId = transactionId;
+            return this;
+        }
+
+        public Builder orderId(Long orderId) {
+            this.orderId = orderId;
+            return this;
+        }
+
+        public Builder userId(Long userId) {
+            this.userId = userId;
+            return this;
+        }
+
+        public Builder originalAmount(Double originalAmount) {
+            this.originalAmount = originalAmount;
+            return this;
+        }
+
+        public Builder method(TransactionMethod method) {
+            this.method = method;
+            return this;
+        }
+
+        public Builder status(TransactionStatus status) {
+            this.status = status;
+            return this;
+        }
+
+        public Builder createdAt(LocalDateTime createdAt) {
+            this.createdAt = createdAt;
+            return this;
+        }
+
+        public Builder transactionDetails(Map<String, Object> transactionDetails) {
+            this.transactionDetails = transactionDetails;
+            return this;
+        }
+
+        public Builder appliedVouchers(List<AppliedVoucherDetail> appliedVouchers) {
+            this.appliedVouchers = appliedVouchers;
+            return this;
+        }
+
+        public Builder totalDiscount(Double totalDiscount) {
+            this.totalDiscount = totalDiscount;
+            return this;
+        }
+
+        public Builder finalAmount(Double finalAmount) {
+            this.finalAmount = finalAmount;
+            return this;
+        }
+
+        public TransactionDetailsDTO build() {
+            return new TransactionDetailsDTO(transactionId, orderId, userId, originalAmount, method, status, createdAt, transactionDetails, appliedVouchers, totalDiscount, finalAmount);
+        }
+    }
 }
