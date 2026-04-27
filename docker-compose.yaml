@@ -162,6 +162,9 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
       SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
       SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: redispass
     depends_on:
       postgres:
         condition: service_healthy

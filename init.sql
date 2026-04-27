@@ -7,6 +7,10 @@ CREATE TYPE user_role AS ENUM ('CUSTOMER', 'ADMIN');
 CREATE TYPE user_status AS ENUM ('ACTIVE', 'DEACTIVATED');
 
 -- product-service enums
+CREATE TYPE product_category AS ENUM (
+    'ELECTRONICS', 'CLOTHING', 'BOOKS', 'HOME',
+    'BEAUTY', 'SPORTS', 'TOYS', 'OTHER'
+);
 CREATE TYPE product_status AS ENUM ('ACTIVE', 'INACTIVE', 'DISCONTINUED');
 
 -- order-service enums
