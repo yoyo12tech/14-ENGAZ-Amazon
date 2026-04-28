@@ -30,6 +30,7 @@ import java.util.List;
 
 import com.team14.amazon.billing.dto.AppliedVoucherDetail;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
+import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
 
 @Service
 public class TransactionService {
@@ -179,7 +180,13 @@ public class TransactionService {
             averageTransaction = totalRevenue / totalTransactions;
         }
 
-        return new RevenueReportDTO(totalRevenue, totalTransactions, averageTransaction, refundedAmount, refundCount);
+        return RevenueReportDTO.builder()
+                .totalRevenue(totalRevenue)
+                .totalTransactions(totalTransactions)
+                .averageTransaction(averageTransaction)
+                .refundedAmount(refundedAmount)
+                .refundCount(refundCount)
+                .build();
     }
 
     @Cacheable(cacheNames = BillingCacheNames.S5_F3, key = "'userId:' + #userId")
@@ -191,21 +198,8 @@ public class TransactionService {
         List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId,
                 TransactionStatus.COMPLETED);
 
-        long totalTransactions = 0;
-        double totalAmount = 0.0;
-        Map<String, Double> methodBreakdown = new HashMap<>();
-
-        for (Object[] row : results) {
-            String methodVal = row[0] != null ? row[0].toString() : "UNKNOWN";
-            long count = ((Number) row[1]).longValue();
-            double sum = ((Number) row[2]).doubleValue();
-
-            totalTransactions += count;
-            totalAmount += sum;
-            methodBreakdown.put(methodVal, sum);
-        }
-
-        return new UserTransactionSummaryDTO(userId, totalTransactions, totalAmount, methodBreakdown);
+        ObjectArrayDtoAdapter adapter = new ObjectArrayDtoAdapter();
+        return adapter.adapt(userId, results);
     }
 
     @Cacheable(
@@ -460,23 +454,24 @@ public class TransactionService {
 
         double finalAmount = transaction.getAmount() - totalDiscount;
 
-        return new TransactionDetailsDTO(
-                transaction.getId(),
-                transaction.getOrderId(),
-                transaction.getUserId(),
-                transaction.getAmount(),
-                transaction.getMethod(),
-                transaction.getStatus(),
-                transaction.getCreatedAt(),
-                transaction.getTransactionDetails(),
-                appliedVouchers,
-                totalDiscount,
-                finalAmount);
+        return TransactionDetailsDTO.builder()
+                .transactionId(transaction.getId())
+                .orderId(transaction.getOrderId())
+                .userId(transaction.getUserId())
+                .originalAmount(transaction.getAmount())
+                .method(transaction.getMethod())
+                .status(transaction.getStatus())
+                .createdAt(transaction.getCreatedAt())
+                .transactionDetails(transaction.getTransactionDetails())
+                .appliedVouchers(appliedVouchers)
+                .totalDiscount(totalDiscount)
+                .finalAmount(finalAmount)
+                .build();
     }
 
     @Cacheable(cacheNames = BillingCacheNames.S5_F9, key = "'limit:' + #limit")
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
-        return transactionVoucherRepository.findTopUsedVouchers((Pageable) pageable);
+        return transactionVoucherRepository.findTopUsedVouchers(pageable);
     }
 }

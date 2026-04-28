@@ -12,8 +12,6 @@ import java.util.List;
 @Repository
 public interface TransactionVoucherRepository extends JpaRepository<TransactionVoucher, Long> {
 
-
-
     @Query("SELECT new com.team14.amazon.billing.dto.VoucherUsageDTO(" +
             "v.id, v.code, v.discountType, v.discountValue, v.currentUses, " +
             "SUM(tv.discountApplied), v.active, " +
@@ -23,6 +21,7 @@ public interface TransactionVoucherRepository extends JpaRepository<TransactionV
             "GROUP BY v.id, v.code, v.discountType, v.discountValue, v.currentUses, v.active, v.expiryDate " +
             "ORDER BY v.currentUses DESC")
     List<VoucherUsageDTO> findTopUsedVouchers(Pageable pageable);
+
     boolean existsByTransactionIdAndVoucherId(Long transactionId, Long voucherId);
     List<TransactionVoucher> findByTransactionId(Long transactionId);
 }
