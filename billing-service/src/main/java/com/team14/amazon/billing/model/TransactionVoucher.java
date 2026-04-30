@@ -1,7 +1,7 @@
 package com.team14.amazon.billing.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.*;
 
 import java.time.LocalDateTime;
@@ -19,15 +19,22 @@ public class TransactionVoucher {
     @Column(name="applied_at", nullable = false)
     private LocalDateTime appliedAt;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "transaction_id", nullable = false)
     @JsonBackReference("transaction")
     private Transaction transaction;
 
+    @JsonBackReference("voucher-transactionvoucher")
     @ManyToOne
     @JoinColumn(name = "voucher_id", nullable = false)
     @JsonBackReference("voucher")
     private Voucher voucher;
+
+    @PrePersist
+    protected void OnCreate(){
+        this.appliedAt = LocalDateTime.now();
+    }
 
     public Long getId() {
         return this.id;

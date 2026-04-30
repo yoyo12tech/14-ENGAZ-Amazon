@@ -25,28 +25,21 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
+    @com.fasterxml.jackson.annotation.JsonProperty(access = com.fasterxml.jackson.annotation.JsonProperty.Access.WRITE_ONLY)
     @Column(nullable = false)
     private String password;
 
     @Column(nullable = false, unique = true)
     private String phone;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "role", nullable = false, columnDefinition = "user_role")
-    private Role role;
 
-
-    public enum Role {
-        CUSTOMER, ADMIN
-    }
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "user_status")
-    private Status status = Status.ACTIVE;
-    public enum Status {
-        ACTIVE, DEACTIVATED
-    }
+    @Column(name = "role", nullable = false)
+    private UserRole role = UserRole.CUSTOMER;
+
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false)
+    private UserStatus status = UserStatus.ACTIVE;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -75,11 +68,11 @@ public class User {
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
 
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    public UserRole getRole() { return role; }
+    public void setRole(UserRole role) { this.role = role; }
 
-    public Status getStatus() { return status; }
-    public void setStatus(Status status) { this.status = status; }
+    public UserStatus getStatus() { return status; }
+    public void setStatus(UserStatus status) { this.status = status; }
 
     public Map<String, Object> getPreferences() { return preferences; }
     public void setPreferences(Map<String, Object> preferences) { this.preferences = preferences; }
@@ -90,4 +83,3 @@ public class User {
     public List<ShippingAddress> getShippingAddresses() { return shippingAddresses; }
     public void setShippingAddresses(List<ShippingAddress> shippingAddresses) { this.shippingAddresses = shippingAddresses; }
 }
-

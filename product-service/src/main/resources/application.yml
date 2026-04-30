@@ -1,0 +1,47 @@
+spring:
+  application:
+    name: product-service
+
+  datasource:
+    url: jdbc:postgresql://postgres:5432/amazondb
+    username: postgres
+    password: postgres
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+  data:
+    mongodb:
+      uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin}}
+
+
+    redis:
+      host: redis
+      port: 6379
+      password: redispass
+
+  elasticsearch:
+    uris: http://elasticsearch:9200
+
+  cache:
+    type: redis
+
+jwt:
+  secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
+  expiration: 86400000
+
+server:
+  port: 8080
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    defaults:
+      enabled: false

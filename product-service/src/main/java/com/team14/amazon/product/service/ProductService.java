@@ -1,33 +1,69 @@
 package com.team14.amazon.product.service;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.List;
+import com.team14.amazon.product.dto.LowStockAlertDTO;
+import com.team14.amazon.product.dto.ProductSalesDTO;
+import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductStatus;
+import com.team14.amazon.product.observer.EntityObserver;
+import com.team14.amazon.product.repository.ProductReviewRepository;
 import com.team14.amazon.product.repository.ProductRepository;
+import jakarta.annotation.PostConstruct;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-import com.team14.amazon.product.dto.ProductSalesDTO;
+
 import java.time.LocalDate;
-import java.util.NoSuchElementException;
-import java.util.HashMap;
-import java.util.Map;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
-import com.team14.amazon.product.dto.ProductSalesDTO;
-import java.time.LocalDate;
+import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
+    private final ProductReviewRepository reviewRepository;
+    private final EntityObserver mongoEventLogger;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
-
-    public ProductService(ProductRepository productRepository) {
+    public ProductService(ProductRepository productRepository,
+                          ProductReviewRepository reviewRepository,
+                          @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.productRepository = productRepository;
+        this.reviewRepository  = reviewRepository;
+        this.mongoEventLogger = mongoEventLogger;
     }
 
+    @PostConstruct
+    public void init() {
+        register(mongoEventLogger);
+    }
+
+    public void register(EntityObserver observer) {
+        if (observer != null) {
+            observers.add(observer);
+        }
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    public void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
+    }
+
+    private Map<String, Object> productPayload(Long productId, Map<String, Object> details) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("productId", productId);
+        payload.put("timestamp", LocalDateTime.now());
+        payload.put("details", details != null ? details : Map.of());
+        return payload;
+    }
 
     //Below are the main crud methods for the product
     //which are :findAll,findById,update,delete,create
@@ -41,6 +77,21 @@ public class ProductService {
         return productRepository.findById(id);
     }
 
+    public Product discontinueProduct(Long id) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
+
+        if (productRepository.hasActiveOrders(id)) {
+            throw new IllegalStateException("Cannot discontinue product with pending or confirmed orders.");
+        }
+
+        product.setStatus(ProductStatus.INACTIVE);
+        Product saved = productRepository.save(product);
+        notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
+                Map.of("status", saved.getStatus().name(), "source", "CRUD")));
+        return saved;
+    }
+
     public Product createProduct(Product product) {
         if (product.getStatus() == null) {
             product.setStatus(ProductStatus.ACTIVE);
@@ -50,15 +101,13 @@ public class ProductService {
             product.setStockQuantity(0);
         }
 
-        if (product.getRating() == null) {
-            product.setRating(0.0);
-        }
+        product.setRating(0.0);
+        product.setTotalRatings(0);
 
-        if (product.getTotalRatings() == null) {
-            product.setTotalRatings(0);
-        }
-
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        notifyObservers("PRODUCT_CREATED", productPayload(saved.getId(),
+                Map.of("name", saved.getName(), "source", "CRUD")));
+        return saved;
     }
 
 
@@ -67,6 +116,7 @@ public class ProductService {
     public boolean deleteProduct(Long id) {
         if (productRepository.existsById(id)) {
             productRepository.deleteById(id);
+            notifyObservers("PRODUCT_DELETED", productPayload(id, Map.of("source", "CRUD")));
             return true;
         }
         return false;
@@ -87,19 +137,26 @@ public class ProductService {
             existingProduct.setStatus(updatedProduct.getStatus());
             existingProduct.setSpecifications(updatedProduct.getSpecifications());
 
-            return productRepository.save(existingProduct);
+            Product saved = productRepository.save(existingProduct);
+            notifyObservers("PRODUCT_UPDATED", productPayload(saved.getId(),
+                    Map.of("name", saved.getName(), "source", "CRUD")));
+            return saved;
         });
     }
     // S2-F2: JSONB partial update — merge incoming specs into existing map
     public Optional<Product> updateSpecifications(Long id, Map<String, Object> incomingSpecs) {
         return productRepository.findById(id).map(product -> {
+            Map<String, Object> specsToMerge = incomingSpecs != null ? incomingSpecs : Map.of();
             Map<String, Object> existing = product.getSpecifications();
             if (existing == null) {
                 existing = new HashMap<>();
             }
-            existing.putAll(incomingSpecs); // add new keys, overwrite matching keys
+            existing.putAll(specsToMerge); // add new keys, overwrite matching keys
             product.setSpecifications(existing);
-            return productRepository.save(product);
+            Product saved = productRepository.save(product);
+            notifyObservers("SPECIFICATIONS_UPDATED", productPayload(saved.getId(),
+                    Map.of("updatedKeys", specsToMerge.keySet(), "source", "CRUD")));
+            return saved;
         });
     }
 
@@ -136,11 +193,68 @@ public class ProductService {
     }
     // S2-F1: Search products by optional category and price range
     // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
-    public List<Product> searchProducts(String category, Double minPrice, Double maxPrice) {
+    public List<Product> searchProducts(com.team14.amazon.product.model.ProductCategory category, Double minPrice, Double maxPrice) {
         if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
             throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
         }
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
+
+    public List<Product> searchBySpecification(String key, String value, ProductStatus status) {
+        return productRepository.findBySpecification(key, value, status);
+    }
+
+    public List<TopProductDTO> getTopRatedProducts(int limit) {
+        int normalizedLimit = limit > 0 ? limit : 10;
+        List<Object[]> rows = productRepository.findTopRatedProducts(org.springframework.data.domain.PageRequest.of(0, normalizedLimit));
+
+        List<TopProductDTO> result = new ArrayList<>();
+        for (Object[] row : rows) {
+            result.add(new TopProductDTO(
+                    ((Number) row[0]).longValue(),
+                    (String) row[1],
+                    ((Number) row[2]).doubleValue(),
+                    ((Number) row[3]).longValue()
+            ));
+        }
+        return result;
+    }
+
+
+
+    // S2-F9: Low Stock Alert Report
+    public List<LowStockAlertDTO> getLowStockAlerts(int threshold) {
+
+        // 1. Query ACTIVE products with stock <= threshold
+        List<Product> lowStockProducts =
+                productRepository.findActiveProductsWithStockAtOrBelow(threshold);
+
+        // 2. Cutoff date for "recent" sales (last 30 days)
+        LocalDateTime since = LocalDateTime.now().minusDays(30);
+
+        // 3. Build DTO list
+        List<LowStockAlertDTO> result = new ArrayList<>();
+
+        for (Product p : lowStockProducts) {
+
+            // 4. Count recent DELIVERED sales with a dedicated query to avoid date-cast issues.
+            long recentSalesCount = productRepository.countRecentDeliveredSales(p.getId(), since);
+
+            // 5. Check for negative reviews (rating <= 2)
+            boolean hasNegativeReviews = reviewRepository.hasNegativeReviews(p.getId());
+
+            result.add(new LowStockAlertDTO(
+                    p.getId(),
+                    p.getName(),
+                    p.getStockQuantity(),
+                    p.getCategory(),
+                    recentSalesCount,
+                    hasNegativeReviews
+            ));
+        }
+
+        return result;
+    }
+
 
 }

@@ -29,8 +29,8 @@ public class ProductReview {
     @Column(nullable = false)
     private String comment;
 
-    @Column
-    private Boolean verified = false;
+    @Column(nullable = false, columnDefinition = "boolean default false")
+    private boolean verified = false;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -44,6 +44,10 @@ public class ProductReview {
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
+
+    @PrePersist
+    void setDefaults() {
+    }
 
     public Long getId() {
         return id;
@@ -85,11 +89,11 @@ public class ProductReview {
         this.comment = comment;
     }
 
-    public Boolean getVerified() {
+    public boolean getVerified() {
         return verified;
     }
 
-    public void setVerified(Boolean verified) {
+    public void setVerified(boolean verified) {
         this.verified = verified;
     }
 

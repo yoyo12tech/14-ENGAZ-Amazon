@@ -5,7 +5,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import com.team14.amazon.user.model.UserRole;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.List;
 import java.util.Optional;
 
@@ -13,11 +16,30 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     Optional<User> findByPhone(String phone);
+    boolean existsByRole(UserRole role);
 
-    /**
-     * [S1-F9] Find Users by Language Preference with Minimum Orders (JSONB + SQL)
-     * Queries the shared database to join users with orders and filter by JSONB language key.
-     */
+    @Query(value = """
+    SELECT * FROM users u
+    WHERE (:name IS NULL OR u.name ILIKE CONCAT('%', :name, '%'))
+      AND (:email IS NULL OR u.email ILIKE CONCAT('%', :email, '%'))
+      AND (:role IS NULL OR CAST(u.role AS VARCHAR) = :role)
+""", nativeQuery = true)
+List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
+
+    @Query(value = "SELECT u.id, u.name, SUM(o.total_amount) AS totalSpent, COUNT(o.id) AS orderCount " +
+                   "FROM users u JOIN orders o ON u.id = o.user_id " +
+                   "WHERE o.status = 'DELIVERED' " +
+                   "AND o.ordered_at >= :startDateTime AND o.ordered_at <= :endDateTime " +
+                   "GROUP BY u.id, u.name " +
+                   "ORDER BY SUM(o.total_amount) DESC " +
+                   "LIMIT :limit", nativeQuery = true)
+    List<Object[]> findTopBuyers(@Param("startDateTime") LocalDateTime startDateTime,
+                                 @Param("endDateTime") LocalDateTime endDateTime,
+                                 @Param("limit") Integer limit);
+
+    @Query(value = "SELECT COUNT(*) FROM orders o WHERE o.user_id = :userId AND o.status NOT IN ('DELIVERED', 'CANCELLED', 'RETURNED')", nativeQuery = true)
+    int countActiveOrdersForUser(@Param("userId") Long userId);
+
     @Query(value = "SELECT u.* FROM users u " +
             "JOIN orders o ON u.id = o.user_id " +
             "WHERE u.preferences ->> 'language' = :lang " +
@@ -25,4 +47,16 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "HAVING COUNT(o.id) >= :minOrders",
             nativeQuery = true)
     List<User> findUsersByLanguageAndMinOrders(@Param("lang") String lang, @Param("minOrders") Integer minOrders);
+
+    @Query(value = """
+    SELECT
+        COUNT(o.id)                                                         AS totalOrders,
+        COUNT(CASE WHEN o.status = 'DELIVERED'  THEN 1 END)                AS completedOrders,
+        COUNT(CASE WHEN o.status = 'CANCELLED'  THEN 1 END)                AS cancelledOrders,
+        COALESCE(SUM(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS totalSpent,
+        COALESCE(AVG(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS averageOrderValue
+    FROM orders o
+    WHERE o.user_id = :userId
+    """, nativeQuery = true)
+    Object[] getOrderSummaryByUserId(@Param("userId") Long userId);
 }

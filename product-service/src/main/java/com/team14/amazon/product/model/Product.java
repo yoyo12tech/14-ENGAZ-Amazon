@@ -27,8 +27,10 @@ public class Product {
     @Column(nullable = false)
     private Double price;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false)
-    private String category;
+    private ProductCategory category;
 
     @Column(nullable = false)
     private String brand;
@@ -36,15 +38,14 @@ public class Product {
     @Column(nullable = false)
     private Integer stockQuantity = 0;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "product_status")
+    @Column(name = "status", nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
 
-    @Column
+    @Column(nullable = false)
     private Double rating = 0.0;
 
-    @Column
+    @Column(nullable = false)
     private Integer totalRatings = 0;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -60,6 +61,13 @@ public class Product {
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ProductReview> reviews;
 
+    @PrePersist
+    void setDefaults() {
+        if (status == null) status = ProductStatus.ACTIVE;
+        if (stockQuantity == null) stockQuantity = 0;
+        if (rating == null) rating = 0.0;
+        if (totalRatings == null) totalRatings = 0;
+    }
 
     public Long getId() {
         return id;
@@ -93,11 +101,11 @@ public class Product {
         this.price = price;
     }
 
-    public String getCategory() {
+    public ProductCategory getCategory() {
         return category;
     }
 
-    public void setCategory(String category) {
+    public void setCategory(ProductCategory category) {
         this.category = category;
     }
 

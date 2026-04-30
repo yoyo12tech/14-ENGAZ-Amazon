@@ -1,6 +1,6 @@
 package com.team14.amazon.billing.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -28,15 +28,14 @@ public class Transaction {
     @Column(nullable = false)
     private Double amount;
 
-    @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "method", nullable = false, columnDefinition = "transaction_method")
-    private Method method;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false, columnDefinition = "transaction_status")
-    private Status status;
+    @Column(name = "method", nullable = false)
+    private TransactionMethod method;
+
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "status", nullable = false)
+    private TransactionStatus status = TransactionStatus.PENDING;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
@@ -45,6 +44,7 @@ public class Transaction {
     @Column(name= "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL)
     @JsonManagedReference("transaction")
     private List<TransactionVoucher> transactionVouchers;
@@ -71,11 +71,11 @@ public class Transaction {
         return this.amount;
     }
 
-    public Method getMethod() {
+    public TransactionMethod getMethod() {
         return this.method;
     }
 
-    public Status getStatus(){
+    public TransactionStatus getStatus(){
         return this.status;
     }
 
@@ -106,11 +106,11 @@ public class Transaction {
         this.amount = amount;
     }
 
-    public void setMethod(Method method) {
+    public void setMethod(TransactionMethod method) {
         this.method = method;
     }
 
-    public void setStatus(Status status) {
+    public void setStatus(TransactionStatus status) {
         this.status = status;
     }
 

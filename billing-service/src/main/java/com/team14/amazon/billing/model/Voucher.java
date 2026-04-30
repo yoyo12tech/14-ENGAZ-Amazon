@@ -1,6 +1,6 @@
 package com.team14.amazon.billing.model;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -21,9 +21,8 @@ public class Voucher {
     @Column(nullable = false, unique = true)
     private String code;
 
-    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "discount_type", nullable = false, columnDefinition = "discount_type")
+    @Column(name = "discount_type", nullable = false)
     private DiscountType discountType;
 
     @Column(nullable = false)
@@ -32,22 +31,29 @@ public class Voucher {
     @Column(nullable = false)
     private Integer maxUses;
 
-    @Column(columnDefinition = "integer default 0")
-    private Integer currentUses = 0;
+    @Column(nullable = false)
+    private Integer currentUses;
 
     @Column(nullable = false)
     private LocalDateTime expiryDate;
 
-    @Column(columnDefinition = "boolean default true")
+    @Column(nullable = false)
     private Boolean active;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata;
 
+    @JsonManagedReference("voucher-transactionvoucher")
     @OneToMany(mappedBy = "voucher")
     @JsonManagedReference("voucher")
     private List<TransactionVoucher> transactionVoucher;
+
+    @PrePersist
+    protected void onCreate() {
+        this.active = true;
+        this.currentUses = 0;
+    }
 
     public Long getId() {
         return this.id;
@@ -124,6 +130,10 @@ public class Voucher {
 
     public void setTransactionVoucher(List<TransactionVoucher> transactionVoucher) {
         this.transactionVoucher = transactionVoucher;
+    }
+
+    public void setCurrentUses(Integer currentUses) {
+        this.currentUses = currentUses;
     }
 }
 
