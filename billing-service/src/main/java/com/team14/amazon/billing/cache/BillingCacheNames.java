@@ -10,7 +10,7 @@ public final class BillingCacheNames {
     public static final String TRANSACTION = "billing-service::transaction";
     public static final String VOUCHER = "billing-service::voucher";
     public static final String TRANSACTION_VOUCHER = "billing-service::transaction-voucher";
-
+    public static final String TRANSACTION_LIFECYCLE = "billing-service::transaction_lifecycle";
     public static final String S5_FEATURE_PATTERN = "billing-service::S5-F*";
 
     private BillingCacheNames() {

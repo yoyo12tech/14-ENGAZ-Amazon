@@ -41,3 +41,9 @@ management:
   health:
     defaults:
       enabled: false
+shipping:
+  datasource:
+    url: jdbc:postgresql://postgres:5432/amazondb
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver

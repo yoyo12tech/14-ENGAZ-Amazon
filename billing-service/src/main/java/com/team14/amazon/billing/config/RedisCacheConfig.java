@@ -44,6 +44,8 @@ public class RedisCacheConfig {
                 .withCacheConfiguration(BillingCacheNames.VOUCHER, defaultConfiguration.entryTtl(Duration.ofMinutes(15)))
                 .withCacheConfiguration(BillingCacheNames.TRANSACTION_VOUCHER,
                         defaultConfiguration.entryTtl(Duration.ofMinutes(15)))
+                .withCacheConfiguration(BillingCacheNames.TRANSACTION_LIFECYCLE,
+                        defaultConfiguration.entryTtl(Duration.ofMinutes(10)))
                 .build();
     }
 }

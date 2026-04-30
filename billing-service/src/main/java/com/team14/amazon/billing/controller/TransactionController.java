@@ -3,25 +3,30 @@ package com.team14.amazon.billing.controller;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.service.TransactionLifecycleService;
 import com.team14.amazon.billing.service.TransactionService;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 import java.util.List;
+import java.util.Objects;
 
 @RestController
 @RequestMapping("/api/transactions")
 public class TransactionController {
     private final TransactionService transactionService;
     private final BillingCacheInvalidationService cacheInvalidationService;
+    private final TransactionLifecycleService transactionLifecycleService;
 
     public TransactionController(TransactionService transactionService,
-                                 BillingCacheInvalidationService cacheInvalidationService) {
+                                 BillingCacheInvalidationService cacheInvalidationService, TransactionLifecycleService transactionLifecycleService) {
         this.transactionService = transactionService;
         this.cacheInvalidationService = cacheInvalidationService;
+        this.transactionLifecycleService = transactionLifecycleService;
     }
 
 //    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
@@ -128,5 +133,26 @@ public class TransactionController {
         Transaction updated = transactionService.applyVoucher(transactionId, voucherId);
         cacheInvalidationService.evictTransactionAndVoucherCaches(updated.getId(), voucherId);
         return ResponseEntity.status(HttpStatus.CREATED).body(updated);
+    }
+
+    //Addon for TransitionLifeCycle
+    @GetMapping("/{transactionId}/lifecycle")
+    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(
+            @PathVariable Long transactionId) {
+
+        // Step 1 - JWT already validated by JwtAuthenticationFilter
+        // Extract caller's uid and role from SecurityContext
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        assert authentication != null;
+        Long callerUid = Long.parseLong((String) Objects.requireNonNull(authentication.getPrincipal()));
+        String callerRole = authentication.getAuthorities().stream()
+                .findFirst()
+                .map(a -> Objects.requireNonNull(a.getAuthority()).replace("ROLE_", ""))
+                .orElse("");
+
+        // Step 8 - Return 200 with timeline (empty list if no events)
+        return ResponseEntity.ok(
+                transactionLifecycleService.getTransactionLifecycle(transactionId, callerUid, callerRole)
+        );
     }
 }
