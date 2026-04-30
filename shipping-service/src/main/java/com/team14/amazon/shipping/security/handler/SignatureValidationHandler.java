@@ -44,6 +44,7 @@ public class SignatureValidationHandler extends AuthHandler {
 
         } catch (JwtException | IllegalArgumentException e) {
             ctx.setError(401, "Invalid token signature or expired");
+            e.printStackTrace();
         }
     }
 }

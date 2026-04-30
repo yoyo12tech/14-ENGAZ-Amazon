@@ -1,22 +1,23 @@
 package com.team14.amazon.shipping.service;
 
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
-import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
-import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
-import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
+import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
+import com.team14.amazon.shipping.observer.MongoEventLogger;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.observer.EntityObserver;
 
+import java.time.LocalDate;
 import java.util.*;
 
 import java.util.ArrayList;
@@ -27,10 +28,14 @@ import java.util.stream.Collectors;
 public class ShipmentService {
 
     private final ShipmentRepository shipmentRepository;
+    private final MongoEventLogger mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
+    private final CachedServices cachedServices;
 
-    public ShipmentService(ShipmentRepository shipmentRepository) {
+    public ShipmentService(ShipmentRepository shipmentRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices) {
         this.shipmentRepository = shipmentRepository;
+        this.mongoEventLogger = mongoEventLogger;
+        this.cachedServices = cachedServices;
     }
 
     public List<Shipment> getAllShipments() {
@@ -329,4 +334,53 @@ public class ShipmentService {
                 .map(ObjectArrayDtoAdapter::adaptToDelayedShipmentDTO)
                 .toList();
     }
+
+    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
+        if (start.isAfter(end)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+        }
+        mongoEventLogger.onEvent("ANALYTICS_VIEWED", null, Map.of(
+                "startDate", start.toString(),
+                "endDate", end.toString()
+        ));
+        return cachedServices.getShippingAnalyticsCached(start, end);
+    }
+
+//    @Cacheable(value="shipping-service::S4-F10", key = "#start + '::' + #end")
+//    public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end){
+//        //cache hit would ignore this section
+////        if(start.isAfter(end)){
+////            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+////        }
+//        Object[] result = shipmentRepository.getShippingAnalytics(start, end);
+//
+//        // a null result means no shipping analytics within this time frame (start->end)
+//        if (result == null) {
+//            return ShippingAnalyticsDTO.builder()
+//                    .totalShipments(0L)
+//                    .averageDeliveryDays(0.0)
+//                    .onTimeRate(0.0)
+//                    .shipmentsByStatus(Map.of())
+//                    .averageAttempts(0.0)
+//                    .build();
+//        }
+//
+//        Map<String, Long> shipmentsByStatus = Map.of(
+//                "PROCESSING",       ((Number) result[3]).longValue(),
+//                "SHIPPED",          ((Number) result[4]).longValue(),
+//                "IN_TRANSIT",       ((Number) result[5]).longValue(),
+//                "OUT_FOR_DELIVERY", ((Number) result[6]).longValue(),
+//                "DELIVERED",        ((Number) result[7]).longValue(),
+//                "RETURNED",         ((Number) result[8]).longValue()
+//        );
+//
+//        return ShippingAnalyticsDTO.builder()
+//                .totalShipments(((Number) result[0]).longValue())
+//                .averageDeliveryDays(((Number) result[1]).doubleValue())
+//                .onTimeRate(((Number) result[2]).doubleValue())
+//                .shipmentsByStatus(shipmentsByStatus)
+//                .averageAttempts(((Number) result[9]).doubleValue())
+//                .build();
+//    }
+
 }

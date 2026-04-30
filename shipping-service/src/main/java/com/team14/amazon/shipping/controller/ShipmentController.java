@@ -1,18 +1,15 @@
 package com.team14.amazon.shipping.controller;
 
-import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
-import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
-import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
+import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.service.ShipmentService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 
 import java.time.LocalDate;
-import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 
@@ -139,6 +136,12 @@ public class ShipmentController {
                 startDate.atStartOfDay(),
                 endDate.atTime(23, 59, 59),
                 status));
+    }
+
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @GetMapping("/analytics")
+    public ResponseEntity<ShippingAnalyticsDTO> getShipmentAnalytics(@RequestParam LocalDate startDate, @RequestParam LocalDate endDate){
+        return ResponseEntity.ok(shipmentService.getShippingAnalytics(startDate, endDate));
     }
 
 

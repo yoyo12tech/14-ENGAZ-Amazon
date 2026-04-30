@@ -1,6 +1,7 @@
 package com.team14.amazon.shipping.repository;
 
 import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
+import com.team14.amazon.shipping.dto.ShippingAnalyticsDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -73,5 +75,26 @@ List<Shipment> findByStatusNative(@Param("status") String status);
         GROUP BY carrier
         """, nativeQuery = true)
     List<Object[]> getCarrierSummary(String carrier, java.time.LocalDate start, java.time.LocalDate end);
+
+
+    @Query(value = """
+       SELECT
+             COUNT(*) AS totalShipments,
+             COALESCE(AVG(EXTRACT(DAY FROM (actual_delivery - created_at))) FILTER (WHERE status = 'DELIVERED' AND actual_delivery IS NOT NULL), 0)
+                AS averageDeliveryTimeDays,
+             COALESCE((COUNT(*) FILTER (WHERE status = 'DELIVERED' AND actual_delivery <= estimated_delivery))::float / NULLIF(COUNT(*) FILTER (WHERE status = 'DELIVERED'), 0), 0)
+                AS onTimeRate,
+             COUNT(*) FILTER (WHERE status = 'PROCESSING') AS processingCount,
+             COUNT(*) FILTER (WHERE status = 'SHIPPED')                      AS shippedCount,
+             COUNT(*) FILTER (WHERE status = 'IN_TRANSIT')                   AS inTransitCount,
+             COUNT(*) FILTER (WHERE status = 'OUT_FOR_DELIVERY')             AS outForDeliveryCount,
+             COUNT(*) FILTER (WHERE status = 'DELIVERED')                    AS deliveredCount,
+             COUNT(*) FILTER (WHERE status = 'RETURNED')                     AS returnedCount,
+             COALESCE(AVG(COALESCE((metadata->>'deliveryAttempts')::numeric, 1)) FILTER (WHERE status = 'DELIVERED'), 0)
+                AS averageAttempts
+       FROM shipments
+       WHERE created_at BETWEEN :start AND :end
+""", nativeQuery = true)
+    Object[] getShippingAnalytics(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }
 
