@@ -48,4 +48,21 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query(value = "SELECT COUNT(*) FROM order_items WHERE id IN :itemIds AND order_id = :orderId", nativeQuery = true)
     Long countItemsBelongingToOrder(@Param("itemIds") List<Long> itemIds, @Param("orderId") Long orderId);
 
+    @Query(value = "SELECT p.category AS category, " +
+            "oi.id AS orderItemId, " +
+            "oi.quantity AS quantity, " +
+            "oi.price_at_purchase AS priceAtPurchase, " +
+            "t.status AS transactionStatus, " +
+            "CAST(t.transaction_details AS text) AS transactionDetails, " +
+            "t.id AS transactionId " +
+            "FROM transactions t " +
+            "JOIN orders o ON t.order_id = o.id " +
+            "JOIN order_items oi ON o.id = oi.order_id " +
+            "JOIN products p ON oi.product_id = p.id " +
+            "WHERE o.ordered_at BETWEEN :startDate AND :endDate " +
+            "AND t.status IN ('COMPLETED', 'REFUNDED')", nativeQuery = true)
+    List<CategoryRevenueProjection> findCategoryRevenueRawData(
+            @Param("startDate") LocalDateTime startDate,
+            @Param("endDate") LocalDateTime endDate
+    );
 }

@@ -4,11 +4,15 @@ import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.model.Transaction;
 import com.team14.amazon.billing.service.PartialRefundService;
 import com.team14.amazon.billing.service.TransactionService;
+import com.team14.amazon.billing.observer.MongoEventLogger;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.format.annotation.DateTimeFormat;
 import java.util.Map;
+import java.util.HashMap;
+import java.time.LocalDate;
 
 import java.util.List;
 
@@ -17,11 +21,14 @@ import java.util.List;
 public class TransactionController {
     private final TransactionService transactionService;
     private final PartialRefundService partialRefundService;
+    private final MongoEventLogger mongoEventLogger;
 
     public TransactionController(TransactionService transactionService,
-                                 PartialRefundService partialRefundService) {
+                                 PartialRefundService partialRefundService,
+                                 MongoEventLogger mongoEventLogger) {
         this.transactionService = transactionService;
         this.partialRefundService = partialRefundService;
+        this.mongoEventLogger = mongoEventLogger;
     }
 
 //    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
@@ -120,5 +127,19 @@ public class TransactionController {
             @PathVariable Long id,
             @RequestBody RefundRequest request) {
         return ResponseEntity.ok(partialRefundService.processPartialRefund(id, request));
+    }
+
+    @GetMapping("/analytics/category")
+    public ResponseEntity<List<CategoryRevenueDTO>> getCategoryRevenue(
+            @RequestParam("startDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam("endDate") @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        Map<String, Object> logPayload = new HashMap<>();
+        logPayload.put("report", "CATEGORY_REVENUE");
+        logPayload.put("startDate", startDate.toString());
+        logPayload.put("endDate", endDate.toString());
+        mongoEventLogger.onEvent("ANALYTICS_VIEWED", logPayload);
+
+        return ResponseEntity.ok(transactionService.getCategoryRevenue(startDate, endDate));
     }
 }
