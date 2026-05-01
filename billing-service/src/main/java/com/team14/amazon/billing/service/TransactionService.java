@@ -21,6 +21,8 @@ import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -32,6 +34,10 @@ import java.util.List;
 import com.team14.amazon.billing.dto.AppliedVoucherDetail;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.team14.amazon.billing.dto.CategoryRevenueDTO;
+import com.team14.amazon.billing.repository.CategoryRevenueProjection;
 
 @Service
 public class TransactionService {
@@ -484,5 +490,89 @@ public class TransactionService {
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers(pageable);
+    }
+
+    @Cacheable(value = BillingCacheNames.S5_F10, key = "#startDate.toString() + '_' + #endDate.toString()")
+    public List<CategoryRevenueDTO> getCategoryRevenue(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
+        }
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(LocalTime.MAX);
+
+        List<CategoryRevenueProjection> rawData = transactionRepository.findCategoryRevenueRawData(start, end);
+
+        class CategoryAgg {
+            String category;
+            double grossRevenue = 0.0;
+            double refundedRevenue = 0.0;
+            Set<Long> txIds = new HashSet<>();
+            Set<Long> refundTxIds = new HashSet<>();
+            CategoryAgg(String c) { category = c; }
+        }
+
+        Map<String, CategoryAgg> map = new HashMap<>();
+        ObjectMapper mapper = new ObjectMapper();
+
+        for (CategoryRevenueProjection row : rawData) {
+            String cat = row.getCategory();
+            map.putIfAbsent(cat, new CategoryAgg(cat));
+            CategoryAgg agg = map.get(cat);
+
+            agg.txIds.add(row.getTransactionId());
+            double lineGross = row.getQuantity() * row.getPriceAtPurchase();
+            agg.grossRevenue += lineGross;
+
+            if ("REFUNDED".equals(row.getTransactionStatus())) {
+                agg.refundTxIds.add(row.getTransactionId());
+
+                boolean hasRefundedItemsArray = false;
+                if (row.getTransactionDetails() != null) {
+                    try {
+                        Map<String, Object> details = mapper.readValue(row.getTransactionDetails(), new TypeReference<Map<String, Object>>() {});
+                        if (details.containsKey("refundedItems")) {
+                            hasRefundedItemsArray = true;
+                            List<Map<String, Object>> refundedItems = (List<Map<String, Object>>) details.get("refundedItems");
+                            for (Map<String, Object> rItem : refundedItems) {
+                                Number oId = (Number) rItem.get("orderItemId");
+                                if (oId != null && oId.longValue() == row.getOrderItemId()) {
+                                    Number amt = (Number) rItem.get("amount");
+                                    if (amt != null) {
+                                        agg.refundedRevenue += amt.doubleValue();
+                                    }
+                                    break; // Found the item, stop searching this array
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignore parse errors, fallback will occur if hasRefundedItemsArray remains false
+                    }
+                }
+
+                if (!hasRefundedItemsArray) {
+                    // M1 Legacy Schema (Full Refund Fallback)
+                    agg.refundedRevenue += lineGross;
+                }
+            }
+        }
+
+        List<CategoryRevenueDTO> result = new ArrayList<>();
+        for (CategoryAgg agg : map.values()) {
+            double net = agg.grossRevenue - agg.refundedRevenue;
+            long txCount = agg.txIds.size();
+            long refCount = agg.refundTxIds.size();
+            double rate = txCount == 0 ? 0.0 : ((double) refCount / txCount);
+
+            result.add(new CategoryRevenueDTO.Builder()
+                    .category(agg.category)
+                    .grossRevenue(agg.grossRevenue)
+                    .refundedRevenue(agg.refundedRevenue)
+                    .netRevenue(net)
+                    .transactionCount(txCount)
+                    .refundCount(refCount)
+                    .returnRate(rate)
+                    .build());
+        }
+        return result;
     }
 }
