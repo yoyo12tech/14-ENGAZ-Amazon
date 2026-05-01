@@ -3,8 +3,10 @@ package com.team14.amazon.shipping.service;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
 import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
+import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -31,11 +33,13 @@ public class ShipmentService {
     private final MongoEventLogger mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
     private final CachedServices cachedServices;
+    private final ShipmentEventRepository shipmentEventRepository;
 
-    public ShipmentService(ShipmentRepository shipmentRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices) {
+    public ShipmentService(ShipmentRepository shipmentRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
+        this.shipmentEventRepository = shipmentEventRepository;
     }
 
     public List<Shipment> getAllShipments() {
@@ -335,15 +339,37 @@ public class ShipmentService {
                 .toList();
     }
 
-    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
-        if (start.isAfter(end)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+//    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
+//        if (start.isAfter(end)) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+//        }
+//        mongoEventLogger.onEvent("ANALYTICS_VIEWED", null, Map.of(
+//                "startDate", start.toString(),
+//                "endDate", end.toString()
+//        ));
+//        return cachedServices.getShippingAnalyticsCached(start, end);
+//    }
+
+    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
         }
-        mongoEventLogger.onEvent("ANALYTICS_VIEWED", null, Map.of(
-                "startDate", start.toString(),
-                "endDate", end.toString()
-        ));
-        return cachedServices.getShippingAnalyticsCached(start, end);
+
+        try {
+            ShipmentEvent log = new ShipmentEvent(
+                    null,
+                    "ANALYTICS_VIEWED",
+                    Map.of(
+                            "startDate", startDate.toString(),
+                            "endDate", endDate.toString()
+                    )
+            );
+            shipmentEventRepository.save(log);
+        } catch (Exception e) {
+            System.err.println("Failed to log analytics view to MongoDB: " + e.getMessage());
+        }
+
+        return cachedServices.getShippingAnalyticsCached(startDate, endDate);
     }
 
 //    @Cacheable(value="shipping-service::S4-F10", key = "#start + '::' + #end")
