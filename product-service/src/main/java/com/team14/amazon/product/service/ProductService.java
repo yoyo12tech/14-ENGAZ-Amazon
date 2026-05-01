@@ -1,14 +1,19 @@
 package com.team14.amazon.product.service;
+
+import com.team14.amazon.product.adapter.ObjectArrayProductSalesAdapter;
+import com.team14.amazon.product.adapter.ObjectArrayTopProductAdapter;
 import com.team14.amazon.product.dto.LowStockAlertDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
 import com.team14.amazon.product.model.Product;
+import com.team14.amazon.product.model.ProductCategory;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.observer.EntityObserver;
 import com.team14.amazon.product.repository.ProductReviewRepository;
 import com.team14.amazon.product.repository.ProductRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -27,6 +32,8 @@ public class ProductService {
     private final ProductReviewRepository reviewRepository;
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
+    private final ObjectArrayProductSalesAdapter salesAdapter = new ObjectArrayProductSalesAdapter();
+    private final ObjectArrayTopProductAdapter topProductAdapter = new ObjectArrayTopProductAdapter();
 
     public ProductService(ProductRepository productRepository,
                           ProductReviewRepository reviewRepository,
@@ -73,6 +80,7 @@ public class ProductService {
         return productRepository.findAll();
     }
 
+    @Cacheable(value = "product-service::product", key = "#id")
     public Optional<Product> getProductById(Long id) {
         return productRepository.findById(id);
     }
@@ -165,6 +173,8 @@ public class ProductService {
 
 
 //s2-f3
+    @Cacheable(value = "product-service::S2-F3",
+               key = "#id + '_' + #startDate + '_' + #endDate")
     public ProductSalesDTO getProductSalesSummary(Long id, LocalDate startDate, LocalDate endDate) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
@@ -176,46 +186,42 @@ public class ProductService {
 
         // 2. Handle empty results (e.g., if the left join has no matches)
         if (results == null || results.isEmpty()) {
-            return new ProductSalesDTO(id, product.getName(), 0L, 0.0, 0.0);
+            return ProductSalesDTO.builder()
+                    .productId(id)
+                    .name(product.getName())
+                    .totalUnitsSold(0L)
+                    .totalRevenue(0.0)
+                    .averageSellingPrice(0.0)
+                    .build();
         }
 
-        // 3. Extract the first row (the Object array)
-        Object[] row = results.get(0);
-
-        // 4. Map columns to DTO with proper Number casting
-        return new ProductSalesDTO(
-                ((Number) row[0]).longValue(),    // productId
-                (String)  row[1],                 // name
-                ((Number) row[2]).longValue(),    // totalUnitsSold
-                ((Number) row[3]).doubleValue(),  // totalRevenue
-                ((Number) row[4]).doubleValue()   // averageSellingPrice
-        );
+        return salesAdapter.adapt(results.get(0));
     }
     // S2-F1: Search products by optional category and price range
     // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
-    public List<Product> searchProducts(com.team14.amazon.product.model.ProductCategory category, Double minPrice, Double maxPrice) {
+    @Cacheable(value = "product-service::S2-F1",
+               key = "T(String).valueOf(#category) + '_' + T(String).valueOf(#minPrice) + '_' + T(String).valueOf(#maxPrice)")
+    public List<Product> searchProducts(ProductCategory category, Double minPrice, Double maxPrice) {
         if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
             throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
         }
         return productRepository.searchProducts(category, minPrice, maxPrice);
     }
 
+    @Cacheable(value = "product-service::S2-F5",
+               key = "#key + '_' + #value + '_' + T(String).valueOf(#status)")
     public List<Product> searchBySpecification(String key, String value, ProductStatus status) {
         return productRepository.findBySpecification(key, value, status);
     }
 
+    @Cacheable(value = "product-service::S2-F6", key = "#limit")
     public List<TopProductDTO> getTopRatedProducts(int limit) {
         int normalizedLimit = limit > 0 ? limit : 10;
         List<Object[]> rows = productRepository.findTopRatedProducts(org.springframework.data.domain.PageRequest.of(0, normalizedLimit));
 
         List<TopProductDTO> result = new ArrayList<>();
         for (Object[] row : rows) {
-            result.add(new TopProductDTO(
-                    ((Number) row[0]).longValue(),
-                    (String) row[1],
-                    ((Number) row[2]).doubleValue(),
-                    ((Number) row[3]).longValue()
-            ));
+            result.add(topProductAdapter.adapt(row));
         }
         return result;
     }
@@ -223,6 +229,7 @@ public class ProductService {
 
 
     // S2-F9: Low Stock Alert Report
+    @Cacheable(value = "product-service::S2-F9", key = "#threshold")
     public List<LowStockAlertDTO> getLowStockAlerts(int threshold) {
 
         // 1. Query ACTIVE products with stock <= threshold
@@ -243,14 +250,14 @@ public class ProductService {
             // 5. Check for negative reviews (rating <= 2)
             boolean hasNegativeReviews = reviewRepository.hasNegativeReviews(p.getId());
 
-            result.add(new LowStockAlertDTO(
-                    p.getId(),
-                    p.getName(),
-                    p.getStockQuantity(),
-                    p.getCategory(),
-                    recentSalesCount,
-                    hasNegativeReviews
-            ));
+            result.add(LowStockAlertDTO.builder()
+                    .productId(p.getId())
+                    .productName(p.getName())
+                    .currentStock(p.getStockQuantity())
+                    .category(p.getCategory())
+                    .recentSalesCount(recentSalesCount)
+                    .hasNegativeReviews(hasNegativeReviews)
+                    .build());
         }
 
         return result;

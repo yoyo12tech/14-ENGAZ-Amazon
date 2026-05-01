@@ -1,5 +1,11 @@
 package com.team14.amazon.product.config;
 
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.Cache;
@@ -12,13 +18,13 @@ import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.cache.RedisCacheManager;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
+import org.springframework.data.redis.serializer.GenericJackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
+import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
-import tools.jackson.databind.ObjectMapper;
 
 @Configuration
 @EnableCaching
@@ -26,25 +32,53 @@ public class RedisConfig implements CachingConfigurer {
 
     private static final Logger log = LoggerFactory.getLogger(RedisConfig.class);
 
+    private static ObjectMapper buildCacheObjectMapper() {
+        ObjectMapper mapper = new ObjectMapper();
+
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        mapper.configure(
+                DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                false
+        );
+
+        mapper.activateDefaultTyping(
+                LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY
+        );
+
+        return mapper;
+    }
+
     @Bean
     public RedisCacheManager cacheManager(RedisConnectionFactory factory) {
-        RedisCacheConfiguration base = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new GenericJacksonJsonRedisSerializer(new ObjectMapper())))
-                .disableCachingNullValues();
+
+        GenericJackson2JsonRedisSerializer serializer =
+                new GenericJackson2JsonRedisSerializer(buildCacheObjectMapper());
+
+        RedisCacheConfiguration base =
+                RedisCacheConfiguration.defaultCacheConfig()
+                        .serializeKeysWith(
+                                RedisSerializationContext.SerializationPair
+                                        .fromSerializer(new StringRedisSerializer())
+                        )
+                        .serializeValuesWith(
+                                RedisSerializationContext.SerializationPair
+                                        .fromSerializer(serializer)
+                        )
+                        .disableCachingNullValues();
 
         Map<String, RedisCacheConfiguration> configs = new HashMap<>();
 
-        // M2 4.4.1 - feature GETs: F1=5min, F3=10min, F5=5min, F6=10min, F9=10min
         configs.put("product-service::S2-F1", base.entryTtl(Duration.ofMinutes(5)));
         configs.put("product-service::S2-F3", base.entryTtl(Duration.ofMinutes(10)));
         configs.put("product-service::S2-F5", base.entryTtl(Duration.ofMinutes(5)));
         configs.put("product-service::S2-F6", base.entryTtl(Duration.ofMinutes(10)));
         configs.put("product-service::S2-F9", base.entryTtl(Duration.ofMinutes(10)));
-        // M2 new feature caches (4.4.4 - must be invalidated on product writes)
         configs.put("product-service::S2-F10", base.entryTtl(Duration.ofMinutes(5)));
         configs.put("product-service::S2-F12", base.entryTtl(Duration.ofMinutes(10)));
-        // M2 4.4.2 - CRUD GET-by-ID: 15 min
         configs.put("product-service::product", base.entryTtl(Duration.ofMinutes(15)));
         configs.put("product-service::product-review", base.entryTtl(Duration.ofMinutes(15)));
 
@@ -63,23 +97,27 @@ public class RedisConfig implements CachingConfigurer {
     public CacheErrorHandler cacheErrorHandler() {
         return new CacheErrorHandler() {
             @Override
-            public void handleCacheGetError(RuntimeException exception, Cache cache, Object key) {
-                log.warn("Cache GET failed on '{}' for key '{}': {}", cache.getName(), key, exception.getMessage());
+            public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
+                log.warn("Cache GET failed on '{}' key '{}': {}",
+                        cache.getName(), key, e.getMessage());
             }
 
             @Override
-            public void handleCachePutError(RuntimeException exception, Cache cache, Object key, Object value) {
-                log.warn("Cache PUT failed on '{}' for key '{}': {}", cache.getName(), key, exception.getMessage());
+            public void handleCachePutError(RuntimeException e, Cache cache, Object key, Object value) {
+                log.warn("Cache PUT failed on '{}' key '{}': {}",
+                        cache.getName(), key, e.getMessage());
             }
 
             @Override
-            public void handleCacheEvictError(RuntimeException exception, Cache cache, Object key) {
-                log.warn("Cache EVICT failed on '{}' for key '{}': {}", cache.getName(), key, exception.getMessage());
+            public void handleCacheEvictError(RuntimeException e, Cache cache, Object key) {
+                log.warn("Cache EVICT failed on '{}' key '{}': {}",
+                        cache.getName(), key, e.getMessage());
             }
 
             @Override
-            public void handleCacheClearError(RuntimeException exception, Cache cache) {
-                log.warn("Cache CLEAR failed on '{}': {}", cache.getName(), exception.getMessage());
+            public void handleCacheClearError(RuntimeException e, Cache cache) {
+                log.warn("Cache CLEAR failed on '{}': {}",
+                        cache.getName(), e.getMessage());
             }
         };
     }
@@ -89,5 +127,3 @@ public class RedisConfig implements CachingConfigurer {
         return cacheErrorHandler();
     }
 }
-
-
