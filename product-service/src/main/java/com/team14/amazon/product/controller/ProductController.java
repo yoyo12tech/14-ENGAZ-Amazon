@@ -10,7 +10,6 @@ import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.service.CacheInvalidationService;
 import com.team14.amazon.product.service.ProductReviewService;
 import com.team14.amazon.product.service.ProductService;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -55,7 +54,6 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @Cacheable(value = "product-service::product", key = "#id")
     public ResponseEntity<Product> getProductById(@PathVariable Long id) {
         return productService.getProductById(id)
                 .map(ResponseEntity::ok)
@@ -97,8 +95,6 @@ public class ProductController {
     // Features in chronological order (S2-F1 -> S2-F9)
     // M2 4.4.1 - S2-F1 cached, TTL 5 min
     @GetMapping("/search")
-    @Cacheable(value = "product-service::S2-F1",
-            key = "T(String).valueOf(#category) + '_' + T(String).valueOf(#minPrice) + '_' + T(String).valueOf(#maxPrice)")
     public ResponseEntity<?> searchProducts(
             @RequestParam(required = false) com.team14.amazon.product.model.ProductCategory category,
             @RequestParam(required = false) Double minPrice,
@@ -126,8 +122,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F3 cached, TTL 10 min
     @GetMapping("/{id}/sales")
-    @Cacheable(value = "product-service::S2-F3",
-            key = "#id + '_' + #startDate + '_' + #endDate")
     public ResponseEntity<?> getProductSalesSummary(
             @PathVariable Long id,
             @RequestParam String startDate,
@@ -163,8 +157,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F5 cached, TTL 5 min
     @GetMapping("/specifications/search")
-    @Cacheable(value = "product-service::S2-F5",
-            key = "#key + '_' + #value + '_' + T(String).valueOf(#status)")
     public ResponseEntity<List<Product>> searchBySpecification(
             @RequestParam String key,
             @RequestParam String value,
@@ -174,7 +166,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F6 cached, TTL 10 min
     @GetMapping("/reports/top-rated")
-    @Cacheable(value = "product-service::S2-F6", key = "#limit")
     public ResponseEntity<List<TopProductDTO>> getTopRatedProducts(
             @RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(productService.getTopRatedProducts(limit));
@@ -198,8 +189,6 @@ public class ProductController {
 
     // M2 4.4.2 product-review GET-by-ID cached, TTL 15 min
     @GetMapping("/{productId}/reviews/{reviewId}")
-    @Cacheable(value = "product-service::product-review",
-            key = "#productId + '_' + #reviewId")
     public ResponseEntity<ProductReview> getReviewByProductAndId(
             @PathVariable Long productId,
             @PathVariable Long reviewId) {
@@ -243,7 +232,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F9 cached, TTL 10 min
     @GetMapping("/stock/low-stock")
-    @Cacheable(value = "product-service::S2-F9", key = "#threshold")
     public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
             @RequestParam(defaultValue = "10") int threshold) {
         return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
