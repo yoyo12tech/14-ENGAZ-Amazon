@@ -30,6 +30,10 @@ spring:
     local-datacenter: datacenter1
     keyspace-name: amazonks
     schema-action: CREATE_IF_NOT_EXISTS
+    request:
+      timeout: 10s
+    connection:
+      init-query-timeout: 10s
 
   cache:
     type: redis
