@@ -9,6 +9,7 @@ import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -38,14 +39,16 @@ public class TransactionService {
     private final VoucherRepository voucherRepository;
     private final TransactionVoucherRepository transactionVoucherRepository;
     private final List<EntityObserver> observers;
+    private final BillingCacheInvalidationService cacheInvalidationService;
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
             TransactionVoucherRepository transactionVoucherRepository,
-            List<EntityObserver> observers) {
+            List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
         this.observers = new ArrayList<>(observers);
+        this.cacheInvalidationService = cacheInvalidationService;
     }
 
     public void register(EntityObserver observer) {
@@ -82,6 +85,7 @@ public class TransactionService {
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
 
         notifyObservers("SYSTEM_CREATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
 
         return saved;
     }
@@ -107,6 +111,7 @@ public class TransactionService {
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
 
         notifyObservers("SYSTEM_UPDATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
 
         return saved;
     }
@@ -114,6 +119,7 @@ public class TransactionService {
     public void deleteTransaction(Long id) {
         Transaction existing = transactionRepository.findById(id).orElse(null);
         transactionRepository.deleteById(id);
+        cacheInvalidationService.evictTransactionCaches(id);
 
         if (existing != null) {
             Map<String, Object> details = new HashMap<>();
@@ -292,6 +298,7 @@ public class TransactionService {
             failedDetails.put("reason", "SIMULATED_FAILURE");
             String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
             notifyObservers("FAILED", auditPayload(saved.getId(), methodName, saved.getAmount(), failedDetails));
+            cacheInvalidationService.evictTransactionCaches(saved.getId());
             return saved;
         }
 
@@ -313,6 +320,7 @@ public class TransactionService {
         completedDetails.put("gatewayResponse", "approved");
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), completedDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
@@ -340,6 +348,7 @@ public class TransactionService {
         refundDetails.put("refundReason", reason);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("REFUNDED", auditPayload(saved.getId(), methodName, saved.getAmount(), refundDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
@@ -400,6 +409,7 @@ public class TransactionService {
         voucherDetails.put("discountApplied", discount);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("VOUCHER_APPLIED", auditPayload(saved.getId(), methodName, saved.getAmount(), voucherDetails));
+        cacheInvalidationService.evictTransactionAndVoucherCaches(saved.getId(), voucherId);
         return saved;
     }
 
@@ -430,6 +440,7 @@ public class TransactionService {
         eventDetails.put("retryAttempt", retryAttempt + 1);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("RETRY_COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), eventDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
