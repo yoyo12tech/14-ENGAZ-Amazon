@@ -3,6 +3,7 @@ package com.team14.amazon.billing.controller;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.model.Transaction;
+import com.team14.amazon.billing.service.PartialRefundService;
 import com.team14.amazon.billing.service.TransactionService;
 
 import org.springframework.http.HttpStatus;
@@ -17,11 +18,15 @@ import java.util.List;
 public class TransactionController {
     private final TransactionService transactionService;
     private final BillingCacheInvalidationService cacheInvalidationService;
+    private final PartialRefundService partialRefundService;
 
     public TransactionController(TransactionService transactionService,
-                                 BillingCacheInvalidationService cacheInvalidationService) {
+                                 BillingCacheInvalidationService cacheInvalidationService,
+                                 PartialRefundService partialRefundService) {
         this.transactionService = transactionService;
         this.cacheInvalidationService = cacheInvalidationService;
+        this.partialRefundService = partialRefundService;
+
     }
 
 //    @ExceptionHandler({IllegalArgumentException.class, IllegalStateException.class, NullPointerException.class})
@@ -126,5 +131,11 @@ public class TransactionController {
         Transaction updated = transactionService.applyVoucher(transactionId, voucherId);
         cacheInvalidationService.evictTransactionAndVoucherCaches(updated.getId(), voucherId);
         return ResponseEntity.status(HttpStatus.CREATED).body(updated);
+    }
+    @PostMapping("/{id}/refund-items")
+    public ResponseEntity<Transaction> processPartialRefund(
+            @PathVariable Long id,
+            @RequestBody RefundRequest request) {
+        return ResponseEntity.ok(partialRefundService.processPartialRefund(id, request));
     }
 }
