@@ -5,6 +5,7 @@ import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
+import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,11 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.observer.EntityObserver;
+import com.team14.amazon.shipping.observer.MongoEventLogger;
+import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 
 import java.time.LocalDate;
 import java.util.*;
-
-import java.util.ArrayList;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
@@ -34,12 +36,17 @@ public class ShipmentService {
     private final List<EntityObserver> observers = new ArrayList<>();
     private final CachedServices cachedServices;
     private final ShipmentEventRepository shipmentEventRepository;
+    private final ShipmentTrackingEventRepository trackingRepository;
+    
 
-    public ShipmentService(ShipmentRepository shipmentRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository) {
+    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository,  MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
         this.shipmentEventRepository = shipmentEventRepository;
+        this.trackingRepository = trackingRepository;
+
+        register(mongoEventLogger);
     }
 
     public List<Shipment> getAllShipments() {
@@ -339,6 +346,8 @@ public class ShipmentService {
                 .toList();
     }
 
+
+
 //    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
 //        if (start.isAfter(end)) {
 //            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
@@ -409,4 +418,70 @@ public class ShipmentService {
 //                .build();
 //    }
 
+
+@Caching(evict = {
+    @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
+    @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
+})
+
+
+public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
+
+Shipment shipment = shipmentRepository.findById(shipmentId)
+        .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Shipment not found"
+        ));
+
+Shipment.Status status;
+
+try {
+    status = Shipment.Status.valueOf(request.getStatus());
+} catch (Exception e) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Invalid shipment status"
+    );
+}
+
+shipment.setStatus(status);
+
+if (request.getLatitude() != null) {
+    shipment.setLatitude(request.getLatitude());
+}
+
+if (request.getLongitude() != null) {
+    shipment.setLongitude(request.getLongitude());
+}
+
+shipment.setLastUpdate(LocalDateTime.now());
+
+shipmentRepository.save(shipment);
+
+ShipmentTrackingEvent event = new ShipmentTrackingEvent(
+    shipment.getId(),
+    Instant.now(),
+    status,
+    shipment.getCarrier(),
+    shipment.getTrackingNumber(),
+    request.getLatitude(),
+    request.getLongitude(),
+    request.getNotes()
+);
+
+ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
+
+notifyObservers(
+        "TRACKING_RECORDED",
+        shipment.getId(),
+        Map.of(
+                "trackingNumber", shipment.getTrackingNumber(),
+                "status", status.name(),
+                "carrier", shipment.getCarrier(),
+                "notes", request.getNotes() != null ? request.getNotes() : ""
+        )
+);
+
+return savedEvent;
+}
 }
