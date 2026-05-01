@@ -70,6 +70,7 @@ public class CachedServices {
                     .build();
         }
 
+
         Object[] result = results.getFirst(); // unwrap the actual row
 
         Map<String, Long> shipmentsByStatus = Map.of(
