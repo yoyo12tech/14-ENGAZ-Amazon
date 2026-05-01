@@ -26,14 +26,17 @@ public class ProductReviewService {
 
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final CacheInvalidationService cacheInvalidationService;
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public ProductReviewService(ProductReviewRepository reviewRepository,
                                 ProductRepository productRepository,
+                                CacheInvalidationService cacheInvalidationService,
                                 @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
+        this.cacheInvalidationService = cacheInvalidationService;
         this.mongoEventLogger = mongoEventLogger;
     }
 
@@ -88,8 +91,10 @@ public class ProductReviewService {
     }
 
     public ProductReview createReview(ProductReview review) {
-
-        return reviewRepository.save(review);
+        ProductReview saved = reviewRepository.save(review);
+        Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
+        cacheInvalidationService.invalidateProductCaches(productId);
+        return saved;
     }
 
     public Optional<ProductReview> updateReview(Long id, ProductReview updatedReview) {
@@ -99,13 +104,17 @@ public class ProductReviewService {
             existing.setComment(updatedReview.getComment());
             existing.setVerified(updatedReview.getVerified());
             existing.setMetadata(updatedReview.getMetadata());
-            return reviewRepository.save(existing);
+            ProductReview saved = reviewRepository.save(existing);
+            Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
+            cacheInvalidationService.invalidateReviewCaches(id, productId);
+            return saved;
         });
     }
 
-    public boolean deleteReview(Long id) {
+    public boolean deleteReview(Long id, Long productId) {
         if (reviewRepository.existsById(id)) {
             reviewRepository.deleteById(id);
+            cacheInvalidationService.invalidateReviewCaches(id, productId);
             return true;
         }
         return false;
@@ -155,6 +164,7 @@ public class ProductReviewService {
 
         // 7. Save updated product and return the created review payload
         productRepository.save(product);
+        cacheInvalidationService.invalidateProductCaches(productId);
 
         notifyObservers("REVIEW_ADDED", reviewPayload(
                 productId,
@@ -217,6 +227,7 @@ public class ProductReviewService {
 
         // 8. Save the review
         ProductReview savedReview = reviewRepository.save(review);
+        cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
 
         notifyObservers("REVIEW_VERIFIED", reviewPayload(
                 productId,
