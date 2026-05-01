@@ -30,6 +30,7 @@ public class ProductService {
 
     private final ProductRepository productRepository;
     private final ProductReviewRepository reviewRepository;
+    private final CacheInvalidationService cacheInvalidationService;
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
     private final ObjectArrayProductSalesAdapter salesAdapter = new ObjectArrayProductSalesAdapter();
@@ -37,9 +38,11 @@ public class ProductService {
 
     public ProductService(ProductRepository productRepository,
                           ProductReviewRepository reviewRepository,
+                          CacheInvalidationService cacheInvalidationService,
                           @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.productRepository = productRepository;
         this.reviewRepository  = reviewRepository;
+        this.cacheInvalidationService = cacheInvalidationService;
         this.mongoEventLogger = mongoEventLogger;
     }
 
@@ -95,6 +98,7 @@ public class ProductService {
 
         product.setStatus(ProductStatus.INACTIVE);
         Product saved = productRepository.save(product);
+        cacheInvalidationService.invalidateProductCaches(id);
         notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
                 Map.of("status", saved.getStatus().name(), "source", "CRUD")));
         return saved;
@@ -113,6 +117,7 @@ public class ProductService {
         product.setTotalRatings(0);
 
         Product saved = productRepository.save(product);
+        cacheInvalidationService.invalidateProductCaches(saved.getId());
         notifyObservers("PRODUCT_CREATED", productPayload(saved.getId(),
                 Map.of("name", saved.getName(), "source", "CRUD")));
         return saved;
@@ -124,6 +129,7 @@ public class ProductService {
     public boolean deleteProduct(Long id) {
         if (productRepository.existsById(id)) {
             productRepository.deleteById(id);
+            cacheInvalidationService.invalidateProductCaches(id);
             notifyObservers("PRODUCT_DELETED", productPayload(id, Map.of("source", "CRUD")));
             return true;
         }
@@ -146,6 +152,7 @@ public class ProductService {
             existingProduct.setSpecifications(updatedProduct.getSpecifications());
 
             Product saved = productRepository.save(existingProduct);
+            cacheInvalidationService.invalidateProductCaches(id);
             notifyObservers("PRODUCT_UPDATED", productPayload(saved.getId(),
                     Map.of("name", saved.getName(), "source", "CRUD")));
             return saved;
@@ -162,6 +169,7 @@ public class ProductService {
             existing.putAll(specsToMerge); // add new keys, overwrite matching keys
             product.setSpecifications(existing);
             Product saved = productRepository.save(product);
+            cacheInvalidationService.invalidateProductCaches(id);
             notifyObservers("SPECIFICATIONS_UPDATED", productPayload(saved.getId(),
                     Map.of("updatedKeys", specsToMerge.keySet(), "source", "CRUD")));
             return saved;

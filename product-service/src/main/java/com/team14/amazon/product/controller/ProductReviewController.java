@@ -1,7 +1,6 @@
 package com.team14.amazon.product.controller;
 
 import com.team14.amazon.product.model.ProductReview;
-import com.team14.amazon.product.service.CacheInvalidationService;
 import com.team14.amazon.product.service.ProductReviewService;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -22,12 +21,9 @@ import java.util.List;
 public class ProductReviewController {
 
     private final ProductReviewService reviewService;
-    private final CacheInvalidationService cacheInvalidationService;
 
-    public ProductReviewController(ProductReviewService reviewService,
-                                   CacheInvalidationService cacheInvalidationService) {
+    public ProductReviewController(ProductReviewService reviewService) {
         this.reviewService = reviewService;
-        this.cacheInvalidationService = cacheInvalidationService;
     }
 
     // CRUD first
@@ -50,8 +46,6 @@ public class ProductReviewController {
     public ResponseEntity<?> createReview(@RequestBody ProductReview review) {
         try {
             ProductReview created = reviewService.createReview(review);
-            Long productId = created.getProduct() != null ? created.getProduct().getId() : null;
-            cacheInvalidationService.invalidateReviewCaches(null, productId);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -63,11 +57,7 @@ public class ProductReviewController {
     public ResponseEntity<ProductReview> updateReview(@PathVariable Long id,
                                                       @RequestBody ProductReview updatedReview) {
         return reviewService.updateReview(id, updatedReview)
-                .map(r -> {
-                    Long productId = r.getProduct() != null ? r.getProduct().getId() : null;
-                    cacheInvalidationService.invalidateReviewCaches(id, productId);
-                    return ResponseEntity.ok(r);
-                })
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -77,8 +67,7 @@ public class ProductReviewController {
         return reviewService.getReviewById(id)
                 .map(r -> {
                     Long productId = r.getProduct() != null ? r.getProduct().getId() : null;
-                    reviewService.deleteReview(id);
-                    cacheInvalidationService.invalidateReviewCaches(id, productId);
+                    reviewService.deleteReview(id, productId);
                     return ResponseEntity.ok().<Void>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
