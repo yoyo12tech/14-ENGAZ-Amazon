@@ -1,5 +1,6 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.order.repository.OrderGraphRepository;
 import com.team14.amazon.order.config.CacheEvictionService;
 import com.team14.amazon.order.dto.*;
 import com.team14.amazon.order.model.Order;
@@ -46,6 +47,7 @@ public class OrderService {
     private final OrderItemRepository  orderItemRepository;
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver       mongoEventLogger;
+    private final OrderGraphRepository orderGraphRepository;
 
     // DP-2: classical observer list (mirrors UserService exactly)
     private final List<EntityObserver> observers = new ArrayList<>();
@@ -54,12 +56,14 @@ public class OrderService {
                         OrderItemService orderItemService,
                         OrderItemRepository orderItemRepository,
                         CacheEvictionService cacheEvictionService,
-                        EntityObserver mongoEventLogger) {
+                        EntityObserver mongoEventLogger,
+                        OrderGraphRepository orderGraphRepository) {
         this.orderRepository      = orderRepository;
         this.orderItemService     = orderItemService;
         this.orderItemRepository  = orderItemRepository;
         this.cacheEvictionService = cacheEvictionService;
         this.mongoEventLogger     = mongoEventLogger;
+        this.orderGraphRepository = orderGraphRepository;
     }
 
     @PostConstruct
@@ -422,4 +426,55 @@ public class OrderService {
                 .totalQuantity(totalQuantity)
                 .build();
     }
+    @Transactional
+    public void recordCoPurchase(Long orderId) {
+        // 1. Load order from PG
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Order not found: " + orderId));
+
+        // 2. Validate status = DELIVERED
+        if (order.getStatus() != OrderStatus.DELIVERED) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Order must be DELIVERED to record co-purchase");
+        }
+
+        // 3. Short‑circuit if fewer than 2 items
+        List<OrderItem> items = order.getOrderItems();
+        if (items == null || items.size() < 2) {
+            return; // nothing to record
+        }
+
+        // 4. Idempotency check in Neo4j
+        if (orderGraphRepository.isOrderRecorded(orderId)) {
+            return; // already recorded, no mutation
+        }
+
+        // 5. Ensure ProductNodes exist in Neo4j
+        for (OrderItem item : items) {
+            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
+            if (product == null || product.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found: " + item.getProductId());
+            }
+            orderGraphRepository.ensureProductNode(product);
+        }
+
+        // 6. Record BOUGHT_TOGETHER pairs
+        orderGraphRepository.recordCoPurchasePairs(orderId, items);
+
+        // 7. Log INTERACTION_RECORDED event via Observer
+        List<Long> productIds = items.stream()
+                .map(OrderItem::getProductId)
+                .distinct()
+                .toList();
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("orderId", orderId);
+        payload.put("productIds", productIds);
+
+        notifyObservers("INTERACTION_RECORDED", payload);
+    }
+
+
 }
