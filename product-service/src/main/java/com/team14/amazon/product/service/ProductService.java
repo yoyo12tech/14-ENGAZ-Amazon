@@ -1,4 +1,5 @@
 package com.team14.amazon.product.service;
+
 import com.team14.amazon.product.dto.LowStockAlertDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
@@ -29,10 +30,10 @@ public class ProductService {
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public ProductService(ProductRepository productRepository,
-                          ProductReviewRepository reviewRepository,
-                          @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
+            ProductReviewRepository reviewRepository,
+            @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.productRepository = productRepository;
-        this.reviewRepository  = reviewRepository;
+        this.reviewRepository = reviewRepository;
         this.mongoEventLogger = mongoEventLogger;
     }
 
@@ -65,9 +66,9 @@ public class ProductService {
         return payload;
     }
 
-    //Below are the main crud methods for the product
-    //which are :findAll,findById,update,delete,create
-    //In productRepository you will find extra things ,that may be used later
+    // Below are the main crud methods for the product
+    // which are :findAll,findById,update,delete,create
+    // In productRepository you will find extra things ,that may be used later
 
     public List<Product> getAllProducts() {
         return productRepository.findAll();
@@ -110,9 +111,6 @@ public class ProductService {
         return saved;
     }
 
-
-
-
     public boolean deleteProduct(Long id) {
         if (productRepository.existsById(id)) {
             productRepository.deleteById(id);
@@ -121,9 +119,6 @@ public class ProductService {
         }
         return false;
     }
-
-
-
 
     // --- Update an existing product ---
     public Optional<Product> updateProduct(Long id, Product updatedProduct) {
@@ -143,6 +138,7 @@ public class ProductService {
             return saved;
         });
     }
+
     // S2-F2: JSONB partial update — merge incoming specs into existing map
     public Optional<Product> updateSpecifications(Long id, Map<String, Object> incomingSpecs) {
         return productRepository.findById(id).map(product -> {
@@ -160,11 +156,7 @@ public class ProductService {
         });
     }
 
-
-
-
-
-//s2-f3
+    // s2-f3
     public ProductSalesDTO getProductSalesSummary(Long id, LocalDate startDate, LocalDate endDate) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Product not found with id: " + id));
@@ -184,16 +176,18 @@ public class ProductService {
 
         // 4. Map columns to DTO with proper Number casting
         return new ProductSalesDTO(
-                ((Number) row[0]).longValue(),    // productId
-                (String)  row[1],                 // name
-                ((Number) row[2]).longValue(),    // totalUnitsSold
-                ((Number) row[3]).doubleValue(),  // totalRevenue
-                ((Number) row[4]).doubleValue()   // averageSellingPrice
+                ((Number) row[0]).longValue(), // productId
+                (String) row[1], // name
+                ((Number) row[2]).longValue(), // totalUnitsSold
+                ((Number) row[3]).doubleValue(), // totalRevenue
+                ((Number) row[4]).doubleValue() // averageSellingPrice
         );
     }
+
     // S2-F1: Search products by optional category and price range
     // Validation in service layer (Lab 4 slide 46 — business logic belongs here)
-    public List<Product> searchProducts(com.team14.amazon.product.model.ProductCategory category, Double minPrice, Double maxPrice) {
+    public List<Product> searchProducts(com.team14.amazon.product.model.ProductCategory category, Double minPrice,
+            Double maxPrice) {
         if (minPrice != null && maxPrice != null && minPrice > maxPrice) {
             throw new IllegalArgumentException("minPrice cannot be greater than maxPrice");
         }
@@ -206,7 +200,8 @@ public class ProductService {
 
     public List<TopProductDTO> getTopRatedProducts(int limit) {
         int normalizedLimit = limit > 0 ? limit : 10;
-        List<Object[]> rows = productRepository.findTopRatedProducts(org.springframework.data.domain.PageRequest.of(0, normalizedLimit));
+        List<Object[]> rows = productRepository
+                .findTopRatedProducts(org.springframework.data.domain.PageRequest.of(0, normalizedLimit));
 
         List<TopProductDTO> result = new ArrayList<>();
         for (Object[] row : rows) {
@@ -214,20 +209,16 @@ public class ProductService {
                     ((Number) row[0]).longValue(),
                     (String) row[1],
                     ((Number) row[2]).doubleValue(),
-                    ((Number) row[3]).longValue()
-            ));
+                    ((Number) row[3]).longValue()));
         }
         return result;
     }
-
-
 
     // S2-F9: Low Stock Alert Report
     public List<LowStockAlertDTO> getLowStockAlerts(int threshold) {
 
         // 1. Query ACTIVE products with stock <= threshold
-        List<Product> lowStockProducts =
-                productRepository.findActiveProductsWithStockAtOrBelow(threshold);
+        List<Product> lowStockProducts = productRepository.findActiveProductsWithStockAtOrBelow(threshold);
 
         // 2. Cutoff date for "recent" sales (last 30 days)
         LocalDateTime since = LocalDateTime.now().minusDays(30);
@@ -237,7 +228,8 @@ public class ProductService {
 
         for (Product p : lowStockProducts) {
 
-            // 4. Count recent DELIVERED sales with a dedicated query to avoid date-cast issues.
+            // 4. Count recent DELIVERED sales with a dedicated query to avoid date-cast
+            // issues.
             long recentSalesCount = productRepository.countRecentDeliveredSales(p.getId(), since);
 
             // 5. Check for negative reviews (rating <= 2)
@@ -249,12 +241,10 @@ public class ProductService {
                     p.getStockQuantity(),
                     p.getCategory(),
                     recentSalesCount,
-                    hasNegativeReviews
-            ));
+                    hasNegativeReviews));
         }
 
         return result;
     }
-
 
 }
