@@ -1,18 +1,22 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.shipping.adapter.CassandraRowAdapter;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
 import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
+import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
 import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +26,12 @@ import com.team14.amazon.shipping.observer.EntityObserver;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
 import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 
-import java.time.LocalDate;
-import java.util.*;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.*;
+
+import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
@@ -37,16 +44,19 @@ public class ShipmentService {
     private final CachedServices cachedServices;
     private final ShipmentEventRepository shipmentEventRepository;
     private final ShipmentTrackingEventRepository trackingRepository;
-    
+    private final CassandraRowAdapter cassandraRowAdapter;
+    private final StringRedisTemplate redisTemplate;
 
-    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository,  MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository) {
+    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
         this.shipmentEventRepository = shipmentEventRepository;
         this.trackingRepository = trackingRepository;
+        this.redisTemplate = redisTemplate;
 
         register(mongoEventLogger);
+        this.cassandraRowAdapter = cassandraRowAdapter;
     }
 
     public List<Shipment> getAllShipments() {
@@ -346,8 +356,6 @@ public class ShipmentService {
                 .toList();
     }
 
-
-
 //    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
 //        if (start.isAfter(end)) {
 //            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
@@ -380,6 +388,9 @@ public class ShipmentService {
 
         return cachedServices.getShippingAnalyticsCached(startDate, endDate);
     }
+
+
+
 
 //    @Cacheable(value="shipping-service::S4-F10", key = "#start + '::' + #end")
 //    public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end){
@@ -418,11 +429,14 @@ public class ShipmentService {
 //                .build();
 //    }
 
-
 @Caching(evict = {
-    @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
-    @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
+        @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
+        @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
 })
+
+
+
+
 
 
 public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
@@ -470,7 +484,8 @@ ShipmentTrackingEvent event = new ShipmentTrackingEvent(
 );
 
 ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
-
+    Set<String> keys = redisTemplate.keys("shipping-service::S4-F12::*");
+    if (keys != null) redisTemplate.delete(keys);
 notifyObservers(
         "TRACKING_RECORDED",
         shipment.getId(),
@@ -484,4 +499,28 @@ notifyObservers(
 
 return savedEvent;
 }
+
+    @Cacheable(value = "shipping-service::S4-F12",
+            key = "#id + (#start == null ? 'none' : #start.toString()) + (#end == null ? 'none' : #end.toString())")
+    public List<ShipmentTrackingDTO> getTrackingTimeline(Long id, LocalDateTime start, LocalDateTime end) {
+
+        // 1. PostgreSQL check: Throw 404 if shipment doesn't exist[cite: 1]
+        if (!shipmentRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipment not found");
+        }
+        // 2. Query Cassandra[cite: 1]
+        List<ShipmentTrackingEvent> events;
+
+        if (start != null && end != null) {
+            Instant startTime = start.atZone(ZoneId.systemDefault()).toInstant();
+            Instant endTime = end.atZone(ZoneId.systemDefault()).toInstant();
+            events = trackingRepository.findByShipmentIdAndTimeRange(id, startTime, endTime);
+        } else {
+            events = trackingRepository.findByShipmentId(id);
+        }
+
+        // 3. Adapt and return[cite: 1]
+        return events.stream().map(cassandraRowAdapter::adapt).toList();
+    }
+
 }
