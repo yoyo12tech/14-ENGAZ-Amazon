@@ -41,36 +41,33 @@ public class OrderGraphRepository {
 
     // ─── Record BOUGHT_TOGETHER Pairs ────────────────────────────────────
     public void recordCoPurchasePairs(Long orderId, List<OrderItem> items) {
-        // Deduplicate productIds
         List<Long> productIds = items.stream()
                 .map(OrderItem::getProductId)
                 .distinct()
+                .sorted()                      // ← sort so p1 < p2 is always true
                 .toList();
 
         for (int i = 0; i < productIds.size(); i++) {
             for (int j = i + 1; j < productIds.size(); j++) {
                 neo4jClient.query("""
-                        MATCH (a:Product {productId: $p1}),
-                              (b:Product {productId: $p2})
-                        MERGE (a)-[r:BOUGHT_TOGETHER]-(b)
-                        ON CREATE SET r.coPurchaseCount = 1,
-                                      r.lastCoPurchaseDate = datetime(),
-                                      r.recordedOrderIds = [$orderId]
-                        ON MATCH SET r.coPurchaseCount = r.coPurchaseCount + 1,
-                                     r.lastCoPurchaseDate = datetime(),
-                                     r.recordedOrderIds = r.recordedOrderIds + $orderId
-                        """)
+                     MATCH (a:Product {productId: $p1}),
+                           (b:Product {productId: $p2})
+                     MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
+                     ON CREATE SET r.coPurchaseCount = 1,
+                                   r.lastCoPurchaseDate = datetime(),
+                                   r.recordedOrderIds = [$orderId]
+                     ON MATCH SET r.coPurchaseCount = r.coPurchaseCount + 1,
+                                  r.lastCoPurchaseDate = datetime(),
+                                  r.recordedOrderIds = r.recordedOrderIds + $orderId
+                    """)
                         .bind(productIds.get(i)).to("p1")
                         .bind(productIds.get(j)).to("p2")
                         .bind(orderId).to("orderId")
                         .run();
             }
         }
-
-        // Sentinel node for idempotency
-        neo4jClient.query("""
-                CREATE (:RecordedOrder {orderId: $orderId})
-                """)
+        // sentinel last
+        neo4jClient.query("CREATE (:RecordedOrder {orderId: $orderId})")
                 .bind(orderId).to("orderId")
                 .run();
     }

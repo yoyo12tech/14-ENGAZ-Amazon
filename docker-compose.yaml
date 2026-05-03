@@ -196,6 +196,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_NEO4J_URI: bolt://neo4j:7687                # ← add this
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j         # ← add this
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpass     # ← add this
     depends_on:
       postgres:
         condition: service_healthy
