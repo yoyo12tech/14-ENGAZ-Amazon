@@ -171,5 +171,14 @@ public class ShipmentController {
             .body(shipmentService.recordTrackingEvent(id, request));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/{id}/tracking") //[cite: 1]
+    public ResponseEntity<List<ShipmentTrackingDTO>> getTimeline(
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+
+        return ResponseEntity.ok(shipmentService.getTrackingTimeline(id, startTime, endTime));
+    }
 
 }
