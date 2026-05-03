@@ -3,11 +3,13 @@ package com.team14.amazon.product.controller;
 import com.team14.amazon.product.dto.LowStockAlertDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
+import com.team14.amazon.product.dto.ProductCatalogDashboardDTO;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.model.ProductStatus;
 import com.team14.amazon.product.service.ProductReviewService;
+import com.team14.amazon.product.service.ProductDashboardService;
 import com.team14.amazon.product.service.ProductService;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
@@ -36,11 +38,14 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductReviewService reviewService;
+    private final ProductDashboardService dashboardService;
 
     public ProductController(ProductService productService,
-                             ProductReviewService reviewService) {
+                             ProductReviewService reviewService,
+                             ProductDashboardService dashboardService) {
         this.productService = productService;
         this.reviewService = reviewService;
+        this.dashboardService = dashboardService;
     }
 
     // CRUD first
@@ -219,6 +224,14 @@ public class ProductController {
     public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
             @RequestParam(defaultValue = "10") int threshold) {
         return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
+    }
+  
+    // S2-F12: Catalog dashboard (cached, TTL 10 min)
+    @GetMapping("/catalog/dashboard")
+    public ResponseEntity<ProductCatalogDashboardDTO> getDashboard() {
+        dashboardService.logDashboardViewed();
+        ProductCatalogDashboardDTO dto = dashboardService.getDashboard();
+        return ResponseEntity.ok(dto);
     }
 
 
