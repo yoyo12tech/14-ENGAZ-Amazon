@@ -41,6 +41,7 @@ public class RedisConfig {
                 .withCacheConfiguration("shipping-service::S4-F6", defaults.entryTtl(Duration.ofMinutes(10)))
                 .withCacheConfiguration("shipping-service::S4-F8", defaults.entryTtl(Duration.ofMinutes(15)))
                 .withCacheConfiguration("shipping-service::S4-F9", defaults.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration("shipping-service::S4-F10", defaults.entryTtl(Duration.ofMinutes(10)))
                 .build();
     }
 

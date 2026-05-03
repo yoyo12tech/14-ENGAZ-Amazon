@@ -15,6 +15,16 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import com.team14.amazon.user.dto.ActivityFeedDTO;
+import com.team14.amazon.user.repository.mongodb.AuthEventRepository;
+import com.team14.amazon.user.model.mongodb.AuthEvent;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import java.util.concurrent.TimeUnit;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -23,6 +33,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import com.team14.amazon.user.adapter.ObjectArrayDtoAdapter;
+
 
 @Service
 public class UserService {
@@ -34,19 +45,25 @@ public class UserService {
     private final EntityObserver mongoEventLogger;
     private final EntityObserver redisCacheObserver;
     private final List<EntityObserver> observers = new ArrayList<>();
+    private final AuthEventRepository authEventRepository;
+    private final StringRedisTemplate redisTemplate;
 
-    public UserService(UserRepository userRepository, 
-                       ShippingAddressRepository shippingAddressRepository, 
+    public UserService(UserRepository userRepository,
+                       ShippingAddressRepository shippingAddressRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
                        EntityObserver mongoEventLogger,
-                       EntityObserver redisCacheObserver) {
+                       EntityObserver redisCacheObserver,
+                       AuthEventRepository authEventRepository,
+                       StringRedisTemplate redisTemplate) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
         this.mongoEventLogger = mongoEventLogger;
         this.redisCacheObserver = redisCacheObserver;
+        this.authEventRepository = authEventRepository;
+        this.redisTemplate = redisTemplate;
     }
 
     @PostConstruct
@@ -424,4 +441,66 @@ public class UserService {
 
         return savedUser;
         }
+
+    public ActivityFeedDTO getActivityFeed(Long id, Long callerUid, String callerRole,
+                                           int page, int size) {
+        // b) Ownership check
+        boolean isOwner = callerUid != null && callerUid.equals(id);
+        boolean isAdmin = "ADMIN".equals(callerRole);
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Access denied: you can only view your own activity feed");
+        }
+
+        // c) Verify user exists in PostgreSQL
+        userRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+
+        // Cap size at 100
+        int cappedSize = Math.min(size, 100);
+
+        // e) Check Redis cache first
+        String cacheKey = "user-service::S1-F12::" + id + "::page=" + page + "::size=" + cappedSize;
+        try {
+            String cached = redisTemplate.opsForValue().get(cacheKey);
+            if (cached != null) {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                return mapper.readValue(cached, ActivityFeedDTO.class);
+            }
+        } catch (Exception e) {
+            // Redis soft dependency — continue if cache fails
+        }
+
+        // d) Query MongoDB paginated, sorted by most recent first
+        Pageable pageable = PageRequest.of(page, cappedSize);
+        Page<AuthEvent> eventPage = authEventRepository
+                .findByUserIdOrderByTimestampDesc(id, pageable);
+
+        List<ActivityFeedDTO.ActivityEventDTO> content = eventPage.getContent().stream()
+                .map(event -> new ActivityFeedDTO.ActivityEventDTO(
+                        event.getAction(),
+                        event.getTimestamp(),
+                        event.getDetails()))
+                .collect(Collectors.toList());
+
+        ActivityFeedDTO result = new ActivityFeedDTO(
+                content,
+                page,
+                cappedSize,
+                eventPage.getTotalElements());
+
+        // e) Store in Redis as JSON string for 5 minutes
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            String json = mapper.writeValueAsString(result);
+            redisTemplate.opsForValue().set(cacheKey, json, 5, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            // Redis soft dependency — cache miss is acceptable
+        }
+
+        return result;
+    }
+
     }

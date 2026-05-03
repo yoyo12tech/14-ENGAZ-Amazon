@@ -1,11 +1,7 @@
 package com.team14.amazon.order.controller;
 
 
-import com.team14.amazon.order.dto.OrderDetailsDTO;
-import com.team14.amazon.order.dto.OrderItemRequestDTO;
-import com.team14.amazon.order.dto.OrderAnalyticsDTO;
-import com.team14.amazon.order.dto.DeliverRequest;
-import com.team14.amazon.order.dto.OrderEstimateDTO;
+import com.team14.amazon.order.dto.*;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.service.OrderItemService;
@@ -172,5 +168,34 @@ public class OrderController {
     public Order confirmOrder(@PathVariable Long orderId,
                               @RequestParam Long shippingAddressId) {
         return orderService.confirmOrder(orderId, shippingAddressId);
+    }
+
+
+
+    //S3
+    // ADD inside OrderController.java — after the existing getOrderAnalytics() method
+
+    /**
+     * S3-F10: GET /api/orders/analytics/dashboard
+     *
+     * DISTINCT from M1's GET /api/orders/analytics (S3-F6).
+     * Both coexist — do NOT overwrite the existing /analytics endpoint.
+     */
+    @GetMapping("/analytics/dashboard")
+    public ResponseEntity<?> getOrderAnalyticsDashboard(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        // 400 if startDate is after endDate
+        if (startDate.isAfter(endDate)) {
+            return ResponseEntity.badRequest().body("startDate must not be after endDate");
+        }
+
+        // Log ANALYTICS_VIEWED on EVERY call — outside the cached method
+        // so it runs even on cache hits (spec §10.3.1 step d)
+        orderService.logAnalyticsViewed(startDate, endDate);
+
+        OrderAnalyticsDashboardDTO result = orderService.getOrderAnalyticsDashboard(startDate, endDate);
+        return ResponseEntity.ok(result);
     }
 }

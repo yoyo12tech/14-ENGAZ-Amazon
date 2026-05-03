@@ -4,6 +4,7 @@ import com.team14.amazon.billing.cache.BillingCacheNames;
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.TransactionVoucher;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
+import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -15,15 +16,19 @@ import java.util.Optional;
 public class TransactionVoucherService {
 
     private final TransactionVoucherRepository transactionVoucherRepository;
+    private final BillingCacheInvalidationService cacheInvalidationService;
 
-    public TransactionVoucherService(TransactionVoucherRepository transactionVoucherRepository) {
+    public TransactionVoucherService(TransactionVoucherRepository transactionVoucherRepository, BillingCacheInvalidationService cacheInvalidationService) {
         this.transactionVoucherRepository = transactionVoucherRepository;
+        this.cacheInvalidationService = cacheInvalidationService;
     }
 
     // --- Basic CRUD Operations ---
 
     public TransactionVoucher create(TransactionVoucher transactionVoucher) {
-        return transactionVoucherRepository.save(transactionVoucher);
+        TransactionVoucher saved = transactionVoucherRepository.save(transactionVoucher);
+        cacheInvalidationService.evictTransactionVoucherCaches(saved.getId());
+        return saved;
     }
 
     @Cacheable(
@@ -45,13 +50,16 @@ public class TransactionVoucherService {
             existing.setVoucher(updatedDetails.getVoucher());
             existing.setDiscountApplied(updatedDetails.getDiscountApplied());
             // Add any other fields that exist in your TransactionVoucher model
-            return transactionVoucherRepository.save(existing);
+            TransactionVoucher saved = transactionVoucherRepository.save(existing);
+            cacheInvalidationService.evictTransactionVoucherCaches(saved.getId());
+            return saved;
         });
     }
 
     public boolean delete(Long id) {
         if (transactionVoucherRepository.existsById(id)) {
             transactionVoucherRepository.deleteById(id);
+            cacheInvalidationService.evictTransactionVoucherCaches(id);
             return true;
         }
         return false;
