@@ -1,18 +1,16 @@
 package com.team14.amazon.product.controller;
 
 import com.team14.amazon.product.dto.LowStockAlertDTO;
-import com.team14.amazon.product.dto.ProductCatalogDashboardDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
+import com.team14.amazon.product.dto.ProductCatalogDashboardDTO;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
 import com.team14.amazon.product.model.Product;
 import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.model.ProductStatus;
-import com.team14.amazon.product.service.CacheInvalidationService;
-import com.team14.amazon.product.service.ProductDashboardService;
 import com.team14.amazon.product.service.ProductReviewService;
+import com.team14.amazon.product.service.ProductDashboardService;
 import com.team14.amazon.product.service.ProductService;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -40,25 +38,14 @@ public class ProductController {
 
     private final ProductService productService;
     private final ProductReviewService reviewService;
-    private final CacheInvalidationService cacheInvalidationService;
     private final ProductDashboardService dashboardService;
 
     public ProductController(ProductService productService,
-            ProductReviewService reviewService,
-            CacheInvalidationService cacheInvalidationService,
-            ProductDashboardService dashboardService) {
+                             ProductReviewService reviewService,
+                             ProductDashboardService dashboardService) {
         this.productService = productService;
         this.reviewService = reviewService;
-        this.cacheInvalidationService = cacheInvalidationService;
         this.dashboardService = dashboardService;
-    }
-
-    // S2-F12: Catalog dashboard (cached, TTL 10 min)
-    @GetMapping("/catalog/dashboard")
-    public ResponseEntity<ProductCatalogDashboardDTO> getDashboard() {
-        dashboardService.logDashboardViewed();
-        ProductCatalogDashboardDTO dto = dashboardService.getDashboard();
-        return ResponseEntity.ok(dto);
     }
 
     // CRUD first
@@ -68,7 +55,6 @@ public class ProductController {
     }
 
     @GetMapping("/{id}")
-    @Cacheable(value = "product-service::product", key = "#id")
     public ResponseEntity<Product> getProductById(@PathVariable Long id) {
         return productService.getProductById(id)
                 .map(ResponseEntity::ok)
@@ -79,7 +65,6 @@ public class ProductController {
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
         try {
             Product created = productService.createProduct(product);
-            cacheInvalidationService.invalidateProductCaches(created.getId());
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -89,19 +74,15 @@ public class ProductController {
     // PUT: invalidate detail + all feature caches
     @PutMapping("/{id}")
     public ResponseEntity<Product> updateProduct(@PathVariable Long id,
-            @RequestBody Product updatedProduct) {
+                                                 @RequestBody Product updatedProduct) {
         return productService.updateProduct(id, updatedProduct)
-                .map(p -> {
-                    cacheInvalidationService.invalidateProductCaches(id);
-                    return ResponseEntity.ok(p);
-                })
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProduct(@PathVariable Long id) {
         if (productService.deleteProduct(id)) {
-            cacheInvalidationService.invalidateProductCaches(id);
             return ResponseEntity.ok().build();
         }
         return ResponseEntity.notFound().build();
@@ -110,7 +91,6 @@ public class ProductController {
     // Features in chronological order (S2-F1 -> S2-F9)
     // M2 4.4.1 - S2-F1 cached, TTL 5 min
     @GetMapping("/search")
-    @Cacheable(value = "product-service::S2-F1", key = "T(String).valueOf(#category) + '_' + T(String).valueOf(#minPrice) + '_' + T(String).valueOf(#maxPrice)")
     public ResponseEntity<?> searchProducts(
             @RequestParam(required = false) com.team14.amazon.product.model.ProductCategory category,
             @RequestParam(required = false) Double minPrice,
@@ -129,16 +109,12 @@ public class ProductController {
             @PathVariable Long id,
             @RequestBody Map<String, Object> specifications) {
         return productService.updateSpecifications(id, specifications)
-                .map(p -> {
-                    cacheInvalidationService.invalidateProductCaches(id);
-                    return ResponseEntity.ok(p);
-                })
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
     // M2 4.4.1 - S2-F3 cached, TTL 10 min
     @GetMapping("/{id}/sales")
-    @Cacheable(value = "product-service::S2-F3", key = "#id + '_' + #startDate + '_' + #endDate")
     public ResponseEntity<?> getProductSalesSummary(
             @PathVariable Long id,
             @RequestParam String startDate,
@@ -163,7 +139,6 @@ public class ProductController {
     public ResponseEntity<?> discontinueProduct(@PathVariable Long id) {
         try {
             Product p = productService.discontinueProduct(id);
-            cacheInvalidationService.invalidateProductCaches(id);
             return ResponseEntity.ok(p);
         } catch (NoSuchElementException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -174,7 +149,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F5 cached, TTL 5 min
     @GetMapping("/specifications/search")
-    @Cacheable(value = "product-service::S2-F5", key = "#key + '_' + #value + '_' + T(String).valueOf(#status)")
     public ResponseEntity<List<Product>> searchBySpecification(
             @RequestParam String key,
             @RequestParam String value,
@@ -184,7 +158,6 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F6 cached, TTL 10 min
     @GetMapping("/reports/top-rated")
-    @Cacheable(value = "product-service::S2-F6", key = "#limit")
     public ResponseEntity<List<TopProductDTO>> getTopRatedProducts(
             @RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(productService.getTopRatedProducts(limit));
@@ -197,7 +170,6 @@ public class ProductController {
             @RequestBody ProductReview review) {
         try {
             ProductReview saved = reviewService.addReviewWithRatingRecalculation(id, review);
-            cacheInvalidationService.invalidateProductCaches(id);
             return ResponseEntity.status(HttpStatus.CREATED).body(saved);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -208,7 +180,6 @@ public class ProductController {
 
     // M2 4.4.2 product-review GET-by-ID cached, TTL 15 min
     @GetMapping("/{productId}/reviews/{reviewId}")
-    @Cacheable(value = "product-service::product-review", key = "#productId + '_' + #reviewId")
     public ResponseEntity<ProductReview> getReviewByProductAndId(
             @PathVariable Long productId,
             @PathVariable Long reviewId) {
@@ -225,7 +196,6 @@ public class ProductController {
             @RequestBody VerifyReviewRequest request) {
         try {
             Product updated = reviewService.verifyReview(productId, reviewId, request);
-            cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
             return ResponseEntity.ok(updated);
         } catch (ResourceNotFoundException e) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
@@ -243,8 +213,7 @@ public class ProductController {
             @PathVariable Long reviewId) {
         return reviewService.getReviewByProductAndId(productId, reviewId)
                 .map(ignored -> {
-                    reviewService.deleteReview(reviewId);
-                    cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
+                    reviewService.deleteReview(reviewId, productId);
                     return ResponseEntity.ok().<Void>build();
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -252,11 +221,19 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F9 cached, TTL 10 min
     @GetMapping("/stock/low-stock")
-    @Cacheable(value = "product-service::S2-F9", key = "#threshold")
     public ResponseEntity<List<LowStockAlertDTO>> getLowStockAlerts(
             @RequestParam(defaultValue = "10") int threshold) {
         return ResponseEntity.ok(productService.getLowStockAlerts(threshold));
     }
+  
+    // S2-F12: Catalog dashboard (cached, TTL 10 min)
+    @GetMapping("/catalog/dashboard")
+    public ResponseEntity<ProductCatalogDashboardDTO> getDashboard() {
+        dashboardService.logDashboardViewed();
+        ProductCatalogDashboardDTO dto = dashboardService.getDashboard();
+        return ResponseEntity.ok(dto);
+    }
+
 
     @ExceptionHandler(org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class)
     public ResponseEntity<List<Product>> handleTypeMismatch(

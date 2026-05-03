@@ -17,8 +17,7 @@ spring:
 
   data:
     mongodb:
-      uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
-
+      uri: ${SPRING_MONGODB_URI:${SPRING_DATA_MONGODB_URI:mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin}}
     redis:
       host: redis
       port: 6379
@@ -30,9 +29,14 @@ spring:
     local-datacenter: datacenter1
     keyspace-name: amazonks
     schema-action: CREATE_IF_NOT_EXISTS
+    request:
+      timeout: 10s
+    connection:
+      init-query-timeout: 10s
 
   cache:
     type: redis
+  
 
 jwt:
   secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"

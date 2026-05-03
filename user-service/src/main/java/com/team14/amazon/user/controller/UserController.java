@@ -17,15 +17,20 @@ import com.team14.amazon.user.dto.TopBuyerDTO;
 import com.team14.amazon.user.dto.UserOrderSummaryDTO;
 import java.util.Map;
 import org.springframework.transaction.annotation.Transactional;
+import com.team14.amazon.user.dto.ActivityFeedDTO;
+import com.team14.amazon.user.security.JwtService;
+import jakarta.servlet.http.HttpServletRequest;
 
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
 
     private final UserService userService;
+    private final JwtService jwtService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, JwtService jwtService) {
         this.userService = userService;
+        this.jwtService = jwtService;
     }
 
 
@@ -169,6 +174,26 @@ public class UserController {
             return ResponseEntity.ok(updatedUser);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @GetMapping("/{id}/activity")
+    public ResponseEntity<?> getActivityFeed(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest request) {
+        try {
+            // Extract caller identity from JWT (token already validated by filter)
+            String authHeader = request.getHeader("Authorization");
+            String token = authHeader.substring(7); // strip "Bearer "
+            Long callerUid = jwtService.extractUserId(token);
+            String callerRole = jwtService.extractRole(token);
+
+            ActivityFeedDTO feed = userService.getActivityFeed(id, callerUid, callerRole, page, size);
+            return ResponseEntity.ok(feed);
+        } catch (org.springframework.web.server.ResponseStatusException e) {
+            return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
     }
     }
