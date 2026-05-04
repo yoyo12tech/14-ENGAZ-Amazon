@@ -9,6 +9,7 @@ import com.team14.amazon.order.service.OrderService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -158,6 +159,11 @@ public class OrderController {
         return ResponseEntity.ok(orderService.markAsDelivered(id));
     }
 
+    @PostMapping("/{orderId}/record-co-purchase")
+    public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
+        orderService.recordCoPurchase(orderId);
+        return ResponseEntity.ok("Co-purchase recorded successfully");
+    }
 
 
 
