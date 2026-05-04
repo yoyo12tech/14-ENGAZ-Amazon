@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import com.team14.amazon.shipping.dto.ShipmentTrackingRequestDTO;
+import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -161,5 +163,22 @@ public class ShipmentController {
         return ResponseEntity.ok(shipmentService.getShippingAnalytics(startDate, endDate));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @PostMapping("/{id}/tracking")
+    public ResponseEntity<ShipmentTrackingEvent> recordTrackingEvent(@PathVariable Long id, @RequestBody ShipmentTrackingRequestDTO request
+    ) {
+    return ResponseEntity.status(HttpStatus.CREATED)
+            .body(shipmentService.recordTrackingEvent(id, request));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/{id}/tracking") //[cite: 1]
+    public ResponseEntity<List<ShipmentTrackingDTO>> getTimeline(
+            @PathVariable Long id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+
+        return ResponseEntity.ok(shipmentService.getTrackingTimeline(id, startTime, endTime));
+    }
 
 }
