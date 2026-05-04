@@ -40,6 +40,7 @@ public class RedisCacheConfig {
                 .withCacheConfiguration(BillingCacheNames.S5_F6, defaultConfiguration.entryTtl(Duration.ofMinutes(10)))
                 .withCacheConfiguration(BillingCacheNames.S5_F8, defaultConfiguration.entryTtl(Duration.ofMinutes(15)))
                 .withCacheConfiguration(BillingCacheNames.S5_F9, defaultConfiguration.entryTtl(Duration.ofMinutes(10)))
+                .withCacheConfiguration(BillingCacheNames.S5_F10, defaultConfiguration.entryTtl(Duration.ofMinutes(10)))
                 .withCacheConfiguration(BillingCacheNames.TRANSACTION, defaultConfiguration.entryTtl(Duration.ofMinutes(15)))
                 .withCacheConfiguration(BillingCacheNames.VOUCHER, defaultConfiguration.entryTtl(Duration.ofMinutes(15)))
                 .withCacheConfiguration(BillingCacheNames.TRANSACTION_VOUCHER,
@@ -47,4 +48,3 @@ public class RedisCacheConfig {
                 .build();
     }
 }
-

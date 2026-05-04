@@ -1,6 +1,5 @@
 package com.team14.amazon.billing.controller;
 
-import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.model.TransactionVoucher;
 import com.team14.amazon.billing.service.TransactionVoucherService;
@@ -15,19 +14,15 @@ import java.util.List;
 public class TransactionVoucherController {
 
     private final TransactionVoucherService transactionVoucherService;
-    private final BillingCacheInvalidationService cacheInvalidationService;
 
-    public TransactionVoucherController(TransactionVoucherService transactionVoucherService,
-                                        BillingCacheInvalidationService cacheInvalidationService) {
+    public TransactionVoucherController(TransactionVoucherService transactionVoucherService) {
         this.transactionVoucherService = transactionVoucherService;
-        this.cacheInvalidationService = cacheInvalidationService;
     }
 
     // CREATE
     @PostMapping
     public ResponseEntity<TransactionVoucher> create(@RequestBody TransactionVoucher transactionVoucher) {
         TransactionVoucher savedVoucher = transactionVoucherService.create(transactionVoucher);
-        cacheInvalidationService.evictTransactionVoucherCaches(savedVoucher.getId());
         return ResponseEntity.status(HttpStatus.CREATED).body(savedVoucher);
     }
 
@@ -53,7 +48,6 @@ public class TransactionVoucherController {
 
         return transactionVoucherService.update(id, transactionVoucher)
                 .map(updated -> {
-                    cacheInvalidationService.evictTransactionVoucherCaches(updated.getId());
                     return ResponseEntity.ok(updated);
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -63,7 +57,6 @@ public class TransactionVoucherController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         if (transactionVoucherService.delete(id)) {
-            cacheInvalidationService.evictTransactionVoucherCaches(id);
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.notFound().build();

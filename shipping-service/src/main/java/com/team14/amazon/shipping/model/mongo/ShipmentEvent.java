@@ -16,6 +16,10 @@ public class ShipmentEvent {
     private LocalDateTime timestamp;
     private Map<String, Object> details;
 
+    public ShipmentEvent(){
+
+    }
+
     public ShipmentEvent(Long shipmentId, String action, Map<String, Object> details) {
         this.shipmentId = shipmentId;
         this.action = action;

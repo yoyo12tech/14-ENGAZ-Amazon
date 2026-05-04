@@ -114,6 +114,40 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             nativeQuery = true
     )
     int updateProductStock(@Param("id") Long id, @Param("qty") Integer qty);
+
+
+
+
+
+
+
+
+
+
+    //MS2
+    // ADD these methods to your existing OrderRepository interface
+// File: src/main/java/com/team14/amazon/order/repository/OrderRepository.java
+
+// ── S3-F10 aggregation queries ────────────────────────────────────────────────
+
+    @Query("SELECT COUNT(o) FROM Order o WHERE o.orderedAt BETWEEN :start AND :end")
+    Long countOrdersBetween(@Param("start") LocalDateTime start,
+                            @Param("end")   LocalDateTime end);
+
+    @Query("SELECT COALESCE(SUM(o.totalAmount), 0.0) FROM Order o " +
+            "WHERE o.orderedAt BETWEEN :start AND :end AND o.totalAmount IS NOT NULL")
+    Double sumTotalRevenueBetween(@Param("start") LocalDateTime start,
+                                  @Param("end")   LocalDateTime end);
+
+    @Query("SELECT COUNT(o) FROM Order o " +
+            "WHERE o.orderedAt BETWEEN :start AND :end AND o.status = com.team14.amazon.order.model.OrderStatus.DELIVERED")
+    Long countDeliveredBetween(@Param("start") LocalDateTime start,
+                               @Param("end")   LocalDateTime end);
+
+    @Query("SELECT o.status, COUNT(o) FROM Order o " +
+            "WHERE o.orderedAt BETWEEN :start AND :end GROUP BY o.status")
+    List<Object[]> countGroupByStatusBetween(@Param("start") LocalDateTime start,
+                                             @Param("end")   LocalDateTime end);
 }
 
 
