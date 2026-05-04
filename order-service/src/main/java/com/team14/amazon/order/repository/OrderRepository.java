@@ -68,7 +68,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Transactional
     @Query(value = """
         INSERT INTO transactions (order_id, user_id, amount, status, created_at, method)
-        VALUES (:orderId, :userId, :amount, CAST(:status AS transaction_status), :createdAt, CAST(:method AS transaction_method))
+        VALUES (:orderId, :userId, :amount, CAST(:status AS Transactionstatus), :createdAt, CAST(:method AS Transactionmethod))
     """, nativeQuery = true)
     int createTransaction(@Param("orderId") Long orderId,
                           @Param("userId") Long userId,

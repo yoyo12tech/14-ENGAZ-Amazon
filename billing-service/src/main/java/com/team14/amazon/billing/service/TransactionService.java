@@ -1,42 +1,38 @@
 package com.team14.amazon.billing.service;
 
-import com.team14.amazon.billing.dto.VoucherUsageDTO;
+import com.mongodb.client.model.Filters;
+import com.team14.amazon.billing.adapter.MongoDocumentAdapter;
+import com.team14.amazon.billing.dto.*;
 import com.team14.amazon.billing.cache.BillingCacheNames;
 import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.observer.EntityObserver;
-import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
-import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 
+import com.team14.amazon.billing.repository.mongodb.TransactionAuditEventRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.billing.dto.ProcessTransactionRequest;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.HashSet;
+import org.bson.Document;
+
+import java.util.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.stream.Stream;
 
-import com.team14.amazon.billing.dto.AppliedVoucherDetail;
-import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.team14.amazon.billing.dto.CategoryRevenueDTO;
 import com.team14.amazon.billing.repository.CategoryRevenueProjection;
 
 @Service
@@ -46,15 +42,20 @@ public class TransactionService {
     private final TransactionVoucherRepository transactionVoucherRepository;
     private final List<EntityObserver> observers;
     private final BillingCacheInvalidationService cacheInvalidationService;
+    private final MongoTemplate mongoTemplate;
+    private final TransactionAuditEventRepository transactionAuditEventRepository;
+    private final MongoDocumentAdapter adapter = new MongoDocumentAdapter();
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
-            TransactionVoucherRepository transactionVoucherRepository,
-            List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService) {
+                              TransactionVoucherRepository transactionVoucherRepository,
+                              List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService, MongoTemplate mongoTemplate, TransactionAuditEventRepository transactionAuditEventRepository) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
         this.observers = new ArrayList<>(observers);
         this.cacheInvalidationService = cacheInvalidationService;
+        this.mongoTemplate = mongoTemplate;
+        this.transactionAuditEventRepository = transactionAuditEventRepository;
     }
 
     public void register(EntityObserver observer) {
@@ -574,5 +575,54 @@ public class TransactionService {
                     .build());
         }
         return result;
+    }
+
+    @Cacheable(cacheNames = BillingCacheNames.S5_F11, key = "'transactionId:' + #transactionId")
+    public List<LifecycleEventDTO> getTransactionLifecycle(Long transactionId, String callerUid, boolean isAdmin) {
+
+        // b) 404
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+
+        boolean isOwner = callerUid.equals(String.valueOf(transaction.getUserId()));
+        if(!isOwner && !isAdmin) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+
+        // d) shipment IDs via native SQL
+        List<Long> shipmentIds = transactionRepository
+                .findShipmentIdsByOrderId(transaction.getOrderId());
+
+        // e) query all three collections
+        MongoDocumentAdapter adapter = new MongoDocumentAdapter();
+
+        List<LifecycleEventDTO> transactionEvents = transactionAuditEventRepository
+                .findByTransactionId(transactionId)
+                .stream()
+                .map(e -> adapter.adapt(e, Source.TRANSACTION))
+                .toList();
+
+        List<Document> orderDocs = new ArrayList<>();
+        mongoTemplate.getCollection("order_events")
+                .find(Filters.eq("orderId", transaction.getOrderId()))
+                .into(orderDocs);
+
+        List<LifecycleEventDTO> orderEvents = orderDocs.stream()
+                .map(doc -> adapter.adapt(doc, Source.ORDER))
+                .toList();
+
+        List<Document> shipmentDocs = new ArrayList<>();
+        if (!shipmentIds.isEmpty()) {
+            mongoTemplate.getCollection("shipment_events")
+                    .find(Filters.in("shipmentId", shipmentIds))
+                    .into(shipmentDocs);
+        }
+        List<LifecycleEventDTO> shipmentEvents = shipmentDocs.stream()
+                .map(doc -> adapter.adapt(doc, Source.SHIPMENT))
+                .toList();
+
+        // f) merge and sort chronologically
+        return Stream.of(transactionEvents, orderEvents, shipmentEvents)
+                .flatMap(Collection::stream)
+                .sorted(Comparator.comparing(LifecycleEventDTO::timestamp))
+                .toList();
     }
 }
