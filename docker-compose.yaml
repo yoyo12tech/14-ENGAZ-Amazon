@@ -1,7 +1,8 @@
-version: '3.8'
 services:
   postgres:
-    image: postgres:17
+    build:
+      context: .
+      dockerfile: Dockerfile.db
     container_name: amazon-db
     restart: always
     environment:
@@ -12,7 +13,6 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - amazon-network
     healthcheck:
@@ -106,7 +106,7 @@ services:
       CASSANDRA_DC: datacenter1
       CASSANDRA_KEYSPACE: amazonks
       MAX_HEAP_SIZE: 512M
-      HEAP_NEWSIZE: 128M
+      JVM_OPTS: "-Xms256m -Xmx512m"
     volumes:
       - cassandra-data:/var/lib/cassandra
     networks:
