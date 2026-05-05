@@ -10,6 +10,7 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import com.team14.amazon.order.repository.OrderGraphRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -43,14 +44,14 @@ public class RecommendationService {
     private static final Logger log = LoggerFactory.getLogger(RecommendationService.class);
     private static final int    DEFAULT_LIMIT = 5;
 
-    private final ProductNodeRepository productNodeRepository;
+    private final OrderGraphRepository orderGraphRepository;
     private final OrderRepository       orderRepository;
     private final Neo4jRecordAdapter    neo4jRecordAdapter;
 
-    public RecommendationService(ProductNodeRepository productNodeRepository,
+    public RecommendationService(OrderGraphRepository orderGraphRepository,
                                  OrderRepository orderRepository,
                                  Neo4jRecordAdapter neo4jRecordAdapter) {
-        this.productNodeRepository = productNodeRepository;
+        this.orderGraphRepository = orderGraphRepository;
         this.orderRepository       = orderRepository;
         this.neo4jRecordAdapter    = neo4jRecordAdapter;
     }
@@ -72,8 +73,7 @@ public class RecommendationService {
         int effectiveLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
         // (c) Neo4j traversal — soft dep: empty list on any failure (logged in repo).
-        List<Map<String, Object>> rows = productNodeRepository.findCoPurchases(productId);
-
+        List<Map<String, Object>> rows = orderGraphRepository.findCoPurchases(productId);
         // (d, e) Enrich from PG; drop seed itself, missing rows, and non-ACTIVE
         //         products. Truncate as soon as we have `effectiveLimit` survivors.
         List<ProductRecommendationDTO> result = new ArrayList<>();
