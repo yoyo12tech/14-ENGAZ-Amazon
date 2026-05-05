@@ -6,6 +6,7 @@ import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.service.OrderItemService;
 import com.team14.amazon.order.service.OrderService;
+import com.team14.amazon.order.service.RecommendationService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -24,11 +25,15 @@ public class OrderController {
 
     private final OrderService orderService;
     private final OrderItemService orderItemService;
+    private final RecommendationService recommendationService;
 
 
-    public OrderController(OrderService orderService, OrderItemService orderItemService) {
+    public OrderController(OrderService orderService, OrderItemService orderItemService,
+                           RecommendationService recommendationService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
+        this.recommendationService = recommendationService;
+
 
     }
 
@@ -204,4 +209,12 @@ public class OrderController {
         OrderAnalyticsDashboardDTO result = orderService.getOrderAnalyticsDashboard(startDate, endDate);
         return ResponseEntity.ok(result);
     }
+
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<ProductRecommendationDTO>> getRecommendations(
+            @RequestParam Long productId,
+            @RequestParam(required = false, defaultValue = "5") int limit) {
+        return ResponseEntity.ok(recommendationService.getRecommendations(productId, limit));
+    }
+
 }

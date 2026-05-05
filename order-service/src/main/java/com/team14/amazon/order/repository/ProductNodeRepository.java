@@ -6,8 +6,6 @@ import org.springframework.data.neo4j.repository.query.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -21,15 +19,12 @@ public interface ProductNodeRepository extends Neo4jRepository<ProductNode, Long
      * Excludes the seed product itself.
      */
     @Query("""
-            MATCH (seed:Product {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:Product)
-            WHERE other.productId <> $productId
-            RETURN other.productId      AS productId,
-                   r.coPurchaseCount    AS score
-            ORDER BY r.coPurchaseCount  DESC,
-                     r.lastCoPurchaseDate DESC
-            """)
-    List<Map<String, Object>> findCoPurchases(@Param("productId") Long productId);
-
+        MATCH (seed:Product {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:Product)
+        WHERE other.productId <> $productId
+        RETURN other, collect(r) AS relationships, collect(seed) AS __seed__
+        ORDER BY r.coPurchaseCount DESC
+        LIMIT $limit
+        """)
     java.util.List<ProductNode> findRecommendationsByProductId(
             @Param("productId") Long productId,
             @Param("limit") int limit);
