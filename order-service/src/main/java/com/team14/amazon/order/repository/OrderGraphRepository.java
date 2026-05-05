@@ -4,12 +4,16 @@ import com.team14.amazon.order.model.OrderItem;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.stereotype.Repository;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Repository
 public class OrderGraphRepository {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderGraphRepository.class);
     private final Neo4jClient neo4jClient;
 
     public OrderGraphRepository(Neo4jClient neo4jClient) {
@@ -71,4 +75,21 @@ public class OrderGraphRepository {
                 .bind(orderId).to("orderId")
                 .run();
     }
+
+    public List<Map<String, Object>> findCoPurchases(Long productId) {
+        try {
+            return new ArrayList<>(neo4jClient.query("""
+            MATCH (p:ProductNode {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:ProductNode)
+            WHERE other.productId <> $productId
+            RETURN other.productId AS productId, r.coPurchaseCount AS score
+            ORDER BY r.coPurchaseCount DESC, r.lastCoPurchaseDate DESC
+            """)
+                    .bind(productId).to("productId")
+                    .fetch().all());
+        } catch (Exception e) {
+            log.warn("[Neo4j] findCoPurchases failed for productId={}: {}", productId, e.getMessage());
+            return List.of();
+        }
+    }
 }
+
