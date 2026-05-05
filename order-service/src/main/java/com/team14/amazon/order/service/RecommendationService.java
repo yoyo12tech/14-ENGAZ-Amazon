@@ -2,7 +2,7 @@ package com.team14.amazon.order.service;
 
 import com.team14.amazon.order.adapter.Neo4jRecordAdapter;
 import com.team14.amazon.order.dto.ProductRecommendationDTO;
-import com.team14.amazon.order.neo4j.ProductNodeRepository;
+import com.team14.amazon.order.repository.ProductNodeRepository;
 import com.team14.amazon.order.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
