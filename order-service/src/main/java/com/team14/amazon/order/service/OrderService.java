@@ -466,6 +466,9 @@ public class OrderService {
         // 6. Record BOUGHT_TOGETHER pairs
         orderGraphRepository.recordCoPurchasePairs(orderId, items);
 
+        // ← ADD THIS — §4.4.4 NoSQL-writer rule
+        cacheEvictionService.evictRecommendationCache();
+
         // 7. Log INTERACTION_RECORDED event via Observer
         List<Long> productIds = items.stream()
                 .map(OrderItem::getProductId)
