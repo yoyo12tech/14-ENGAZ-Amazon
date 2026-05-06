@@ -45,3 +45,6 @@ m2-tests-*/
 *.zip
 -v
 
+
+
+.claude/

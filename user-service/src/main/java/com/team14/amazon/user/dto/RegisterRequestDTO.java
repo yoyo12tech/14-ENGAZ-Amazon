@@ -13,7 +13,6 @@ public class RegisterRequestDTO {
     @NotBlank(message = "Password cannot be blank")
     private String password;
 
-    @NotBlank(message = "Phone cannot be blank")
     private String phone;
 
     public RegisterRequestDTO() {}
