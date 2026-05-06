@@ -1,4 +1,5 @@
 package com.team14.amazon.product.model;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
@@ -43,10 +44,10 @@ public class Product {
     @Column(name = "status", nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "DOUBLE PRECISION DEFAULT 0.0")
     private Double rating = 0.0;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
     private Integer totalRatings = 0;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -65,10 +66,14 @@ public class Product {
 
     @PrePersist
     void setDefaults() {
-        if (status == null) status = ProductStatus.ACTIVE;
-        if (stockQuantity == null) stockQuantity = 0;
-        if (rating == null) rating = 0.0;
-        if (totalRatings == null) totalRatings = 0;
+        if (status == null)
+            status = ProductStatus.ACTIVE;
+        if (stockQuantity == null)
+            stockQuantity = 0;
+        if (rating == null)
+            rating = 0.0;
+        if (totalRatings == null)
+            totalRatings = 0;
     }
 
     public Long getId() {
