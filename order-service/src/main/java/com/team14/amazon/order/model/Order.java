@@ -45,7 +45,6 @@ public class Order {
     private Map<String, Object> metadata = new HashMap<>();
 
 
-    @CreationTimestamp
     @Column(nullable = false)
     private LocalDateTime orderedAt;
 
@@ -53,9 +52,10 @@ public class Order {
     @Column(nullable = true)
     private LocalDateTime deliveredAt =null;
 
-   // @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT now()")
     private LocalDateTime createdAt;
+
 
 
 
@@ -68,16 +68,15 @@ public class Order {
 
     @PrePersist
     protected void onCreate() {
+        if (this.createdAt == null) {
             this.createdAt = LocalDateTime.now();
-        if(this.status == null) {
+        }
+
+        if (this.status == null) {
             this.status = OrderStatus.PENDING;
         }
 
         this.deliveredAt = null;
-
-//        if(this.orderedAt == null) {
-//            this.orderedAt = LocalDateTime.now();
-//        }
     }
 
 

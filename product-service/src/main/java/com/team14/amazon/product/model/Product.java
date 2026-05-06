@@ -53,7 +53,7 @@ public class Product {
     private Map<String, Object> specifications;
 
     @CreationTimestamp
-    @Column(nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false, columnDefinition = "TIMESTAMP DEFAULT now()")
     private LocalDateTime createdAt;
 
     // Inverse side
@@ -67,6 +67,8 @@ public class Product {
         if (stockQuantity == null) stockQuantity = 0;
         if (rating == null) rating = 0.0;
         if (totalRatings == null) totalRatings = 0;
+        if (createdAt == null) createdAt = LocalDateTime.now();
+
     }
 
     public Long getId() {
