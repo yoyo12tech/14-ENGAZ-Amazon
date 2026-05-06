@@ -90,7 +90,7 @@ public class UserService {
     public AuthResponseDTO registerUser(RegisterRequestDTO request) {
         // a) Validate blank fields
         if (isBlank(request.getName()) || isBlank(request.getEmail()) ||
-            isBlank(request.getPassword()) || isBlank(request.getPhone())) {
+            isBlank(request.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "All fields are required and cannot be blank");
         }
 
@@ -98,7 +98,8 @@ public class UserService {
         if (userRepository.findByEmail(request.getEmail()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Email is already registered");
         }
-        if (userRepository.findByPhone(request.getPhone()).isPresent()) {
+        if (request.getPhone() != null && !request.getPhone().isBlank() &&
+            userRepository.findByPhone(request.getPhone()).isPresent()) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Phone is already registered");
         }
 

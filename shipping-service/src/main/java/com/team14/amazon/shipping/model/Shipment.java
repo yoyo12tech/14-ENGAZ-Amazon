@@ -1,6 +1,7 @@
 package com.team14.amazon.shipping.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -51,6 +52,7 @@ public class Shipment {
     private LocalDateTime lastUpdate = LocalDateTime.now();
 
     @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
