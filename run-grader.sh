@@ -5,10 +5,10 @@
 export MSYS_NO_PATHCONV=1
 
 docker run --rm \
-  -v //var/run/docker.sock:/var/run/docker.sock \
+  -v /var/run/docker.sock:/var/run/docker.sock \
   --tmpfs /grader-ram:exec,size=1024m \
-  -v "G:/guc/ACL3ProjectEngaz/amazon:/repo" \
-  -v "G:/guc/DevTools/maven_repo:/root/.m2/repository" \
+  -v "$(pwd):/repo" \
+  -v "$HOME/.m2/repository:/root/.m2/repository" \
   -e REPO_PATH=/repo \
   -e PROJECT=M2 \
   -e THEME=Amazon \
