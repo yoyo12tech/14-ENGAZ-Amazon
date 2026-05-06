@@ -131,8 +131,12 @@ public class ShipmentService {
     }
 
     private void notifyObservers(String action, Long shipmentId, Map<String, Object> details) {
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("shipmentId", shipmentId);
+        payload.put("details", details);
+
         for (EntityObserver observer : observers) {
-            observer.onEvent(action, shipmentId, details);
+            observer.onEvent(action, payload);
         }
     }
     @Transactional
@@ -367,24 +371,39 @@ public class ShipmentService {
 //        return cachedServices.getShippingAnalyticsCached(start, end);
 //    }
 
+//    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
+//        if (startDate.isAfter(endDate)) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
+//        }
+//
+//        try {
+//            ShipmentEvent log = new ShipmentEvent(
+//                    null,
+//                    "ANALYTICS_VIEWED",
+//                    Map.of(
+//                            "startDate", startDate.toString(),
+//                            "endDate", endDate.toString()
+//                    )
+//            );
+//            shipmentEventRepository.save(log);
+//        } catch (Exception e) {
+//            System.err.println("Failed to log analytics view to MongoDB: " + e.getMessage());
+//        }
+//
+//        return cachedServices.getShippingAnalyticsCached(startDate, endDate);
+//    }
+
+
     public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
         }
 
-        try {
-            ShipmentEvent log = new ShipmentEvent(
-                    null,
-                    "ANALYTICS_VIEWED",
-                    Map.of(
-                            "startDate", startDate.toString(),
-                            "endDate", endDate.toString()
-                    )
-            );
-            shipmentEventRepository.save(log);
-        } catch (Exception e) {
-            System.err.println("Failed to log analytics view to MongoDB: " + e.getMessage());
-        }
+        // DP-2: Instead of direct repo save, notify observers
+        notifyObservers("ANALYTICS_VIEWED", null, Map.of(
+                "startDate", startDate.toString(),
+                "endDate", endDate.toString()
+        ));
 
         return cachedServices.getShippingAnalyticsCached(startDate, endDate);
     }
@@ -486,16 +505,16 @@ ShipmentTrackingEvent event = new ShipmentTrackingEvent(
 ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
     Set<String> keys = redisTemplate.keys("shipping-service::S4-F12::*");
     if (keys != null) redisTemplate.delete(keys);
-notifyObservers(
-        "TRACKING_RECORDED",
-        shipment.getId(),
-        Map.of(
-                "trackingNumber", shipment.getTrackingNumber(),
-                "status", status.name(),
-                "carrier", shipment.getCarrier(),
-                "notes", request.getNotes() != null ? request.getNotes() : ""
-        )
-);
+    notifyObservers(
+            "TRACKING_RECORDED",
+            shipment.getId(),
+            Map.of(
+                    "trackingNumber", shipment.getTrackingNumber(),
+                    "status", status.name(),
+                    "carrier", shipment.getCarrier(),
+                    "notes", request.getNotes() != null ? request.getNotes() : ""
+            )
+    );
 
 return savedEvent;
 }
@@ -521,6 +540,9 @@ return savedEvent;
 
         // 3. Adapt and return[cite: 1]
         return events.stream().map(cassandraRowAdapter::adapt).toList();
+    }
+    public void unregisterObserver(EntityObserver observer) {
+        this.observers.remove(observer);
     }
 
 }
