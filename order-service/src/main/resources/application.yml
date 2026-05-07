@@ -1,50 +1,49 @@
-spring:
-  application:
-    name: order-service
+  spring:
+    application:
+      name: order-service
 
-  datasource:
-    url: jdbc:postgresql://postgres:5432/amazondb
-    username: postgres
-    password: postgres
+    datasource:
+      url: jdbc:postgresql://postgres:5432/amazondb
+      username: postgres
+      password: postgres
 
-  jpa:
-    hibernate:
-      ddl-auto: update
-    show-sql: true
-    properties:
+    jpa:
       hibernate:
-        format_sql: true
+        ddl-auto: update
+      show-sql: true
+      properties:
+        hibernate:
+          format_sql: true
 
-  data:
-    mongodb:
-      uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
-    redis:
-      host: redis
-      port: 6379
-      password: redispass
+    data:
+      mongodb:
+        uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
 
-  neo4j:
-    uri: bolt://neo4j:7687
-    username: neo4j
-    password: neo4jpass
+      redis:
+        host: redis
+        port: 6379
+        password: redispass
 
-  cache:
-    type: redis
-jwt:
-  secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
-  expiration: 86400000
+      neo4j:
+        uri: bolt://neo4j:7687
+        username: neo4j
+        password: neo4jpass
 
-server:
-  port: 8080
+    cache:
+      type: redis
 
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info
-  endpoint:
+  jwt:
+    secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
+    expiration: 86400000
+
+  server:
+    port: 8080
+
+  management:
+    endpoint:
+      health:
+        show-details: always
     health:
-      show-details: always
-  health:
-    defaults:
-      enabled: true
+      defaults:
+        enabled: false
+
