@@ -20,6 +20,8 @@ import org.springframework.transaction.annotation.Transactional;
 import com.team14.amazon.user.dto.ActivityFeedDTO;
 import com.team14.amazon.user.security.JwtService;
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 @RestController
 @RequestMapping("/api/users")
@@ -40,9 +42,12 @@ public class UserController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<?> getUserById(@PathVariable Long id) {
+        if (!isOwnerOrAdmin(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         return userService.getUserById(id)
-                .map(ResponseEntity::ok)
+                .<ResponseEntity<?>>map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -58,6 +63,9 @@ public class UserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<?> updateUser(@PathVariable Long id, @RequestBody User updatedUser) {
+        if (!isOwnerOrAdmin(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         try {
             Optional<User> result = userService.updateUser(id, updatedUser);
 
@@ -74,6 +82,9 @@ public class UserController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+        if (!isOwnerOrAdmin(id)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
         if (userService.deleteUser(id)) {
             return ResponseEntity.ok().build();
         }
@@ -203,5 +214,12 @@ public class UserController {
         } catch (org.springframework.web.server.ResponseStatusException e) {
             return ResponseEntity.status(e.getStatusCode()).body(e.getReason());
         }
+    }
+
+    private boolean isOwnerOrAdmin(Long targetId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getPrincipal() == null) return false;
+        User currentUser = (User) auth.getPrincipal();
+        return currentUser.getId().equals(targetId) || currentUser.getRole() == UserRole.ADMIN;
     }
     }

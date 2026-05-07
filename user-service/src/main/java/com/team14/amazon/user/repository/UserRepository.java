@@ -41,7 +41,7 @@ List<User> searchUsers(@Param("name") String name,@Param("email") String email,@
     int countActiveOrdersForUser(@Param("userId") Long userId);
 
     @Query(value = "SELECT u.* FROM users u " +
-            "JOIN orders o ON u.id = o.user_id " +
+            "LEFT JOIN orders o ON u.id = o.user_id AND CAST(o.status AS text) = 'DELIVERED' " +
             "WHERE u.preferences ->> 'language' = :lang " +
             "GROUP BY u.id " +
             "HAVING COUNT(o.id) >= :minOrders",
