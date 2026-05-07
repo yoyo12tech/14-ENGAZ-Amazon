@@ -53,26 +53,24 @@ public class CachedServices {
 //                .build();
 //    }
 
-    @Cacheable(value = "shipping-service::S4-F10", key = "#start + '::' + #end")
+    @Cacheable(value = "shipping-service::S4-F10", key = "#start.toString() + '::' + #end.toString()")
     public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end) {
 
-        LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
-        List<Object[]> results = shipmentRepository.getShippingAnalytics(LocalDate.from(startDateTime), endDateTime);
+        List<Object[]> results = shipmentRepository.getShippingAnalytics(start, endDateTime);
 
         if (results == null || results.isEmpty()) {
             return ShippingAnalyticsDTO.builder()
                     .totalShipments(0L)
-                    .deliveredCount(0L) // Fixed missing mapping
-                    .averageDeliveryDays(0.0)
+                    .deliveredCount(0L)
+                    .averageDeliveryTimesDays(0.0)
                     .onTimeRate(0.0)
                     .shipmentsByStatus(Map.of())
                     .averageAttempts(0.0)
                     .build();
         }
 
-
-        Object[] result = results.getFirst(); // unwrap the actual row
+        Object[] result = results.getFirst();
 
         Map<String, Long> shipmentsByStatus = Map.of(
                 "PROCESSING",       ((Number) result[3]).longValue(),
@@ -85,8 +83,8 @@ public class CachedServices {
 
         return ShippingAnalyticsDTO.builder()
                 .totalShipments(((Number) result[0]).longValue())
-                .deliveredCount(((Number) result[7]).longValue()) // Fixed missing mapping
-                .averageDeliveryDays(((Number) result[1]).doubleValue())
+                .deliveredCount(((Number) result[7]).longValue())
+                .averageDeliveryTimesDays(((Number) result[1]).doubleValue())
                 .onTimeRate(((Number) result[2]).doubleValue())
                 .shipmentsByStatus(shipmentsByStatus)
                 .averageAttempts(((Number) result[9]).doubleValue())

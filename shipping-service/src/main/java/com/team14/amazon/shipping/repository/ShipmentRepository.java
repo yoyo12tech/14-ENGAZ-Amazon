@@ -90,7 +90,7 @@ List<Shipment> findByStatusNative(@Param("status") String status);
          COALESCE(AVG(COALESCE((metadata->>'deliveryAttempts')::numeric, 1)) FILTER (WHERE status = 'DELIVERED'), 0)
             AS averageAttempts
    FROM shipments
-   WHERE estimated_delivery BETWEEN :start AND :end OR actual_delivery BETWEEN :start AND :end
+   WHERE created_at BETWEEN :start AND :end
 """, nativeQuery = true)
     List<Object[]> getShippingAnalytics(@Param("start") LocalDate start, @Param("end") LocalDateTime end);
 }

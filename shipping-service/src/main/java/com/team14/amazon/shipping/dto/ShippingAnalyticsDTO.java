@@ -2,10 +2,12 @@ package com.team14.amazon.shipping.dto;
 
 import com.team14.amazon.shipping.dto.builder.Buildable;
 
+import java.io.Serializable;
 import java.util.Map;
 
 
-public class ShippingAnalyticsDTO {
+public class ShippingAnalyticsDTO implements Serializable {
+    private static final long serialVersionUID = 1L;
     private Long totalShipments;
     private Long deliveredCount;
     private Double averageDeliveryTimesDays;
@@ -32,7 +34,7 @@ public class ShippingAnalyticsDTO {
         return deliveredCount;
     }
 
-    public Double getAverageDeliveryDays() {
+    public Double getAverageDeliveryTimesDays() {
         return averageDeliveryTimesDays;
     }
 
@@ -66,8 +68,8 @@ public class ShippingAnalyticsDTO {
             return this;
         }
 
-        public Builder averageDeliveryDays(Double averageDeliveryDays){
-            this.averageDeliveryTimesDays = averageDeliveryDays;
+        public Builder averageDeliveryTimesDays(Double averageDeliveryTimesDays){
+            this.averageDeliveryTimesDays = averageDeliveryTimesDays;
             return this;
         }
 

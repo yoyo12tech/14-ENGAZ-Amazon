@@ -452,12 +452,6 @@ public class ShipmentService {
         @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
         @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
 })
-
-
-
-
-
-
 public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
 
 Shipment shipment = shipmentRepository.findById(shipmentId)
@@ -509,6 +503,7 @@ ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
             "TRACKING_RECORDED",
             shipment.getId(),
             Map.of(
+                    "shipmentId", shipment.getId(),
                     "trackingNumber", shipment.getTrackingNumber(),
                     "status", status.name(),
                     "carrier", shipment.getCarrier(),

@@ -10,18 +10,21 @@ public class EventFactory {
     public MongoEvent createEvent(String type, Map<String, Object> params) {
         return switch (type.toUpperCase()) {
             case "SHIPMENT", "ANALYTICS_VIEWED" -> {
-                ShipmentEvent e = new ShipmentEvent();
-                e.setShipmentId((Long) params.get("shipmentId"));
-                e.setAction((String) params.get("action"));
+                ShipmentEvent event = new ShipmentEvent();
+                event.setAction(type);
 
-                if (params.containsKey("timestamp")) {
-                    e.setTimestamp((LocalDateTime) params.get("timestamp"));
-                } else {
-                    e.setTimestamp(LocalDateTime.now());
+                if (params.get("shipmentId") != null) {
+                    event.setShipmentId((Long) params.get("shipmentId"));
                 }
 
-                e.setDetails((Map<String, Object>) params.get("details"));
-                yield e;
+                event.setTimestamp(params.containsKey("timestamp")
+                        ? (LocalDateTime) params.get("timestamp")
+                        : LocalDateTime.now());
+
+                // Guard against null details
+                Object details = params.get("details");
+                event.setDetails(details != null ? (Map<String, Object>) details : Map.of());
+                yield event;
             }
             default -> throw new IllegalArgumentException("Unknown Event Type: " + type);
         };
