@@ -183,6 +183,14 @@ public class UserController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             HttpServletRequest request) {
+        // Validate page and size parameters
+        if (page < 0) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Page must be non-negative");
+        }
+        if (size <= 0) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Size must be positive");
+        }
+
         try {
             // Extract caller identity from JWT (token already validated by filter)
             String authHeader = request.getHeader("Authorization");
