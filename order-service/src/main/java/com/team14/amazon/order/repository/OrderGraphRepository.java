@@ -44,34 +44,77 @@ public class OrderGraphRepository {
     }
 
     // ─── Record BOUGHT_TOGETHER Pairs ────────────────────────────────────
+//    public void recordCoPurchasePairs(Long orderId, List<OrderItem> items) {
+//        List<Long> productIds = items.stream()
+//                .map(OrderItem::getProductId)
+//                .distinct()
+//                .sorted()                      // ← sort so p1 < p2 is always true
+//                .toList();
+//
+//        for (int i = 0; i < productIds.size(); i++) {
+//            for (int j = i + 1; j < productIds.size(); j++) {
+//                neo4jClient.query("""
+//                                MERGE (a:Product {productId: $p1})
+//                                MERGE (b:Product {productId: $p2})
+//                                MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
+//                     ON CREATE SET r.coPurchaseCount = 1,
+//                                   r.lastCoPurchaseDate = datetime(),
+//                                   r.recordedOrderIds = [$orderId]
+//                     ON MATCH SET r.coPurchaseCount = r.coPurchaseCount + 1,
+//                                  r.lastCoPurchaseDate = datetime(),
+//                                  r.recordedOrderIds = r.recordedOrderIds + $orderId
+//                    """)
+//                        .bind(productIds.get(i)).to("p1")
+//                        .bind(productIds.get(j)).to("p2")
+//                        .bind(orderId).to("orderId")
+//                        .run();
+//            }
+//        }
+//        // sentinel last
+//        neo4jClient.query("CREATE (:RecordedOrder {orderId: $orderId})")
+//                .bind(orderId).to("orderId")
+//                .run();
+//    }
+
+    // ─── Record BOUGHT_TOGETHER Pairs ────────────────────────────────────
     public void recordCoPurchasePairs(Long orderId, List<OrderItem> items) {
         List<Long> productIds = items.stream()
                 .map(OrderItem::getProductId)
                 .distinct()
-                .sorted()                      // ← sort so p1 < p2 is always true
+                .sorted()   // enforce canonical direction p1 < p2
                 .toList();
 
         for (int i = 0; i < productIds.size(); i++) {
             for (int j = i + 1; j < productIds.size(); j++) {
                 neo4jClient.query("""
-                     MATCH (a:Product {productId: $p1}),
-                           (b:Product {productId: $p2})
-                     MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
-                     ON CREATE SET r.coPurchaseCount = 1,
-                                   r.lastCoPurchaseDate = datetime(),
-                                   r.recordedOrderIds = [$orderId]
-                     ON MATCH SET r.coPurchaseCount = r.coPurchaseCount + 1,
-                                  r.lastCoPurchaseDate = datetime(),
-                                  r.recordedOrderIds = r.recordedOrderIds + $orderId
-                    """)
+                MERGE (a:Product {productId: $p1})
+                MERGE (b:Product {productId: $p2})
+                MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
+                ON CREATE SET r.coPurchaseCount = 1,
+                              r.lastCoPurchaseDate = datetime(),
+                              r.recordedOrderIds = [$orderId]
+                ON MATCH SET
+                    r.coPurchaseCount = CASE
+                        WHEN NOT $orderId IN r.recordedOrderIds
+                        THEN r.coPurchaseCount + 1
+                        ELSE r.coPurchaseCount END,
+                    r.lastCoPurchaseDate = datetime(),
+                    r.recordedOrderIds = CASE
+                        WHEN NOT $orderId IN r.recordedOrderIds
+                        THEN r.recordedOrderIds + $orderId
+                        ELSE r.recordedOrderIds END
+                """)
                         .bind(productIds.get(i)).to("p1")
                         .bind(productIds.get(j)).to("p2")
                         .bind(orderId).to("orderId")
                         .run();
             }
         }
-        // sentinel last
-        neo4jClient.query("CREATE (:RecordedOrder {orderId: $orderId})")
+
+        // Sentinel node for idempotency check
+        neo4jClient.query("""
+        MERGE (:RecordedOrder {orderId: $orderId})
+        """)
                 .bind(orderId).to("orderId")
                 .run();
     }
@@ -79,7 +122,7 @@ public class OrderGraphRepository {
     public List<Map<String, Object>> findCoPurchases(Long productId) {
         try {
             return new ArrayList<>(neo4jClient.query("""
-            MATCH (p:ProductNode {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:ProductNode)
+            MATCH (p:Product {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:Product)
             WHERE other.productId <> $productId
             RETURN other.productId AS productId, r.coPurchaseCount AS score
             ORDER BY r.coPurchaseCount DESC, r.lastCoPurchaseDate DESC
