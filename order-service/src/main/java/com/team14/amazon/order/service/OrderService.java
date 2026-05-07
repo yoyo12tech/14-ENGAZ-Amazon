@@ -1,5 +1,6 @@
 package com.team14.amazon.order.service;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.team14.amazon.order.repository.OrderGraphRepository;
 import com.team14.amazon.order.dto.OrderAnalyticsDashboardDTO;
 import com.team14.amazon.order.config.CacheEvictionService;
@@ -49,6 +50,8 @@ public class OrderService {
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver       mongoEventLogger;
     private final OrderGraphRepository orderGraphRepository;
+    private static final Logger log =
+            LoggerFactory.getLogger(OrderService.class);
 
     // DP-2: classical observer list (mirrors UserService exactly)
     private final List<EntityObserver> observers = new ArrayList<>();
@@ -442,6 +445,9 @@ public class OrderService {
                     "Order must be DELIVERED to record co-purchase");
         }
 
+
+
+
         // 3. Short‑circuit if fewer than 2 items
         List<OrderItem> items = order.getOrderItems();
         if (items == null || items.size() < 2) {
@@ -457,9 +463,9 @@ public class OrderService {
         for (OrderItem item : items) {
             Map<String, Object> product = orderRepository.findProductById(item.getProductId());
             if (product == null || product.isEmpty()) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Product not found: " + item.getProductId());
+                continue;
             }
+
             orderGraphRepository.ensureProductNode(product);
         }
 
