@@ -142,4 +142,9 @@ public class TransactionController {
 
         return ResponseEntity.ok(transactionService.getCategoryRevenue(startDate, endDate));
     }
+
+    @GetMapping("/{id}/lifecycle")
+    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id) {
+        return ResponseEntity.ok(transactionService.getTransactionLifecycle(id));
+    }
 }
