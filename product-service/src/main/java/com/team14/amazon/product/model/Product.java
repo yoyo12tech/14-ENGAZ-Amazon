@@ -40,6 +40,7 @@ public class Product {
     @Column(nullable = false)
     private Integer stockQuantity = 0;
 
+    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
