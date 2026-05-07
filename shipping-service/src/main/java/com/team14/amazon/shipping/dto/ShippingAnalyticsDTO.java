@@ -8,14 +8,14 @@ import java.util.Map;
 public class ShippingAnalyticsDTO {
     private Long totalShipments;
     private Long deliveredCount;
-    private Double averageDeliveryDays;
+    private Double averageDeliveryTimesDays;
     private Double onTimeRate;
     private Map<String, Long> shipmentsByStatus;
     private Double averageAttempts;
 
     private ShippingAnalyticsDTO(Builder builder){
         this.totalShipments = builder.totalShipments;
-        this.averageDeliveryDays = builder.averageDeliveryDays;
+        this.averageDeliveryTimesDays = builder.averageDeliveryTimesDays;
         this.onTimeRate = builder.onTimeRate;
         this.deliveredCount = builder.deliveredCount;
         this.shipmentsByStatus = builder.shipmentsByStatus;
@@ -33,7 +33,7 @@ public class ShippingAnalyticsDTO {
     }
 
     public Double getAverageDeliveryDays() {
-        return averageDeliveryDays;
+        return averageDeliveryTimesDays;
     }
 
     public Double getOnTimeRate() {
@@ -51,7 +51,7 @@ public class ShippingAnalyticsDTO {
     public static class Builder implements Buildable<ShippingAnalyticsDTO>{
         private Long totalShipments;
         private Long deliveredCount;
-        private Double averageDeliveryDays;
+        private Double averageDeliveryTimesDays;
         private Double onTimeRate;
         private Map<String, Long> shipmentsByStatus;
         private Double averageAttempts;
@@ -67,7 +67,7 @@ public class ShippingAnalyticsDTO {
         }
 
         public Builder averageDeliveryDays(Double averageDeliveryDays){
-            this.averageDeliveryDays = averageDeliveryDays;
+            this.averageDeliveryTimesDays = averageDeliveryDays;
             return this;
         }
 

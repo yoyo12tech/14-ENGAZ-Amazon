@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Map;
 
@@ -56,7 +57,7 @@ public class CachedServices {
     public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end) {
 
         LocalDateTime startDateTime = start.atStartOfDay();
-        LocalDateTime endDateTime = end.atTime(23, 59, 59, 999_000_000);
+        LocalDateTime endDateTime = end.atTime(LocalTime.MAX);
         List<Object[]> results = shipmentRepository.getShippingAnalytics(LocalDate.from(startDateTime), endDateTime);
 
         if (results == null || results.isEmpty()) {
