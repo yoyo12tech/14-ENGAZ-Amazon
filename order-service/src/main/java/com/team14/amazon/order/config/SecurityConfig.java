@@ -1,6 +1,7 @@
 package com.team14.amazon.order.config;
 
 import com.team14.amazon.order.security.JwtAuthenticationFilter;
+import com.team14.amazon.order.security.JwtService;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -13,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 /**
  * Spring Security configuration for the Order Service.
  *
- * Public endpoints  : GET /api/orders/health
+ * Public endpoints  : GET /api/orders/health, /error
  * All other endpoints require a valid JWT token.
  *
  * CC-1 spec (9.1): exactly 7 public endpoints system-wide.
@@ -23,20 +24,21 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final JwtService jwtService;
 
-    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
-        this.jwtAuthenticationFilter = jwtAuthenticationFilter;
+    public SecurityConfig(JwtService jwtService) {
+        this.jwtService = jwtService;
     }
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        JwtAuthenticationFilter jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtService);
         http
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session ->
                     session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                    .requestMatchers("/api/orders/health", "/actuator/**").permitAll()
+                    .requestMatchers("/api/orders/health", "/error", "/actuator/**").permitAll()
                     .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
