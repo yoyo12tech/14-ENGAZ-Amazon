@@ -6,10 +6,8 @@ import com.team14.amazon.billing.service.PartialRefundService;
 import com.team14.amazon.billing.service.TransactionService;
 import com.team14.amazon.billing.observer.MongoEventLogger;
 
-import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.util.Map;
@@ -144,15 +142,9 @@ public class TransactionController {
 
         return ResponseEntity.ok(transactionService.getCategoryRevenue(startDate, endDate));
     }
-    @GetMapping("/{id}/lifecycle")
-    @PreAuthorize("hasRole('ADMIN') or @transactionService.isOwner(#id, authentication.name)")
-    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(
-            @PathVariable Long id,
-            Authentication authentication) {
-        String callerUid = authentication.getName();
-        boolean isAdmin = authentication.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
 
-        return ResponseEntity.ok(transactionService.getTransactionLifecycle(id, callerUid, isAdmin));
+    @GetMapping("/{id}/lifecycle")
+    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id) {
+        return ResponseEntity.ok(transactionService.getTransactionLifecycle(id));
     }
 }

@@ -1,11 +1,13 @@
 package com.team14.amazon.order.controller;
 
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.team14.amazon.order.dto.*;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.service.OrderItemService;
 import com.team14.amazon.order.service.OrderService;
+import com.team14.amazon.order.service.RecommendationService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +15,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.naming.ldap.PagedResultsControl;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -24,11 +25,17 @@ public class OrderController {
 
     private final OrderService orderService;
     private final OrderItemService orderItemService;
+    private final RecommendationService recommendationService;
+    private static final Logger log =
+            LoggerFactory.getLogger(OrderController.class);
 
 
-    public OrderController(OrderService orderService, OrderItemService orderItemService) {
+    public OrderController(OrderService orderService, OrderItemService orderItemService,
+                           RecommendationService recommendationService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
+        this.recommendationService = recommendationService;
+
 
     }
 
@@ -149,6 +156,18 @@ public class OrderController {
 //    }
 
 
+
+    @PostMapping("/{orderId}/record-co-purchase")
+    public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
+
+        try {
+            orderService.recordCoPurchase(orderId);
+            return ResponseEntity.ok().build();
+        } catch (ResponseStatusException e) {
+            throw e; // IMPORTANT: rethrow so Spring handles correct status
+        }
+    }
+
     //claude code
     @PutMapping("/{id}/deliver")
     public ResponseEntity<Order> markAsDelivered(
@@ -159,11 +178,7 @@ public class OrderController {
         return ResponseEntity.ok(orderService.markAsDelivered(id));
     }
 
-    @PostMapping("/{orderId}/record-co-purchase")
-    public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
-        orderService.recordCoPurchase(orderId);
-        return ResponseEntity.ok("Co-purchase recorded successfully");
-    }
+
 
 
 
@@ -203,5 +218,26 @@ public class OrderController {
 
         OrderAnalyticsDashboardDTO result = orderService.getOrderAnalyticsDashboard(startDate, endDate);
         return ResponseEntity.ok(result);
+    }
+
+
+
+
+
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<ProductRecommendationDTO>> getRecommendations(
+            @RequestParam Long productId,
+            @RequestParam(required = false, defaultValue = "5") int limit) {
+
+        try {
+            return ResponseEntity.ok(
+                    recommendationService.getRecommendations(productId, limit)
+            );
+        } catch (Exception e) {
+            log.warn("Recommendations unavailable", e);
+
+            // graceful fallback instead of crashing endpoint
+            return ResponseEntity.ok(List.of());
+        }
     }
 }

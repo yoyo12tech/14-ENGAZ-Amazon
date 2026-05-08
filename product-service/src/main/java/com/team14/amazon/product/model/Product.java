@@ -1,7 +1,9 @@
 package com.team14.amazon.product.model;
+
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -38,14 +40,15 @@ public class Product {
     @Column(nullable = false)
     private Integer stockQuantity = 0;
 
+    @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private ProductStatus status = ProductStatus.ACTIVE;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "DOUBLE PRECISION DEFAULT 0.0")
     private Double rating = 0.0;
 
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "INTEGER DEFAULT 0")
     private Integer totalRatings = 0;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -53,6 +56,7 @@ public class Product {
     private Map<String, Object> specifications;
 
     @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -63,10 +67,14 @@ public class Product {
 
     @PrePersist
     void setDefaults() {
-        if (status == null) status = ProductStatus.ACTIVE;
-        if (stockQuantity == null) stockQuantity = 0;
-        if (rating == null) rating = 0.0;
-        if (totalRatings == null) totalRatings = 0;
+        if (status == null)
+            status = ProductStatus.ACTIVE;
+        if (stockQuantity == null)
+            stockQuantity = 0;
+        if (rating == null)
+            rating = 0.0;
+        if (totalRatings == null)
+            totalRatings = 0;
     }
 
     public Long getId() {

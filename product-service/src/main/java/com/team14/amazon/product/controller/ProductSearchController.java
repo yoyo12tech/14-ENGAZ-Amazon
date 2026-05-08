@@ -33,6 +33,11 @@ public class ProductSearchController {
             @RequestParam(required = false) Double minRating,
             @RequestParam(required = false) Double maxRating) {
 
+        if ((minRating != null && (minRating < 0 || minRating > 5)) ||
+                (maxRating != null && (maxRating < 0 || maxRating > 5))) {
+            return ResponseEntity.badRequest().build();
+        }
+
         List<ProductSearchResultDTO> results = searchService.fullTextSearch(
                 query, category, brand, status, minPrice, maxPrice, minRating, maxRating);
         return ResponseEntity.ok(results);

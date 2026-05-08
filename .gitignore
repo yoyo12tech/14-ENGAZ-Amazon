@@ -40,3 +40,11 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+m2-tests-*/
+*.zip
+-v
+
+
+
+.claude/

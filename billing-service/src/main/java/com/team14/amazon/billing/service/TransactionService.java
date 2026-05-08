@@ -1,39 +1,53 @@
 package com.team14.amazon.billing.service;
 
-import com.mongodb.client.model.Filters;
-import com.team14.amazon.billing.adapter.MongoDocumentAdapter;
-import com.team14.amazon.billing.dto.*;
+import com.team14.amazon.billing.dto.VoucherUsageDTO;
 import com.team14.amazon.billing.cache.BillingCacheNames;
 import com.team14.amazon.billing.model.*;
 import com.team14.amazon.billing.observer.EntityObserver;
+import com.team14.amazon.billing.dto.RevenueReportDTO;
 import com.team14.amazon.billing.repository.TransactionRepository;
+import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 
-import com.team14.amazon.billing.repository.mongodb.TransactionAuditEventRepository;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import org.bson.Document;
-
-import java.util.*;
+import com.team14.amazon.billing.dto.ProcessTransactionRequest;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
-import java.util.stream.Stream;
+import java.util.ArrayList;
+import java.util.List;
 
+import com.team14.amazon.billing.dto.AppliedVoucherDetail;
+import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.team14.amazon.billing.dto.CategoryRevenueDTO;
 import com.team14.amazon.billing.repository.CategoryRevenueProjection;
+import com.team14.amazon.billing.dto.LifecycleEventDTO;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.bson.Document;
+import java.util.Comparator;
+import java.util.Date;
+import java.time.ZoneId;
 
 @Service
 public class TransactionService {
@@ -43,19 +57,17 @@ public class TransactionService {
     private final List<EntityObserver> observers;
     private final BillingCacheInvalidationService cacheInvalidationService;
     private final MongoTemplate mongoTemplate;
-    private final TransactionAuditEventRepository transactionAuditEventRepository;
-    private final MongoDocumentAdapter adapter = new MongoDocumentAdapter();
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
-                              TransactionVoucherRepository transactionVoucherRepository,
-                              List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService, MongoTemplate mongoTemplate, TransactionAuditEventRepository transactionAuditEventRepository) {
+            TransactionVoucherRepository transactionVoucherRepository,
+            List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService,
+            MongoTemplate mongoTemplate) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
         this.observers = new ArrayList<>(observers);
         this.cacheInvalidationService = cacheInvalidationService;
         this.mongoTemplate = mongoTemplate;
-        this.transactionAuditEventRepository = transactionAuditEventRepository;
     }
 
     public void register(EntityObserver observer) {
@@ -577,52 +589,80 @@ public class TransactionService {
         return result;
     }
 
-    @Cacheable(cacheNames = BillingCacheNames.S5_F11, key = "'transactionId:' + #transactionId")
-    public List<LifecycleEventDTO> getTransactionLifecycle(Long transactionId, String callerUid, boolean isAdmin) {
-
-        // b) 404
-        Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-
-        boolean isOwner = callerUid.equals(String.valueOf(transaction.getUserId()));
-        if(!isOwner && !isAdmin) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-
-        // d) shipment IDs via native SQL
-        List<Long> shipmentIds = transactionRepository
-                .findShipmentIdsByOrderId(transaction.getOrderId());
-
-        // e) query all three collections
-        MongoDocumentAdapter adapter = new MongoDocumentAdapter();
-
-        List<LifecycleEventDTO> transactionEvents = transactionAuditEventRepository
-                .findByTransactionId(transactionId)
-                .stream()
-                .map(e -> adapter.adapt(e, Source.TRANSACTION))
-                .toList();
-
-        List<Document> orderDocs = new ArrayList<>();
-        mongoTemplate.getCollection("order_events")
-                .find(Filters.eq("orderId", transaction.getOrderId()))
-                .into(orderDocs);
-
-        List<LifecycleEventDTO> orderEvents = orderDocs.stream()
-                .map(doc -> adapter.adapt(doc, Source.ORDER))
-                .toList();
-
-        List<Document> shipmentDocs = new ArrayList<>();
-        if (!shipmentIds.isEmpty()) {
-            mongoTemplate.getCollection("shipment_events")
-                    .find(Filters.in("shipmentId", shipmentIds))
-                    .into(shipmentDocs);
+    @Cacheable(cacheNames = BillingCacheNames.S5_F11, key = "#transactionId")
+    public List<LifecycleEventDTO> getTransactionLifecycle(Long transactionId) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
         }
-        List<LifecycleEventDTO> shipmentEvents = shipmentDocs.stream()
-                .map(doc -> adapter.adapt(doc, Source.SHIPMENT))
-                .toList();
 
-        // f) merge and sort chronologically
-        return Stream.of(transactionEvents, orderEvents, shipmentEvents)
-                .flatMap(Collection::stream)
-                .sorted(Comparator.comparing(LifecycleEventDTO::timestamp))
-                .toList();
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+
+        String uidStr = (String) auth.getPrincipal();
+        Long uid;
+        try {
+            uid = Long.parseLong(uidStr);
+        } catch (NumberFormatException e) {
+             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user ID in token");
+        }
+
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!transaction.getUserId().equals(uid) && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
+        }
+
+        List<Long> shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
+        List<LifecycleEventDTO> timeline = new ArrayList<>();
+
+        // 1. Transaction Events
+        Query tQuery = new Query(Criteria.where("transactionId").is(transactionId));
+        List<Document> tDocs = mongoTemplate.find(tQuery, Document.class, "transaction_audit_trail");
+        for (Document d : tDocs) {
+            timeline.add(mapToDTO(d, "TRANSACTION"));
+        }
+
+        // 2. Order Events
+        Query oQuery = new Query(Criteria.where("orderId").is(transaction.getOrderId()));
+        List<Document> oDocs = mongoTemplate.find(oQuery, Document.class, "order_events");
+        for (Document d : oDocs) {
+            timeline.add(mapToDTO(d, "ORDER"));
+        }
+
+        // 3. Shipment Events
+        if (shipmentIds != null && !shipmentIds.isEmpty()) {
+            Query sQuery = new Query(Criteria.where("shipmentId").in(shipmentIds));
+            List<Document> sDocs = mongoTemplate.find(sQuery, Document.class, "shipment_events");
+            for (Document d : sDocs) {
+                timeline.add(mapToDTO(d, "SHIPMENT"));
+            }
+        }
+
+        timeline.sort(Comparator.comparing(LifecycleEventDTO::getTimestamp));
+        return timeline;
+    }
+
+    private LifecycleEventDTO mapToDTO(Document d, String source) {
+        LocalDateTime timestamp = null;
+        Date date = d.getDate("timestamp");
+        if (date != null) {
+            timestamp = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        }
+        
+        // details can be a nested Document or a Map
+        Map<String, Object> details = null;
+        Object detailsObj = d.get("details");
+        if (detailsObj instanceof Map) {
+            details = (Map<String, Object>) detailsObj;
+        }
+
+        return LifecycleEventDTO.builder()
+                .timestamp(timestamp)
+                .source(source)
+                .action(d.getString("action"))
+                .details(details)
+                .build();
     }
 }

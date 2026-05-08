@@ -5,11 +5,11 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
@@ -24,8 +24,12 @@ import java.util.Collections;
  * Public endpoints (bypassed before chain):
  *   - /api/orders/health
  * All other endpoints require a valid JWT.
+ *
+ * NOT a @Component — instantiated directly in SecurityConfig to prevent Spring Boot
+ * from auto-registering it as a standalone servlet filter (which would cause it to
+ * run before SecurityContextHolderFilter, then be skipped inside the Security chain
+ * by OncePerRequestFilter, resulting in 401 for all authenticated requests).
  */
-@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
@@ -43,7 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String path = request.getServletPath();
 
         // Public endpoints — skip chain entirely
-        if (path.contains("/health")) {
+        if (HttpMethod.OPTIONS.matches(request.getMethod())
+                || path.contains("/health")
+                || "/error".equals(path)) {
             filterChain.doFilter(request, response);
             return;
         }

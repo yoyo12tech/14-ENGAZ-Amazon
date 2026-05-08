@@ -37,10 +37,9 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/users/health", "/error").permitAll()
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/users/health", "/error", "/actuator/**").permitAll()
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers(org.springframework.http.HttpMethod.PUT, "/api/users/*/role").hasRole("ADMIN")
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/users/health").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

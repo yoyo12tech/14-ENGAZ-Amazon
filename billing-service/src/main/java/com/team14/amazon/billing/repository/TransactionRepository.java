@@ -48,6 +48,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     @Query(value = "SELECT COUNT(*) FROM order_items WHERE id IN :itemIds AND order_id = :orderId", nativeQuery = true)
     Long countItemsBelongingToOrder(@Param("itemIds") List<Long> itemIds, @Param("orderId") Long orderId);
 
+    @Query(value = "SELECT id FROM shipments WHERE order_id = :orderId", nativeQuery = true)
+    List<Long> findShipmentIdsByOrderId(@Param("orderId") Long orderId);
+
     @Query(value = "SELECT p.category AS category, " +
             "oi.id AS orderItemId, " +
             "oi.quantity AS quantity, " +
