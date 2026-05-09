@@ -69,11 +69,11 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
             @Param("endDate") LocalDateTime endDate
     );
 
-    @Query(
-            value = "SELECT s.id FROM shipments s " +
-                    "JOIN transactions t ON t.order_id = s.order_id " +
-                    "WHERE t.id = :transactionId",
-            nativeQuery = true
-    )
-    List<Long> findShipmentIdsByOrderId(@Param("orderId") Long orderId);
+//    @Query(
+//            value = "SELECT s.id FROM shipments s " +
+//                    "JOIN transactions t ON t.order_id = s.order_id " +
+//                    "WHERE t.id = :transactionId",
+//            nativeQuery = true
+//    )
+//    List<Long> findShipmentIdsByOrderId(@Param("orderId") Long orderId);
 }

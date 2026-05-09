@@ -1,18 +1,20 @@
 package com.team14.amazon.billing.dto;
 
+import com.team14.amazon.billing.model.Source;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 
 public class LifecycleEventDTO {
     private LocalDateTime timestamp;
-    private String source;
+    private Source source;
     private String action;
     private Map<String, Object> details;
 
-    public LifecycleEventDTO() {
+    public LifecycleEventDTO(LocalDateTime timestamp, String source, String action, Map<String, Object> details) {
     }
 
-    public LifecycleEventDTO(LocalDateTime timestamp, String source, String action, Map<String, Object> details) {
+    public LifecycleEventDTO(LocalDateTime timestamp, Source source, String action, Map<String, Object> details) {
         this.timestamp = timestamp;
         this.source = source;
         this.action = action;
@@ -27,11 +29,11 @@ public class LifecycleEventDTO {
         this.timestamp = timestamp;
     }
 
-    public String getSource() {
+    public Source getSource() {
         return source;
     }
 
-    public void setSource(String source) {
+    public void setSource(Source source) {
         this.source = source;
     }
 
@@ -66,8 +68,8 @@ public class LifecycleEventDTO {
             return this;
         }
 
-        public Builder source(String source) {
-            this.source = source;
+        public Builder source(Source source) {
+            this.source = String.valueOf(source);
             return this;
         }
 
@@ -83,6 +85,11 @@ public class LifecycleEventDTO {
 
         public LifecycleEventDTO build() {
             return new LifecycleEventDTO(timestamp, source, action, details);
+        }
+
+        public Builder timeStamp(LocalDateTime timestamp) {
+            this.timestamp = timestamp;
+            return this;
         }
     }
 }

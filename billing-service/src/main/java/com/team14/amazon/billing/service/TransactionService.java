@@ -660,7 +660,7 @@ public class TransactionService {
 
         return LifecycleEventDTO.builder()
                 .timestamp(timestamp)
-                .source(source)
+                .source(Source.valueOf(source))
                 .action(d.getString("action"))
                 .details(details)
                 .build();
