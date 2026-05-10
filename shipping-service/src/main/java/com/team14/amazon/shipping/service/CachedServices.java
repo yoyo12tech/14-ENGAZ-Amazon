@@ -63,7 +63,7 @@ public class CachedServices {
             return ShippingAnalyticsDTO.builder()
                     .totalShipments(0L)
                     .deliveredCount(0L) // Fixed missing mapping
-                    .averageDeliveryDays(0.0)
+                    .averageDeliveryTimeDays(0.0)
                     .onTimeRate(0.0)
                     .shipmentsByStatus(Map.of())
                     .averageAttempts(0.0)
@@ -85,7 +85,7 @@ public class CachedServices {
         return ShippingAnalyticsDTO.builder()
                 .totalShipments(((Number) result[0]).longValue())
                 .deliveredCount(((Number) result[7]).longValue()) // Fixed missing mapping
-                .averageDeliveryDays(((Number) result[1]).doubleValue())
+                .averageDeliveryTimeDays(((Number) result[1]).doubleValue())
                 .onTimeRate(((Number) result[2]).doubleValue())
                 .shipmentsByStatus(shipmentsByStatus)
                 .averageAttempts(((Number) result[9]).doubleValue())
