@@ -8,12 +8,13 @@ import com.team14.amazon.billing.observer.MongoEventLogger;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import java.util.Map;
 import java.util.HashMap;
 import java.time.LocalDate;
-
+import org.springframework.security.core.Authentication;
 import java.util.List;
 
 @RestController
@@ -143,6 +144,7 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getCategoryRevenue(startDate, endDate));
     }
 
+    @PreAuthorize("hasRole('Admin')")
     @GetMapping("/{id}/lifecycle")
     public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id) {
         return ResponseEntity.ok(transactionService.getTransactionLifecycle(id));
