@@ -7,8 +7,8 @@ export MSYS_NO_PATHCONV=1
 docker run --rm \
   -v /var/run/docker.sock:/var/run/docker.sock \
   --tmpfs /grader-ram:exec,size=1024m \
-  -v "D:/14-ENGAZ-Amazontest:/repo" \
-  -v "$HOME/.m2:/root/.m2" \
+  -v "$(pwd):/repo" \
+  -v "$HOME/.m2/repository:/root/.m2/repository" \
   -e REPO_PATH=/repo \
   -e PROJECT=M2 \
   -e THEME=Amazon \
