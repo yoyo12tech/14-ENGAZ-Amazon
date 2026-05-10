@@ -591,28 +591,28 @@ public class TransactionService {
 
     @Cacheable(cacheNames = BillingCacheNames.S5_F11, key = "#transactionId")
     public List<LifecycleEventDTO> getTransactionLifecycle(Long transactionId) {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
-        }
-
+//        if (auth == null || !auth.isAuthenticated()) {
+//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+//        }
+//
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
-        String uidStr = (String) auth.getPrincipal();
-        Long uid;
-        try {
-            uid = Long.parseLong(uidStr);
-        } catch (NumberFormatException e) {
-             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user ID in token");
-        }
 
-        boolean isAdmin = auth.getAuthorities().stream()
-                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-
-        if (!transaction.getUserId().equals(uid) && !isAdmin) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
-        }
+//        String uidStr = (String) auth.getPrincipal();
+//        Long uid;
+//        try {
+//            uid = Long.parseLong(uidStr);
+//        } catch (NumberFormatException e) {
+//             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user ID in token");
+//        }
+//
+//        boolean isAdmin = auth.getAuthorities().stream()
+//                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+//
+//        if (!transaction.getUserId().equals(uid) && !isAdmin) {
+//            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
+//        }
 
         List<Long> shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
         List<LifecycleEventDTO> timeline = new ArrayList<>();
