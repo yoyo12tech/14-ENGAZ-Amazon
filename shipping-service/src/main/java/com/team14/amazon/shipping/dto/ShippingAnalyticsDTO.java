@@ -8,19 +8,21 @@ import java.util.Map;
 public class ShippingAnalyticsDTO {
     private Long totalShipments;
     private Long deliveredCount;
-    private Double averageDeliveryDays;
+    private Double averageDeliveryTimeDays;
     private Double onTimeRate;
     private Map<String, Long> shipmentsByStatus;
     private Double averageAttempts;
 
     private ShippingAnalyticsDTO(Builder builder){
         this.totalShipments = builder.totalShipments;
-        this.averageDeliveryDays = builder.averageDeliveryDays;
+        this.averageDeliveryTimeDays = builder.averageDeliveryTimeDays;
         this.onTimeRate = builder.onTimeRate;
         this.deliveredCount = builder.deliveredCount;
         this.shipmentsByStatus = builder.shipmentsByStatus;
         this.averageAttempts = builder.averageAttempts;
     }
+
+    public ShippingAnalyticsDTO(){}
 
     public static Builder builder(){ return new Builder();}
 
@@ -32,8 +34,8 @@ public class ShippingAnalyticsDTO {
         return deliveredCount;
     }
 
-    public Double getAverageDeliveryDays() {
-        return averageDeliveryDays;
+    public Double getAverageDeliveryTimeDays() {
+        return averageDeliveryTimeDays;
     }
 
     public Double getOnTimeRate() {
@@ -51,7 +53,7 @@ public class ShippingAnalyticsDTO {
     public static class Builder implements Buildable<ShippingAnalyticsDTO>{
         private Long totalShipments;
         private Long deliveredCount;
-        private Double averageDeliveryDays;
+        private Double averageDeliveryTimeDays;
         private Double onTimeRate;
         private Map<String, Long> shipmentsByStatus;
         private Double averageAttempts;
@@ -66,8 +68,8 @@ public class ShippingAnalyticsDTO {
             return this;
         }
 
-        public Builder averageDeliveryDays(Double averageDeliveryDays){
-            this.averageDeliveryDays = averageDeliveryDays;
+        public Builder averageDeliveryTimeDays(Double averageDeliveryTimeDays){
+            this.averageDeliveryTimeDays = averageDeliveryTimeDays;
             return this;
         }
 
