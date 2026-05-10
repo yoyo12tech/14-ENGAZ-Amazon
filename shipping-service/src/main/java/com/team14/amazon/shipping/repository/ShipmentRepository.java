@@ -77,21 +77,21 @@ List<Shipment> findByStatusNative(@Param("status") String status);
     @Query(value = """
    SELECT
          COUNT(*) AS totalShipments,
-         COALESCE(AVG(EXTRACT(DAY FROM (actual_delivery - created_at))) FILTER (WHERE status = 'DELIVERED' AND actual_delivery IS NOT NULL), 0)
+         COALESCE(AVG(ROUND(EXTRACT(EPOCH FROM (actual_delivery - created_at)) / 86400.0)) FILTER (WHERE status = 'DELIVERED' AND actual_delivery IS NOT NULL), 0)
             AS averageDeliveryTimeDays,
          COALESCE((COUNT(*) FILTER (WHERE status = 'DELIVERED' AND actual_delivery <= estimated_delivery))::float / NULLIF(COUNT(*) FILTER (WHERE status = 'DELIVERED'), 0), 0)
             AS onTimeRate,
          COUNT(*) FILTER (WHERE status = 'PROCESSING') AS processingCount,
-         COUNT(*) FILTER (WHERE status = 'SHIPPED')                      AS shippedCount,
-         COUNT(*) FILTER (WHERE status = 'IN_TRANSIT')                   AS inTransitCount,
-         COUNT(*) FILTER (WHERE status = 'OUT_FOR_DELIVERY')             AS outForDeliveryCount,
-         COUNT(*) FILTER (WHERE status = 'DELIVERED')                    AS deliveredCount,
-         COUNT(*) FILTER (WHERE status = 'RETURNED')                     AS returnedCount,
+         COUNT(*) FILTER (WHERE status = 'SHIPPED') AS shippedCount,
+         COUNT(*) FILTER (WHERE status = 'IN_TRANSIT') AS inTransitCount,
+         COUNT(*) FILTER (WHERE status = 'OUT_FOR_DELIVERY') AS outForDeliveryCount,
+         COUNT(*) FILTER (WHERE status = 'DELIVERED') AS deliveredCount,
+         COUNT(*) FILTER (WHERE status = 'RETURNED') AS returnedCount,
          COALESCE(AVG(COALESCE((metadata->>'deliveryAttempts')::numeric, 1)) FILTER (WHERE status = 'DELIVERED'), 0)
             AS averageAttempts
    FROM shipments
-   WHERE estimated_delivery BETWEEN :start AND :end OR actual_delivery BETWEEN :start AND :end
+   WHERE created_at BETWEEN :start AND :end
 """, nativeQuery = true)
-    List<Object[]> getShippingAnalytics(@Param("start") LocalDate start, @Param("end") LocalDateTime end);
+    List<Object[]> getShippingAnalytics(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
 
