@@ -57,8 +57,7 @@ public class CachedServices {
 
         LocalDateTime startDateTime = start.atStartOfDay();
         LocalDateTime endDateTime = end.atTime(23, 59, 59, 999_000_000);
-        List<Object[]> results = shipmentRepository.getShippingAnalytics(LocalDate.from(startDateTime), endDateTime);
-
+        List<Object[]> results = shipmentRepository.getShippingAnalytics(startDateTime, endDateTime);
         if (results == null || results.isEmpty()) {
             return ShippingAnalyticsDTO.builder()
                     .totalShipments(0L)
