@@ -13,12 +13,9 @@ import java.util.Map;
 public class MongoEventLogger implements EntityObserver {
     private static final Logger log = LoggerFactory.getLogger(MongoEventLogger.class);
     private final MongoTemplate mongoTemplate;
-    private final EventFactory eventFactory;
 
     public MongoEventLogger(MongoTemplate mongoTemplate) {
         this.mongoTemplate = mongoTemplate;
-        // In M2, the Factory is often instantiated directly or injected
-        this.eventFactory = new EventFactory();
     }
 
     @Override
@@ -34,9 +31,8 @@ public class MongoEventLogger implements EntityObserver {
             Map<String, Object> params = (Map<String, Object>) payload;
             params.put("action", action);
 
-            // DP-6 Factory Pattern: Event creation must go through the factory
-            // We pass "SHIPMENT" so the factory knows which concrete class to build[cite: 1, 2]
-            MongoEvent event = eventFactory.createEvent("SHIPMENT", params);
+            // DP-6 Factory Pattern: Event creation must go through the factory (static call)
+            MongoEvent event = EventFactory.createEvent("SHIPMENT", params);
 
             // DP-2 Observer Pattern: The logger persists the event to MongoDB
             mongoTemplate.save(event);

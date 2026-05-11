@@ -4,7 +4,9 @@ import com.team14.amazon.user.model.mongodb.*;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public class EventFactory {
+public final class EventFactory {
+
+    private EventFactory() {}
 
     public static MongoEvent createEvent(EventType type, Map<String, Object> params) {
         if (type == EventType.AUTH) {

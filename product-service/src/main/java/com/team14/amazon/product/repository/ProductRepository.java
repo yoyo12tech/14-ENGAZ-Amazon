@@ -85,16 +85,14 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
                         @Param("brand") String brand,
                         @Param("status") ProductStatus status);
 
-        @Query(value = """
-                        SELECT *
-                        FROM products p
-                        WHERE p.specifications->>:key = :value
-                          AND (:#{#status == null} = true OR CAST(p.status AS text) = :#{#status != null ? status.name() : 'NONE'})
-                        """, nativeQuery = true)
+        @Query(value = "SELECT * FROM products p" +
+                       " WHERE p.specifications->>:key = :value" +
+                       " AND (CAST(:status AS text) = 'ALL' OR CAST(p.status AS text) = CAST(:status AS text))",
+               nativeQuery = true)
         List<Product> findBySpecification(
                         @Param("key") String key,
                         @Param("value") String value,
-                        @Param("status") ProductStatus status);
+                        @Param("status") String status);
 
         @Query(value = """
                         SELECT p.id,

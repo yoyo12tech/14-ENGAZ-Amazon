@@ -199,7 +199,8 @@ public class ProductService {
     @Cacheable(value = "product-service::S2-F5",
             key = "#key + '_' + #value + '_' + T(String).valueOf(#status)")
     public List<Product> searchBySpecification(String key, String value, ProductStatus status) {
-        return productRepository.findBySpecification(key, value, status);
+        String statusStr = (status != null) ? status.name() : "ALL";
+        return productRepository.findBySpecification(key, value, statusStr);
     }
 
     // S2-F6

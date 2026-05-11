@@ -371,29 +371,7 @@ public class ShipmentService {
 //        return cachedServices.getShippingAnalyticsCached(start, end);
 //    }
 
-//    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
-//        if (startDate.isAfter(endDate)) {
-//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
-//        }
-//
-//        try {
-//            ShipmentEvent log = new ShipmentEvent(
-//                    null,
-//                    "ANALYTICS_VIEWED",
-//                    Map.of(
-//                            "startDate", startDate.toString(),
-//                            "endDate", endDate.toString()
-//                    )
-//            );
-//            shipmentEventRepository.save(log);
-//        } catch (Exception e) {
-//            System.err.println("Failed to log analytics view to MongoDB: " + e.getMessage());
-//        }
-//
-//        return cachedServices.getShippingAnalyticsCached(startDate, endDate);
-//    }
-
-
+// Old implementation removed
     public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");

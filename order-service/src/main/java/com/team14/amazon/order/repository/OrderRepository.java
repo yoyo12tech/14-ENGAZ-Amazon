@@ -54,7 +54,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Transactional
     @Query(value = """
         UPDATE shipments
-        SET status = 'DELIVERED',
+        SET status = CAST('DELIVERED' AS shipment_status),
             actual_delivery = :deliveredAt
         WHERE order_id = :orderId
     """, nativeQuery = true)

@@ -5,8 +5,11 @@ import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
 
 import java.util.Map;
 
-public class EventFactory {
-    public MongoEvent createEvent(String type, Map<String, Object> params) {
+public final class EventFactory {
+
+    private EventFactory() {}
+
+    public static MongoEvent createEvent(String type, Map<String, Object> params) {
         // TC416: The test specifically checks for the SHIPMENT dispatch branch
         if ("SHIPMENT".equalsIgnoreCase(type)) {
             ShipmentEvent event = new ShipmentEvent();

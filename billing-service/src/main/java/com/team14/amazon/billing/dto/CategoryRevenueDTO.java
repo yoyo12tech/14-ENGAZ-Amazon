@@ -1,5 +1,8 @@
 package com.team14.amazon.billing.dto;
 
+import com.fasterxml.jackson.annotation.JsonPropertyOrder;
+
+@JsonPropertyOrder({"category", "grossRevenue", "refundedRevenue", "netRevenue", "transactionCount", "refundCount", "returnRate"})
 public class CategoryRevenueDTO {
     private String category;
     private Double grossRevenue;
@@ -9,7 +12,8 @@ public class CategoryRevenueDTO {
     private Long refundCount;
     private Double returnRate;
 
-    public CategoryRevenueDTO() {}
+    public CategoryRevenueDTO() {
+    }
 
     private CategoryRevenueDTO(Builder builder) {
         this.category = builder.category;
@@ -98,4 +102,3 @@ public class CategoryRevenueDTO {
         }
     }
 }
-

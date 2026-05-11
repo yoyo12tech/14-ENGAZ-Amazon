@@ -26,19 +26,15 @@ public class OrderController {
     private final OrderService orderService;
     private final OrderItemService orderItemService;
     private final RecommendationService recommendationService;
-    private static final Logger log =
-            LoggerFactory.getLogger(OrderController.class);
-
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     public OrderController(OrderService orderService, OrderItemService orderItemService,
-                           RecommendationService recommendationService) {
+            RecommendationService recommendationService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
         this.recommendationService = recommendationService;
 
-
     }
-
 
     @GetMapping("/analytics")
     public ResponseEntity<OrderAnalyticsDTO> getOrderAnalytics(
@@ -51,8 +47,7 @@ public class OrderController {
     public ResponseEntity<List<Order>> searchOrders(
             @RequestParam(required = false) String status,
             @RequestParam String startDate,
-            @RequestParam String endDate
-    ) {
+            @RequestParam String endDate) {
         try {
             List<Order> orders = orderService.search(status, startDate, endDate);
             return ResponseEntity.ok(orders);
@@ -60,11 +55,11 @@ public class OrderController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
     }
+
     @GetMapping
     public ResponseEntity<List<Order>> getAll() {
         return ResponseEntity.ok(orderService.getAll());
     }
-
 
     @GetMapping("/metadata/search")
     public List<Order> searchOrdersByMetadata(
@@ -72,6 +67,7 @@ public class OrderController {
             @RequestParam String value) {
         return orderService.searchByMetadata(key, value);
     }
+
     @PostMapping("/estimate")
     public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
         return ResponseEntity.ok(orderService.estimateOrder(items));
@@ -80,18 +76,15 @@ public class OrderController {
     @GetMapping("/{orderId}/items/{itemId}")
     public ResponseEntity<OrderItem> getOrderItem(
             @PathVariable Long orderId,
-            @PathVariable Long itemId
-    ) {
+            @PathVariable Long itemId) {
         OrderItem item = orderItemService.getOrderItem(orderId, itemId);
         return ResponseEntity.ok(item);
     }
 
-
     @DeleteMapping("/{orderId}/items/{itemId}")
     public ResponseEntity<Void> deleteOrderItem(
             @PathVariable Long orderId,
-            @PathVariable Long itemId
-    ) {
+            @PathVariable Long itemId) {
         orderItemService.deleteOrderItem(orderId, itemId);
         return ResponseEntity.noContent().build(); // 204 ✅
     }
@@ -101,23 +94,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderDetails(orderId));
     }
 
-
-
-
-
     @PostMapping("/{orderId}/items")
-    public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId, @RequestBody List<OrderItemRequestDTO> items) {
+    public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId,
+            @RequestBody List<OrderItemRequestDTO> items) {
         return ResponseEntity.ok(orderService.addItemsToOrder(orderId, items));
     }
-
-
-
 
     @PutMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelOrder(@PathVariable Long id) {
         orderService.cancelOrder(id);
         return ResponseEntity.ok().build();
     }
+
     @PostMapping
     public ResponseEntity<Order> create(@RequestBody Order order) {
         return ResponseEntity.ok(orderService.create(order));
@@ -130,10 +118,9 @@ public class OrderController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-
     @PutMapping("/{id}")
     public ResponseEntity<Order> update(@PathVariable Long id,
-                                        @RequestBody Order order) {
+            @RequestBody Order order) {
         return ResponseEntity.ok(orderService.update(id, order));
     }
 
@@ -143,19 +130,13 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-
-
-
-
-
-//    @PutMapping("/{id}/deliver")
-//    public ResponseEntity<Order> markAsDelivered(
-//            @PathVariable Long id,
-//            @RequestBody DeliverRequest request) {
-//        return ResponseEntity.ok(orderService.markAsDelivered(id, request.getMethod()));
-//    }
-
-
+    // @PutMapping("/{id}/deliver")
+    // public ResponseEntity<Order> markAsDelivered(
+    // @PathVariable Long id,
+    // @RequestBody DeliverRequest request) {
+    // return ResponseEntity.ok(orderService.markAsDelivered(id,
+    // request.getMethod()));
+    // }
 
     @PostMapping("/{orderId}/record-co-purchase")
     public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
@@ -168,33 +149,26 @@ public class OrderController {
         }
     }
 
-    //claude code
+    // claude code
     @PutMapping("/{id}/deliver")
     public ResponseEntity<Order> markAsDelivered(
             @PathVariable Long id,
             @RequestBody(required = false) DeliverRequest request) {
         String method = (request != null && request.getMethod() != null)
-                ? request.getMethod() : "CASH_ON_DELIVERY";
-        return ResponseEntity.ok(orderService.markAsDelivered(id));
+                ? request.getMethod()
+                : "CASH_ON_DELIVERY";
+        return ResponseEntity.ok(orderService.markAsDelivered(id, method));
     }
-
-
-
-
-
-      
-
 
     @PutMapping("/{orderId}/confirm")
     public Order confirmOrder(@PathVariable Long orderId,
-                              @RequestParam Long shippingAddressId) {
+            @RequestParam Long shippingAddressId) {
         return orderService.confirmOrder(orderId, shippingAddressId);
     }
 
-
-
-    //S3
-    // ADD inside OrderController.java — after the existing getOrderAnalytics() method
+    // S3
+    // ADD inside OrderController.java — after the existing getOrderAnalytics()
+    // method
 
     /**
      * S3-F10: GET /api/orders/analytics/dashboard
@@ -220,24 +194,10 @@ public class OrderController {
         return ResponseEntity.ok(result);
     }
 
-
-
-
-
     @GetMapping("/recommendations")
     public ResponseEntity<List<ProductRecommendationDTO>> getRecommendations(
             @RequestParam Long productId,
             @RequestParam(required = false, defaultValue = "5") int limit) {
-
-        try {
-            return ResponseEntity.ok(
-                    recommendationService.getRecommendations(productId, limit)
-            );
-        } catch (Exception e) {
-            log.warn("Recommendations unavailable", e);
-
-            // graceful fallback instead of crashing endpoint
-            return ResponseEntity.ok(List.of());
-        }
+        return ResponseEntity.ok(recommendationService.getRecommendations(productId, limit));
     }
 }
