@@ -13,6 +13,7 @@ import org.springframework.stereotype.Repository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.math.BigDecimal;
@@ -51,10 +52,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // Shipment update
     // =========================
     @Modifying
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     @Query(value = """
         UPDATE shipments
-        SET status = CAST('DELIVERED' AS shipment_status),
+        SET status = 'DELIVERED',
             actual_delivery = :deliveredAt
         WHERE order_id = :orderId
     """, nativeQuery = true)
@@ -65,10 +66,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     // Transaction insert
     // =========================
     @Modifying
-    @Transactional
     @Query(value = """
         INSERT INTO transactions (order_id, user_id, amount, status, created_at, method)
-        VALUES (:orderId, :userId, :amount, CAST(:status AS transaction_status), :createdAt, CAST(:method AS transaction_method))
+        VALUES (:orderId, :userId, :amount, :status, :createdAt, :method)
     """, nativeQuery = true)
     int createTransaction(@Param("orderId") Long orderId,
                           @Param("userId") Long userId,

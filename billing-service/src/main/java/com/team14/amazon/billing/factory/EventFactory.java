@@ -1,7 +1,5 @@
 package com.team14.amazon.billing.factory;
 
-import org.springframework.stereotype.Component;
-
 import com.team14.amazon.billing.model.mongodb.EventType;
 import com.team14.amazon.billing.model.mongodb.MongoEvent;
 import com.team14.amazon.billing.model.mongodb.TransactionAuditEvent;

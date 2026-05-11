@@ -116,6 +116,10 @@ public class TransactionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
     }
 
+    public Transaction findTransactionByIdDirect(Long id) {
+        return transactionRepository.findById(id).orElse(null);
+    }
+
     public List<Transaction> findAllTransactions() {
         return transactionRepository.findAll();
     }
@@ -674,11 +678,11 @@ public class TransactionService {
             timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Integer) tsObj).longValue()), ZoneId.systemDefault());
         }
         
-        // details can be a nested Document or a Map
+        // details can be a nested Document or a Map — copy to plain HashMap so Jackson can serialize/deserialize it cleanly from Redis cache
         Map<String, Object> details = null;
         Object detailsObj = d.get("details");
         if (detailsObj instanceof Map) {
-            details = (Map<String, Object>) detailsObj;
+            details = new HashMap<>((Map<String, Object>) detailsObj);
         }
 
         return LifecycleEventDTO.builder()

@@ -21,10 +21,8 @@ import java.util.Date;
 @Service
 public class JwtService {
 
-    private final JwtConfigurationManager configManager = JwtConfigurationManager.getInstance();
-
     private SecretKey getSigningKey() {
-        byte[] keyBytes = configManager.getSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = JwtConfigurationManager.getInstance().getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -69,6 +67,6 @@ public class JwtService {
     }
 
     public long getExpirationMs() {
-        return configManager.getExpirationMs();
+        return JwtConfigurationManager.getInstance().getExpirationMs();
     }
 }
