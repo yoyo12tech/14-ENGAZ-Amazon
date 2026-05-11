@@ -144,9 +144,27 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.getCategoryRevenue(startDate, endDate));
     }
 
-    @PreAuthorize("hasRole('Admin')")
+    @PreAuthorize("isAuthenticated()")
     @GetMapping("/{id}/lifecycle")
-    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id) {
+    public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id, Authentication auth) {
+        Transaction transaction = transactionService.findTransactionById(id);
+        if (transaction == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Long uid = -1L;
+        try {
+            uid = Long.parseLong(auth.getName());
+        } catch (NumberFormatException e) {
+            // ignore, uid remains -1L
+        }
+        boolean isAdmin = auth.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+
+        if (!uid.equals(transaction.getUserId()) && !isAdmin) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         return ResponseEntity.ok(transactionService.getTransactionLifecycle(id));
     }
 }

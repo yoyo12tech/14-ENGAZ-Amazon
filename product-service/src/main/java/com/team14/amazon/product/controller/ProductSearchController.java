@@ -34,7 +34,8 @@ public class ProductSearchController {
             @RequestParam(required = false) Double maxRating) {
 
         if ((minRating != null && (minRating < 0 || minRating > 5)) ||
-                (maxRating != null && (maxRating < 0 || maxRating > 5))) {
+                (maxRating != null && (maxRating < 0 || maxRating > 5)) ||
+                (minRating != null && maxRating != null && minRating > maxRating)) {
             return ResponseEntity.badRequest().build();
         }
 

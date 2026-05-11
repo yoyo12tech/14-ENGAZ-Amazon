@@ -26,6 +26,7 @@ import java.util.HashSet;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -614,7 +615,10 @@ public class TransactionService {
 //            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
 //        }
 
-        List<Long> shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
+        List<Long> shipmentIds = new ArrayList<>();
+        if (transaction.getOrderId() != null) {
+            shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
+        }
         List<LifecycleEventDTO> timeline = new ArrayList<>();
 
         // 1. Transaction Events
@@ -625,10 +629,12 @@ public class TransactionService {
         }
 
         // 2. Order Events
-        Query oQuery = new Query(Criteria.where("orderId").is(transaction.getOrderId()));
-        List<Document> oDocs = mongoTemplate.find(oQuery, Document.class, "order_events");
-        for (Document d : oDocs) {
-            timeline.add(mapToDTO(d, "ORDER"));
+        if (transaction.getOrderId() != null) {
+            Query oQuery = new Query(Criteria.where("orderId").is(transaction.getOrderId()));
+            List<Document> oDocs = mongoTemplate.find(oQuery, Document.class, "order_events");
+            for (Document d : oDocs) {
+                timeline.add(mapToDTO(d, "ORDER"));
+            }
         }
 
         // 3. Shipment Events
@@ -640,15 +646,32 @@ public class TransactionService {
             }
         }
 
-        timeline.sort(Comparator.comparing(LifecycleEventDTO::getTimestamp));
+        timeline.sort(Comparator.comparing(LifecycleEventDTO::getTimestamp, Comparator.nullsLast(Comparator.naturalOrder())));
         return timeline;
     }
 
     private LifecycleEventDTO mapToDTO(Document d, String source) {
         LocalDateTime timestamp = null;
-        Date date = d.getDate("timestamp");
-        if (date != null) {
-            timestamp = date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        Object tsObj = d.get("timestamp");
+        if (tsObj instanceof java.util.Date) {
+            timestamp = ((java.util.Date) tsObj).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        } else if (tsObj instanceof String) {
+            String tsStr = (String) tsObj;
+            try {
+                timestamp = LocalDateTime.parse(tsStr);
+            } catch (Exception e) {
+                try {
+                    timestamp = LocalDateTime.ofInstant(Instant.parse(tsStr), ZoneId.systemDefault());
+                } catch (Exception ex) {
+                    // Fallback if parsing fails
+                }
+            }
+        } else if (tsObj instanceof LocalDateTime) {
+            timestamp = (LocalDateTime) tsObj;
+        } else if (tsObj instanceof Long) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli((Long) tsObj), ZoneId.systemDefault());
+        } else if (tsObj instanceof Integer) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Integer) tsObj).longValue()), ZoneId.systemDefault());
         }
         
         // details can be a nested Document or a Map

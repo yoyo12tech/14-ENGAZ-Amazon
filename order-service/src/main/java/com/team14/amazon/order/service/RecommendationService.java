@@ -20,50 +20,53 @@ import java.util.Map;
  * S3-F12 — "Customers Also Bought" recommendations (§10.3.3).
  *
  * Orchestrates:
- *   b) seed-product 404 check in PostgreSQL
- *   c) co-purchase graph traversal in Neo4j (undirected BOUGHT_TOGETHER)
- *   d) enrichment + ACTIVE/exists filter against PostgreSQL
- *   e) top-N truncation (default limit = 5)
- *   f) Redis caching (5-min TTL via RedisConfig — §8.1 search format)
+ * b) seed-product 404 check in PostgreSQL
+ * c) co-purchase graph traversal in Neo4j (undirected BOUGHT_TOGETHER)
+ * d) enrichment + ACTIVE/exists filter against PostgreSQL
+ * e) top-N truncation (default limit = 5)
+ * f) Redis caching (5-min TTL via RedisConfig — §8.1 search format)
  *
- * Cache key: `order-service::S3-F12::&lt;productId&gt;::&lt;limit&gt;` (Spring's
+ * Cache key: `order-service::S3-F12::&lt;productId&gt;::&lt;limit&gt;`
+ * (Spring's
+ * 
  * @Cacheable concatenates value + key separator + key; the value already
- * carries the service::feature prefix per RedisConfig).
+ *            carries the service::feature prefix per RedisConfig).
  *
- * Cache invalidation on co-purchase writes is owned by S3-F11 (teammate),
- * which calls {@code CacheEvictionService.evictRecommendationCache()} per
- * the §4.4.4 NoSQL-writer → cached-reader rule.
+ *            Cache invalidation on co-purchase writes is owned by S3-F11
+ *            (teammate),
+ *            which calls
+ *            {@code CacheEvictionService.evictRecommendationCache()} per
+ *            the §4.4.4 NoSQL-writer → cached-reader rule.
  *
- * No Observer/Factory here: this is a pure read endpoint — no events emitted,
- * no PG/Mongo/Neo4j writes. ANALYTICS_VIEWED-style logging is not required
- * by §10.3.3.
+ *            No Observer/Factory here: this is a pure read endpoint — no events
+ *            emitted,
+ *            no PG/Mongo/Neo4j writes. ANALYTICS_VIEWED-style logging is not
+ *            required
+ *            by §10.3.3.
  */
 @Service
 public class RecommendationService {
 
     private static final Logger log = LoggerFactory.getLogger(RecommendationService.class);
-    private static final int    DEFAULT_LIMIT = 5;
+    private static final int DEFAULT_LIMIT = 5;
 
     private final OrderGraphRepository orderGraphRepository;
-    private final OrderRepository       orderRepository;
-    private final Neo4jRecordAdapter    neo4jRecordAdapter;
+    private final OrderRepository orderRepository;
+    private final Neo4jRecordAdapter neo4jRecordAdapter;
 
     public RecommendationService(OrderGraphRepository orderGraphRepository,
-                                 OrderRepository orderRepository,
-                                 Neo4jRecordAdapter neo4jRecordAdapter) {
+            OrderRepository orderRepository,
+            Neo4jRecordAdapter neo4jRecordAdapter) {
         this.orderGraphRepository = orderGraphRepository;
-        this.orderRepository       = orderRepository;
-        this.neo4jRecordAdapter    = neo4jRecordAdapter;
+        this.orderRepository = orderRepository;
+        this.neo4jRecordAdapter = neo4jRecordAdapter;
     }
 
-    @Cacheable(
-            value = "order-service::S3-F12",
-            key   = "#productId + '::' + #limit"
-    )
+    @Cacheable(value = "order-service::S3-F12", key = "#productId + '::' + #limit")
     public List<ProductRecommendationDTO> getRecommendations(Long productId, int limit) {
 
         // (b) Seed product must exist in PG → 404 otherwise.
-        //     Reuses the existing native-SQL cross-service helper on OrderRepository.
+        // Reuses the existing native-SQL cross-service helper on OrderRepository.
         Map<String, Object> seedRow = orderRepository.findProductById(productId);
         if (seedRow == null || seedRow.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
@@ -75,7 +78,7 @@ public class RecommendationService {
         // (c) Neo4j traversal — soft dep: empty list on any failure (logged in repo).
         List<Map<String, Object>> rows = orderGraphRepository.findCoPurchases(productId);
         // (d, e) Enrich from PG; drop seed itself, missing rows, and non-ACTIVE
-        //         products. Truncate as soon as we have `effectiveLimit` survivors.
+        // products. Truncate as soon as we have `effectiveLimit` survivors.
         List<ProductRecommendationDTO> result = new ArrayList<>();
         for (Map<String, Object> row : rows) {
             ProductRecommendationDTO dto = neo4jRecordAdapter.adapt(row);
@@ -84,7 +87,14 @@ public class RecommendationService {
                 continue; // exclude seed (defensive — Cypher already excludes)
             }
 
-            Map<String, Object> pgRow = orderRepository.findProductById(dto.getProductId());
+            Map<String, Object> pgRow;
+            try {
+                pgRow = orderRepository.findProductById(dto.getProductId());
+            } catch (Exception ex) {
+                log.warn("[S3-F12] PG enrichment failed for productId={}: {}",
+                         dto.getProductId(), ex.getMessage());
+                continue;   // skip this row, continue with next
+            }
             if (pgRow == null || pgRow.isEmpty()) {
                 continue; // product deleted in PG
             }
@@ -93,13 +103,14 @@ public class RecommendationService {
                 continue; // INACTIVE / OUT_OF_STOCK must not appear (§10.3.3 d)
             }
 
-            dto.setName    (asString(pgRow.get("name")));
+            dto.setName(asString(pgRow.get("name")));
             dto.setCategory(asString(pgRow.get("category")));
-            dto.setBrand   (asString(pgRow.get("brand")));
-            dto.setPrice   (asDouble(pgRow.get("price")));
+            dto.setBrand(asString(pgRow.get("brand")));
+            dto.setPrice(asDouble(pgRow.get("price")));
             result.add(dto);
 
-            if (result.size() >= effectiveLimit) break;
+            if (result.size() >= effectiveLimit)
+                break;
         }
 
         log.debug("[S3-F12] productId={} limit={} returned {} recommendations",
@@ -111,10 +122,16 @@ public class RecommendationService {
     private static String asString(Object v) {
         return v == null ? null : v.toString();
     }
+
     private static Double asDouble(Object v) {
-        if (v == null) return null;
-        if (v instanceof Number n) return n.doubleValue();
-        try { return Double.parseDouble(v.toString()); }
-        catch (NumberFormatException e) { return null; }
+        if (v == null)
+            return null;
+        if (v instanceof Number n)
+            return n.doubleValue();
+        try {
+            return Double.parseDouble(v.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

@@ -11,7 +11,7 @@ import java.util.Map;
  * DP-6 Factory Pattern: creates the right concrete MongoEvent subtype.
  *
  * Order-service only handles EventType.ORDER.
- * Services MUST NOT use `new OrderEvent(...)` directly — all event
+ * Services MUST NOT use direct constructors for events — all event
  * construction goes through this factory (grader source-scan check).
  *
  * Expected params keys:
@@ -21,7 +21,7 @@ import java.util.Map;
  *   "timestamp" LocalDateTime
  *   "details"   Map<String,Object>
  */
-public class EventFactory {
+public final class EventFactory {
 
     private EventFactory() {}
 

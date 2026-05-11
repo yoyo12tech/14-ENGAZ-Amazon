@@ -30,7 +30,6 @@ public class Product {
     private Double price;
 
     @Enumerated(EnumType.STRING)
-    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(nullable = false)
     private ProductCategory category;
 

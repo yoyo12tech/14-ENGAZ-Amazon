@@ -1,6 +1,6 @@
 package com.team14.amazon.product.security;
 
-public class JwtConfigurationManager {
+public final class JwtConfigurationManager {
 
     private static final JwtConfigurationManager INSTANCE = new JwtConfigurationManager();
 

@@ -149,10 +149,18 @@ public class ProductController {
 
     // M2 4.4.1 - S2-F5 cached, TTL 5 min
     @GetMapping("/specifications/search")
-    public ResponseEntity<List<Product>> searchBySpecification(
+    public ResponseEntity<?> searchBySpecification(
             @RequestParam String key,
             @RequestParam String value,
-            @RequestParam(required = false) ProductStatus status) {
+            @RequestParam(required = false, name = "status") String statusStr) {
+        ProductStatus status = null;
+        if (statusStr != null) {
+            try {
+                status = ProductStatus.valueOf(statusStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().build();
+            }
+        }
         return ResponseEntity.ok(productService.searchBySpecification(key, value, status));
     }
 
