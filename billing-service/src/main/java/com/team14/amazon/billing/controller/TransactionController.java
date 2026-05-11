@@ -147,7 +147,7 @@ public class TransactionController {
     @PreAuthorize("isAuthenticated()")
     @GetMapping("/{id}/lifecycle")
     public ResponseEntity<List<LifecycleEventDTO>> getTransactionLifecycle(@PathVariable Long id, Authentication auth) {
-        Transaction transaction = transactionService.findTransactionById(id);
+        Transaction transaction = transactionService.findTransactionByIdDirect(id);
         if (transaction == null) {
             return ResponseEntity.notFound().build();
         }

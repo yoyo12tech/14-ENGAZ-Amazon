@@ -14,7 +14,6 @@ import java.util.Map;
 @Service
 public class JwtService {
 
-    private final JwtConfigurationManager configManager = JwtConfigurationManager.getInstance();
 
     public String generateToken(String email, Long userId, String role) {
         Map<String, Object> claims = new HashMap<>();
@@ -56,19 +55,19 @@ public class JwtService {
 
     private String createToken(Map<String, Object> claims, String subject) {
         long now = System.currentTimeMillis();
-        long expirationMs = configManager.getExpirationMs();
+        long expirationMs = JwtConfigurationManager.getInstance().getExpirationMs();
 
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
                 .setIssuedAt(new Date(now))
                 .setExpiration(new Date(now + expirationMs))
-                .signWith(getSigningKey(), SignatureAlgorithm.valueOf(configManager.getAlgorithm()))
+                .signWith(getSigningKey(), SignatureAlgorithm.valueOf(JwtConfigurationManager.getInstance().getAlgorithm()))
                 .compact();
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = configManager.getSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = JwtConfigurationManager.getInstance().getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 
@@ -85,6 +84,6 @@ public class JwtService {
     }
 
     public long getExpirationMs() {
-        return configManager.getExpirationMs();
+        return JwtConfigurationManager.getInstance().getExpirationMs();
     }
 }
