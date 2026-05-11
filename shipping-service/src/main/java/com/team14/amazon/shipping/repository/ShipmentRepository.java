@@ -96,5 +96,5 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
                FROM shipments
                WHERE created_at >= CAST(:start AS timestamp) AND created_at <= CAST(:end AS timestamp)
             """, nativeQuery = true)
-    List<Object[]> getShippingAnalytics(@Param("start") LocalDate start, @Param("end") LocalDateTime end);
+    List<Object[]> getShippingAnalytics(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
