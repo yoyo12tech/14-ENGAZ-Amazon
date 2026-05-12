@@ -12,7 +12,8 @@ CREATE TYPE product_status AS ENUM ('ACTIVE', 'INACTIVE', 'DISCONTINUED');
 -- order-service enums
 CREATE TYPE order_status AS ENUM (
     'PENDING', 'CONFIRMED', 'SHIPPED',
-    'DELIVERED', 'CANCELLED', 'RETURNED'
+    'DELIVERED', 'CANCELLED', 'RETURNED',
+    'PAYMENT_PENDING', 'PAID', 'PAYMENT_FAILED', 'REFUNDED'
 );
 
 -- shipping-service enums
