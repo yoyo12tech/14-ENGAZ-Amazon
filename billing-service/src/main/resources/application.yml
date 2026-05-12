@@ -7,7 +7,7 @@ spring:
     name: billing-service
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/amazondb-billing
+    url: jdbc:postgresql://billing-postgres:5432/amazondb-billing
     username: postgres
     password: postgres
 
