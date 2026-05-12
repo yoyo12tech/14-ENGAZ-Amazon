@@ -1,20 +1,110 @@
 services:
-  postgres:
-    image: postgres:17
-    container_name: amazon-db
+  user-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: user-postgres
     restart: always
     environment:
-      POSTGRES_DB: amazondb
+      POSTGRES_DB: amazondb-users
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - user-pgdata:/var/lib/postgresql/data
     networks:
       - amazon-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb" ]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-users" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  product-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: product-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-products
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - product-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-products" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: order-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-orders
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - order-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-orders" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  shipping-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: shipping-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-shipments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - shipping-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-shipments" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  billing-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: billing-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-billing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - billing-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-billing" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -119,6 +209,23 @@ services:
       retries: 10
       start_period: 90s
 
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: amazon-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   # User Service
   user-service:
     build:
@@ -128,7 +235,7 @@ services:
     ports:
       - "8081:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-postgres:5432/amazondb-users
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -137,13 +244,16 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      user-postgres:
         condition: service_healthy
       mongo:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
     restart: on-failure
@@ -163,7 +273,7 @@ services:
     ports:
       - "8082:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://product-postgres:5432/amazondb-products
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -172,8 +282,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      product-postgres:
         condition: service_healthy
       mongo:
         condition: service_healthy
@@ -181,6 +292,8 @@ services:
         condition: service_started
       elasticsearch:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
     restart: on-failure
@@ -200,7 +313,7 @@ services:
     ports:
       - "8083:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/amazondb-orders
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -212,8 +325,9 @@ services:
       SPRING_NEO4J_URI: bolt://neo4j:7687
       SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
       SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      order-postgres:
         condition: service_healthy
       mongo:
         condition: service_healthy
@@ -221,6 +335,8 @@ services:
         condition: service_started
       neo4j:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
     restart: on-failure
@@ -240,7 +356,7 @@ services:
     ports:
       - "8084:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://shipping-postgres:5432/amazondb-shipments
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -249,8 +365,9 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      shipping-postgres:
         condition: service_healthy
       mongo:
         condition: service_healthy
@@ -258,6 +375,8 @@ services:
         condition: service_started
       cassandra:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
     restart: on-failure
@@ -277,7 +396,7 @@ services:
     ports:
       - "8085:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://billing-postgres:5432/amazondb-billing
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -286,13 +405,16 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      billing-postgres:
         condition: service_healthy
       mongo:
         condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
     restart: on-failure
@@ -303,8 +425,11 @@ services:
       retries: 8
       start_period: 30s
 volumes:
-  pgdata:
-    name: pgdata
+  user-pgdata:
+  product-pgdata:
+  order-pgdata:
+  shipping-pgdata:
+  billing-pgdata:
   mongo-data:
   es-data:
   neo4j-data:

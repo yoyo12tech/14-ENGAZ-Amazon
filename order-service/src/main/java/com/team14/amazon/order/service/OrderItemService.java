@@ -20,6 +20,8 @@ import java.util.*;
  * DP-2 Observer : registers MongoEventLogger in @PostConstruct.
  * CC-3 Caching  : @Cacheable on getById; CacheEvictionService on writes.
  */
+import com.team14.amazon.order.client.ProductServiceClient;
+
 @Service
 public class OrderItemService {
 
@@ -27,17 +29,20 @@ public class OrderItemService {
     private final OrderRepository      orderRepository;
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver       mongoEventLogger;
+    private final ProductServiceClient productServiceClient;
 
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public OrderItemService(OrderItemRepository orderItemRepository,
                             OrderRepository orderRepository,
                             CacheEvictionService cacheEvictionService,
-                            EntityObserver mongoEventLogger) {
+                            EntityObserver mongoEventLogger,
+                            ProductServiceClient productServiceClient) {
         this.orderItemRepository  = orderItemRepository;
         this.orderRepository      = orderRepository;
         this.cacheEvictionService = cacheEvictionService;
         this.mongoEventLogger     = mongoEventLogger;
+        this.productServiceClient = productServiceClient;
     }
 
     @PostConstruct
@@ -61,7 +66,8 @@ public class OrderItemService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Order not found: " + orderId));
 
-        Map<String, Object> product = orderRepository.findProductById(item.getProductId());
+        // M3: Use Feign Product Service
+        Map<String, Object> product = productServiceClient.getProductById(item.getProductId());
         if (product == null || product.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Product not found: " + item.getProductId());

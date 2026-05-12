@@ -48,3 +48,9 @@ m2-tests-*/
 
 
 .claude/
+
+docs/
+M3_description_sections/
+GEMINI.md
+git_constraints.txt
+

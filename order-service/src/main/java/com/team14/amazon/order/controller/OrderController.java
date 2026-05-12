@@ -194,6 +194,21 @@ public class OrderController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/user/{userId}/summary")
+    public ResponseEntity<OrderSummaryDTO> getUserOrderSummary(@PathVariable Long userId) {
+        return ResponseEntity.ok(orderService.getUserOrderSummary(userId));
+    }
+
+    @GetMapping("/user/{userId}/active-count")
+    public ResponseEntity<Integer> getActiveOrderCount(@PathVariable Long userId) {
+        return ResponseEntity.ok(orderService.getActiveOrderCount(userId));
+    }
+
+    @GetMapping("/user/{userId}/count")
+    public ResponseEntity<Long> getTotalOrderCount(@PathVariable Long userId) {
+        return ResponseEntity.ok(orderService.getTotalOrderCount(userId));
+    }
+
     @GetMapping("/recommendations")
     public ResponseEntity<List<ProductRecommendationDTO>> getRecommendations(
             @RequestParam Long productId,
