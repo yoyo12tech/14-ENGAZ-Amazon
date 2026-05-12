@@ -7,8 +7,15 @@ import org.springframework.context.annotation.Configuration;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+
 @Configuration
 public class RabbitMQConfig {
+
+    @Bean
+    public Jackson2JsonMessageConverter jackson2JsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
 
     public static final String USER_EXCHANGE = "user.events";
     public static final String ORDER_EXCHANGE = "order.events";

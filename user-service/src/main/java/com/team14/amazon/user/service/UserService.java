@@ -32,8 +32,15 @@ import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import com.team14.amazon.user.adapter.ObjectArrayDtoAdapter;
 
+import com.team14.amazon.user.client.OrderServiceClient;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import com.team14.amazon.events.UserRegisteredEvent;
+import com.team14.amazon.user.dto.OrderSummaryDTO;
+
+import com.team14.amazon.user.client.BillingServiceClient;
+import java.math.BigDecimal;
+import com.team14.amazon.events.UserDeactivatedEvent;
 
 @Service
 public class UserService {
@@ -47,6 +54,9 @@ public class UserService {
     private final List<EntityObserver> observers = new ArrayList<>();
     private final AuthEventRepository authEventRepository;
     private final StringRedisTemplate redisTemplate;
+    private final OrderServiceClient orderServiceClient;
+    private final BillingServiceClient billingServiceClient;
+    private final RabbitTemplate rabbitTemplate;
 
     public UserService(UserRepository userRepository,
                        ShippingAddressRepository shippingAddressRepository,
@@ -55,7 +65,10 @@ public class UserService {
                        EntityObserver mongoEventLogger,
                        EntityObserver redisCacheObserver,
                        AuthEventRepository authEventRepository,
-                       StringRedisTemplate redisTemplate) {
+                       StringRedisTemplate redisTemplate,
+                       OrderServiceClient orderServiceClient,
+                       BillingServiceClient billingServiceClient,
+                       RabbitTemplate rabbitTemplate) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
@@ -64,6 +77,9 @@ public class UserService {
         this.redisCacheObserver = redisCacheObserver;
         this.authEventRepository = authEventRepository;
         this.redisTemplate = redisTemplate;
+        this.orderServiceClient = orderServiceClient;
+        this.billingServiceClient = billingServiceClient;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @PostConstruct
@@ -120,6 +136,10 @@ public class UserService {
         eventPayload.put("timestamp", LocalDateTime.now());
         eventPayload.put("details", Map.of("email", user.getEmail()));
         notifyObservers("REGISTERED", eventPayload);
+
+        // M3: Publish to RabbitMQ
+        rabbitTemplate.convertAndSend("user.events", "user.registered",
+                new UserRegisteredEvent(user.getId(), user.getEmail(), user.getRole().name()));
 
         // f) Generate token
         String token = jwtService.generateToken(user.getEmail(), user.getId(), user.getRole().name());
@@ -297,12 +317,32 @@ public class UserService {
             throw new IllegalArgumentException("startDate cannot be after endDate");
         }
 
-        LocalDateTime startDateTime = startDate.atStartOfDay();
-        LocalDateTime endDateTime = endDate.atTime(LocalTime.MAX);
+        // M3: user-service cannot JOIN the transactions table.
+        // 1. Fetch all users (or candidate pool)
+        List<User> users = userRepository.findAll(); // Simplified candidate pool
 
-        List<Object[]> rawResults = userRepository.findTopBuyers(startDateTime, endDateTime, limit);
+        // 2. For each user, call Feign billing-service
+        List<TopBuyerDTO> results = new ArrayList<>();
+        String start = startDate.toString();
+        String end = endDate.toString();
 
-        return rawResults.stream().map(ObjectArrayDtoAdapter::adaptToTopBuyerDTO).collect(Collectors.toList());
+        for (User user : users) {
+            try {
+                BigDecimal totalSpent = billingServiceClient.getUserTransactionTotal(user.getId(), start, end);
+                long orderCount = billingServiceClient.getUserOrderCount(user.getId(), start, end);
+                if (totalSpent != null && totalSpent.compareTo(BigDecimal.ZERO) > 0) {
+                    results.add(new TopBuyerDTO(user.getId(), user.getName(), totalSpent.doubleValue(), orderCount));
+                }
+            } catch (Exception e) {
+                // Skip if billing service is unavailable for a user
+            }
+        }
+
+        // 3. Sort and limit
+        return results.stream()
+                .sorted(Comparator.comparing(TopBuyerDTO::getTotalSpent).reversed())
+                .limit(limit)
+                .collect(Collectors.toList());
     }
 
     public List<User> findUsersByPreference(String key, String value) {
@@ -318,7 +358,8 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        int activeOrdersCount = userRepository.countActiveOrdersForUser(id);
+        // M3: Replace direct count query with Feign call
+        int activeOrdersCount = orderServiceClient.getActiveOrderCount(id);
         if (activeOrdersCount > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
         }
@@ -332,6 +373,9 @@ public class UserService {
         eventPayload.put("timestamp", LocalDateTime.now());
         eventPayload.put("details", Map.of("email", user.getEmail()));
         notifyObservers("USER_DEACTIVATED", eventPayload);
+
+        // M3: Publish to RabbitMQ
+        rabbitTemplate.convertAndSend("user.events", "user.deactivated", new UserDeactivatedEvent(id));
     }
 
     public UserProfileDTO getUserProfile(Long userId) {
@@ -398,20 +442,33 @@ public class UserService {
         if (lang == null || lang.trim().isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Language cannot be blank");
         }
-        return userRepository.findUsersByLanguageAndMinOrders(lang, minOrders);
+        
+        // M3: Filter by language locally, then check order count via Feign
+        List<User> matchingUsers = userRepository.findAll().stream()
+                .filter(u -> u.getPreferences() != null && lang.equals(u.getPreferences().get("language")))
+                .toList();
+
+        return matchingUsers.stream()
+                .filter(u -> orderServiceClient.getTotalOrderCount(u.getId()) >= minOrders)
+                .collect(Collectors.toList());
     }
 
     public UserOrderSummaryDTO getUserOrderSummary(Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        Object[] raw = userRepository.getOrderSummaryByUserId(id);
+        // M3: Replace cross-service SQL JOIN with Feign call
+        OrderSummaryDTO orderSummary = orderServiceClient.getUserOrderSummary(id);
 
-        Object[] row = (raw.length > 0 && raw[0] instanceof Object[])
-                ? (Object[]) raw[0]
-                : raw;
-
-        return ObjectArrayDtoAdapter.adaptToUserOrderSummaryDTO(user, row);
+        return UserOrderSummaryDTO.builder()
+                .userId(user.getId())
+                .name(user.getName())
+                .totalOrders(orderSummary.getTotalOrders())
+                .completedOrders(orderSummary.getCompletedOrders())
+                .cancelledOrders(orderSummary.getCancelledOrders())
+                .totalSpent(orderSummary.getTotalSpent())
+                .averageOrderValue(orderSummary.getAverageOrderValue())
+                .build();
     }
 
     public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {

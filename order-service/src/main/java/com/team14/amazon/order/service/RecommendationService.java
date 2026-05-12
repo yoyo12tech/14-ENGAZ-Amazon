@@ -44,6 +44,8 @@ import java.util.Map;
  *            required
  *            by §10.3.3.
  */
+import com.team14.amazon.order.client.ProductServiceClient;
+
 @Service
 public class RecommendationService {
 
@@ -53,21 +55,24 @@ public class RecommendationService {
     private final OrderGraphRepository orderGraphRepository;
     private final OrderRepository orderRepository;
     private final Neo4jRecordAdapter neo4jRecordAdapter;
+    private final ProductServiceClient productServiceClient;
 
     public RecommendationService(OrderGraphRepository orderGraphRepository,
             OrderRepository orderRepository,
-            Neo4jRecordAdapter neo4jRecordAdapter) {
+            Neo4jRecordAdapter neo4jRecordAdapter,
+            ProductServiceClient productServiceClient) {
         this.orderGraphRepository = orderGraphRepository;
         this.orderRepository = orderRepository;
         this.neo4jRecordAdapter = neo4jRecordAdapter;
+        this.productServiceClient = productServiceClient;
     }
 
     @Cacheable(value = "order-service::S3-F12", key = "#productId + '::' + #limit")
     public List<ProductRecommendationDTO> getRecommendations(Long productId, int limit) {
 
         // (b) Seed product must exist in PG → 404 otherwise.
-        // Reuses the existing native-SQL cross-service helper on OrderRepository.
-        Map<String, Object> seedRow = orderRepository.findProductById(productId);
+        // M3: Use Feign Product Service
+        Map<String, Object> seedRow = productServiceClient.getProductById(productId);
         if (seedRow == null || seedRow.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Product not found: " + productId);
@@ -89,7 +94,8 @@ public class RecommendationService {
 
             Map<String, Object> pgRow;
             try {
-                pgRow = orderRepository.findProductById(dto.getProductId());
+                // M3: Use Feign Product Service
+                pgRow = productServiceClient.getProductById(dto.getProductId());
             } catch (Exception ex) {
                 log.warn("[S3-F12] PG enrichment failed for productId={}: {}",
                          dto.getProductId(), ex.getMessage());
