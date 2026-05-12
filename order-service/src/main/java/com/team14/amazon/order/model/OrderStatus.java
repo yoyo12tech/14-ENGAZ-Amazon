@@ -7,7 +7,11 @@ public enum OrderStatus {
     SHIPPED,
     DELIVERED,
     CANCELLED,
-    RETURNED;
+    RETURNED,
+    PAYMENT_PENDING,
+    PAID,
+    PAYMENT_FAILED,
+    REFUNDED;
 
     public static OrderStatus fromString(String status) {
         if (status == null || status.isBlank()) {

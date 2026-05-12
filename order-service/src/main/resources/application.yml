@@ -3,7 +3,7 @@
       name: order-service
 
     datasource:
-      url: jdbc:postgresql://postgres:5432/amazondb
+      url: jdbc:postgresql://postgres:5432/amazondb-orders
       username: postgres
       password: postgres
 
