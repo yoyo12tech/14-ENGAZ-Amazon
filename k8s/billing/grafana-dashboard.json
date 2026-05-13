@@ -1,0 +1,45 @@
+{
+  "title": "Billing Service Dashboard",
+  "panels": [
+    {
+      "title": "Error Rate",
+      "description": "All ERROR-level log lines from billing-service",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} | json | level=\"ERROR\""
+        }
+      ]
+    },
+    {
+      "title": "Transaction Events",
+      "description": "Transaction creation, update, and refund events",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} | json | message=~\"TRANSACTION|REFUND|processOrderTransaction\""
+        }
+      ]
+    },
+    {
+      "title": "Slow / Failed Feign Calls",
+      "description": "Downstream service errors caught by BillingFeignErrorDecoder",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} | json | message=~\"downstream|Downstream\""
+        }
+      ]
+    },
+    {
+      "title": "Request Trace by Correlation ID",
+      "description": "Follow a full request across billing-service using the X-Correlation-ID",
+      "type": "logs",
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} | json | traceId=\"$correlationId\""
+        }
+      ]
+    }
+  ]
+}
