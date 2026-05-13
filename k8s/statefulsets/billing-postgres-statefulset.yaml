@@ -2,9 +2,9 @@ apiVersion: apps/v1
 kind: StatefulSet
 metadata:
   name: billing-postgres
-  namespace: default
+  namespace: amazon
 spec:
-  serviceName: billing-postgres
+  serviceName: billing-postgres-headless
   replicas: 1
   selector:
     matchLabels:
@@ -40,14 +40,13 @@ spec:
               mountPath: /var/lib/postgresql/data
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres", "-d", "amazondb-billing"]
+              command:
+                - pg_isready
+                - -U
+                - postgres
             initialDelaySeconds: 10
             periodSeconds: 5
-  volumeClaimTemplates:
-    - metadata:
-        name: billing-postgres-data
-      spec:
-        accessModes: ["ReadWriteOnce"]
-        resources:
-          requests:
-            storage: 1Gi
+      volumes:
+        - name: billing-postgres-data
+          persistentVolumeClaim:
+            claimName: billing-postgres-pvc
