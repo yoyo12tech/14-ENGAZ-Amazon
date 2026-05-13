@@ -28,19 +28,18 @@ import java.util.concurrent.TimeUnit;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 
 import com.team14.amazon.user.client.OrderServiceClient;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import com.team14.amazon.events.UserRegisteredEvent;
+import com.team14.amazon.contracts.events.UserRegisteredEvent;
 import com.team14.amazon.user.dto.OrderSummaryDTO;
 
 import com.team14.amazon.user.client.BillingServiceClient;
 import java.math.BigDecimal;
-import com.team14.amazon.events.UserDeactivatedEvent;
+import com.team14.amazon.contracts.events.UserDeactivatedEvent;
 
 @Service
 public class UserService {

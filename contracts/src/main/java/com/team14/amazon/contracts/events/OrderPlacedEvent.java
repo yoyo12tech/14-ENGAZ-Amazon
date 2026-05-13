@@ -1,4 +1,4 @@
-package com.team14.amazon.events;
+package com.team14.amazon.contracts.events;
 
 import java.util.List;
 

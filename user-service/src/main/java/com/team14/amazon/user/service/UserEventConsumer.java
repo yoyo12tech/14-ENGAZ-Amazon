@@ -1,7 +1,7 @@
 package com.team14.amazon.user.service;
 
-import com.team14.amazon.events.OrderCompletedEvent;
-import com.team14.amazon.events.OrderCancelledEvent;
+import com.team14.amazon.contracts.events.OrderCompletedEvent;
+import com.team14.amazon.contracts.events.OrderCancelledEvent;
 import com.team14.amazon.user.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
