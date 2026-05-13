@@ -43,8 +43,6 @@ import java.util.stream.Collectors;
  * —
  * no direct constructor calls for events anywhere in this service.
  */
-import com.team14.amazon.order.client.*;
-
 @Service
 public class OrderService {
 
@@ -54,36 +52,23 @@ public class OrderService {
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver mongoEventLogger;
     private final OrderGraphRepository orderGraphRepository;
-    private final UserServiceClient userServiceClient;
-    private final ProductServiceClient productServiceClient;
-    private final ShippingServiceClient shippingServiceClient;
-    private final BillingServiceClient billingServiceClient;
-
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     // DP-2: classical observer list (mirrors UserService exactly)
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public OrderService(OrderRepository orderRepository,
-            OrderItemService orderItemService,
-            OrderItemRepository orderItemRepository,
-            CacheEvictionService cacheEvictionService,
-            EntityObserver mongoEventLogger,
-            OrderGraphRepository orderGraphRepository,
-            UserServiceClient userServiceClient,
-            ProductServiceClient productServiceClient,
-            ShippingServiceClient shippingServiceClient,
-            BillingServiceClient billingServiceClient) {
+                        OrderItemService orderItemService,
+                        OrderItemRepository orderItemRepository,
+                        CacheEvictionService cacheEvictionService,
+                        EntityObserver mongoEventLogger,
+                        OrderGraphRepository orderGraphRepository) {
         this.orderRepository = orderRepository;
         this.orderItemService = orderItemService;
         this.orderItemRepository = orderItemRepository;
         this.cacheEvictionService = cacheEvictionService;
         this.mongoEventLogger = mongoEventLogger;
         this.orderGraphRepository = orderGraphRepository;
-        this.userServiceClient = userServiceClient;
-        this.productServiceClient = productServiceClient;
-        this.shippingServiceClient = shippingServiceClient;
-        this.billingServiceClient = billingServiceClient;
     }
 
     @PostConstruct
@@ -196,8 +181,7 @@ public class OrderService {
         if (order.getStatus() != OrderStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not PENDING");
         }
-        // M3: Use Feign User Service
-        if (!userServiceClient.existsShippingAddressById(shippingAddressId)) {
+        if (!orderRepository.existsShippingAddressById(shippingAddressId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipping address not found");
         }
         List<OrderItem> items = order.getOrderItems();
@@ -207,8 +191,7 @@ public class OrderService {
 
         double totalAmount = 0.0;
         for (OrderItem item : items) {
-            // M3: Use Feign Product Service
-            Map<String, Object> product = productServiceClient.getProductById(item.getProductId());
+            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
             if (product == null || product.isEmpty()) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Product not found: " + item.getProductId());
@@ -218,8 +201,7 @@ public class OrderService {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Insufficient stock for product: " + item.getProductId());
             }
-            // M3: Use Feign Product Service
-            int updated = productServiceClient.updateProductStock(item.getProductId(), item.getQuantity());
+            int updated = orderRepository.updateProductStock(item.getProductId(), item.getQuantity());
             if (updated == 0) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                         "Failed to deduct stock for product: " + item.getProductId());
@@ -255,8 +237,7 @@ public class OrderService {
         for (Map<String, Object> item : items) {
             Long productId = ((Number) item.get("productId")).longValue();
             Integer quantity = ((Number) item.get("quantity")).intValue();
-            // M3: Use Feign Product Service
-            Double price = productServiceClient.getProductPrice(productId);
+            Double price = orderRepository.findProductPriceById(productId);
             if (price == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Product not found: " + productId);
@@ -303,29 +284,15 @@ public class OrderService {
         order.setStatus(OrderStatus.DELIVERED);
         order.setDeliveredAt(now);
         try {
-            // M3: Use Feign Shipping Service
-            shippingServiceClient.markShipmentDelivered(id, now.toString());
+            orderRepository.markShipmentDelivered(id, now);
         } catch (Exception e) {
             log.warn("[S3-F4] No shipment to update for orderId={}: {}", id, e.getMessage());
             // do not rethrow — delivery must still succeed
         }
 
         BigDecimal amount = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
-        
-        // M3: Use Feign Billing Service
-        Map<String, Object> transactionRequest = new HashMap<>();
-        transactionRequest.put("orderId", id);
-        transactionRequest.put("userId", order.getUserId());
-        transactionRequest.put("amount", amount);
-        transactionRequest.put("status", "PENDING");
-        transactionRequest.put("createdAt", now.toString());
-        transactionRequest.put("method", method != null ? method : "CASH_ON_DELIVERY");
-        
-        try {
-            billingServiceClient.createTransaction(transactionRequest);
-        } catch (Exception e) {
-            log.warn("[S3-F4] Failed to create transaction for orderId={}: {}", id, e.getMessage());
-        }
+        orderRepository.createTransaction(id, order.getUserId(), amount,
+                "PENDING", now, method != null ? method : "CASH_ON_DELIVERY");
 
         Order saved = orderRepository.save(order);
         cacheEvictionService.evictOrderDetail(id);
@@ -392,8 +359,7 @@ public class OrderService {
         }
         if (order.getStatus() == OrderStatus.CONFIRMED) {
             for (OrderItem item : order.getOrderItems()) {
-                // M3: Use Feign Product Service
-                productServiceClient.restoreProductStock(item.getProductId(), item.getQuantity());
+                orderRepository.restoreProductStock(item.getProductId(), item.getQuantity());
             }
         }
         order.setStatus(OrderStatus.CANCELLED);
@@ -423,12 +389,9 @@ public class OrderService {
         int maxItemOrder = orderItemRepository.findMaxItemOrderByOrderId(orderId);
 
         for (OrderItemRequestDTO dto : itemsDto) {
-            // M3: Use Feign Product Service
-            Double price = productServiceClient.getProductPrice(dto.productId());
-            if (price == null) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Product not found: " + dto.productId());
-            }
+            Double price = orderRepository.getProductPrice(dto.productId())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Product not found: " + dto.productId()));
             maxItemOrder++;
             OrderItem newItem = new OrderItem();
             newItem.setProductId(dto.productId());
@@ -507,8 +470,7 @@ public class OrderService {
 
         // 5. Ensure ProductNodes exist in Neo4j
         for (OrderItem item : items) {
-            // M3: Use Feign Product Service
-            Map<String, Object> product = productServiceClient.getProductById(item.getProductId());
+            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
             if (product == null || product.isEmpty()) {
                 continue;
             }
@@ -584,37 +546,5 @@ public class OrderService {
         // NOTE: ANALYTICS_VIEWED must NOT trigger cache invalidation (spec §4.4.4)
         // MongoEventLogger checks the action name and skips invalidation for it
         notifyObservers("ANALYTICS_VIEWED", payload);
-    }
-
-    public OrderSummaryDTO getUserOrderSummary(Long userId) {
-        Object[] raw = orderRepository.getOrderSummaryByUserId(userId);
-        
-        // Handle potential nested array from native query
-        Object[] row;
-        if (raw != null && raw.length > 0) {
-            if (raw[0] instanceof Object[]) {
-                row = (Object[]) raw[0];
-            } else {
-                row = raw;
-            }
-        } else {
-            return new OrderSummaryDTO(0L, 0L, 0L, 0.0, 0.0);
-        }
-
-        return new OrderSummaryDTO(
-                ((Number) row[0]).longValue(),
-                ((Number) row[1]).longValue(),
-                ((Number) row[2]).longValue(),
-                ((Number) row[3]).doubleValue(),
-                ((Number) row[4]).doubleValue()
-        );
-    }
-
-    public int getActiveOrderCount(Long userId) {
-        return orderRepository.countActiveOrdersForUser(userId);
-    }
-
-    public long getTotalOrderCount(Long userId) {
-        return orderRepository.countAllOrdersForUser(userId);
     }
 }

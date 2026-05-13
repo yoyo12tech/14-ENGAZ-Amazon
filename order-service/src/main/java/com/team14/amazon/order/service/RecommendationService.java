@@ -28,7 +28,7 @@ import java.util.Map;
  *
  * Cache key: `order-service::S3-F12::&lt;productId&gt;::&lt;limit&gt;`
  * (Spring's
- * 
+ *
  * @Cacheable concatenates value + key separator + key; the value already
  *            carries the service::feature prefix per RedisConfig).
  *
@@ -44,8 +44,6 @@ import java.util.Map;
  *            required
  *            by §10.3.3.
  */
-import com.team14.amazon.order.client.ProductServiceClient;
-
 @Service
 public class RecommendationService {
 
@@ -55,24 +53,21 @@ public class RecommendationService {
     private final OrderGraphRepository orderGraphRepository;
     private final OrderRepository orderRepository;
     private final Neo4jRecordAdapter neo4jRecordAdapter;
-    private final ProductServiceClient productServiceClient;
 
     public RecommendationService(OrderGraphRepository orderGraphRepository,
-            OrderRepository orderRepository,
-            Neo4jRecordAdapter neo4jRecordAdapter,
-            ProductServiceClient productServiceClient) {
+                                 OrderRepository orderRepository,
+                                 Neo4jRecordAdapter neo4jRecordAdapter) {
         this.orderGraphRepository = orderGraphRepository;
         this.orderRepository = orderRepository;
         this.neo4jRecordAdapter = neo4jRecordAdapter;
-        this.productServiceClient = productServiceClient;
     }
 
     @Cacheable(value = "order-service::S3-F12", key = "#productId + '::' + #limit")
     public List<ProductRecommendationDTO> getRecommendations(Long productId, int limit) {
 
         // (b) Seed product must exist in PG → 404 otherwise.
-        // M3: Use Feign Product Service
-        Map<String, Object> seedRow = productServiceClient.getProductById(productId);
+        // Reuses the existing native-SQL cross-service helper on OrderRepository.
+        Map<String, Object> seedRow = orderRepository.findProductById(productId);
         if (seedRow == null || seedRow.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Product not found: " + productId);
@@ -94,11 +89,10 @@ public class RecommendationService {
 
             Map<String, Object> pgRow;
             try {
-                // M3: Use Feign Product Service
-                pgRow = productServiceClient.getProductById(dto.getProductId());
+                pgRow = orderRepository.findProductById(dto.getProductId());
             } catch (Exception ex) {
                 log.warn("[S3-F12] PG enrichment failed for productId={}: {}",
-                         dto.getProductId(), ex.getMessage());
+                        dto.getProductId(), ex.getMessage());
                 continue;   // skip this row, continue with next
             }
             if (pgRow == null || pgRow.isEmpty()) {

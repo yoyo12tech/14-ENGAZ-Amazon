@@ -29,7 +29,7 @@ public class OrderController {
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     public OrderController(OrderService orderService, OrderItemService orderItemService,
-            RecommendationService recommendationService) {
+                           RecommendationService recommendationService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
         this.recommendationService = recommendationService;
@@ -96,7 +96,7 @@ public class OrderController {
 
     @PostMapping("/{orderId}/items")
     public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId,
-            @RequestBody List<OrderItemRequestDTO> items) {
+                                                 @RequestBody List<OrderItemRequestDTO> items) {
         return ResponseEntity.ok(orderService.addItemsToOrder(orderId, items));
     }
 
@@ -120,7 +120,7 @@ public class OrderController {
 
     @PutMapping("/{id}")
     public ResponseEntity<Order> update(@PathVariable Long id,
-            @RequestBody Order order) {
+                                        @RequestBody Order order) {
         return ResponseEntity.ok(orderService.update(id, order));
     }
 
@@ -162,7 +162,7 @@ public class OrderController {
 
     @PutMapping("/{orderId}/confirm")
     public Order confirmOrder(@PathVariable Long orderId,
-            @RequestParam Long shippingAddressId) {
+                              @RequestParam Long shippingAddressId) {
         return orderService.confirmOrder(orderId, shippingAddressId);
     }
 
@@ -192,21 +192,6 @@ public class OrderController {
 
         OrderAnalyticsDashboardDTO result = orderService.getOrderAnalyticsDashboard(startDate, endDate);
         return ResponseEntity.ok(result);
-    }
-
-    @GetMapping("/user/{userId}/summary")
-    public ResponseEntity<OrderSummaryDTO> getUserOrderSummary(@PathVariable Long userId) {
-        return ResponseEntity.ok(orderService.getUserOrderSummary(userId));
-    }
-
-    @GetMapping("/user/{userId}/active-count")
-    public ResponseEntity<Integer> getActiveOrderCount(@PathVariable Long userId) {
-        return ResponseEntity.ok(orderService.getActiveOrderCount(userId));
-    }
-
-    @GetMapping("/user/{userId}/count")
-    public ResponseEntity<Long> getTotalOrderCount(@PathVariable Long userId) {
-        return ResponseEntity.ok(orderService.getTotalOrderCount(userId));
     }
 
     @GetMapping("/recommendations")

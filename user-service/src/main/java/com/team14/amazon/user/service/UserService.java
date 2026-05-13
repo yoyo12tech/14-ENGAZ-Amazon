@@ -1,5 +1,6 @@
 package com.team14.amazon.user.service;
 
+import com.team14.amazon.contracts.dto.OrderSummaryDTO;
 import com.team14.amazon.user.dto.*;
 import com.team14.amazon.user.model.ShippingAddress;
 import com.team14.amazon.user.model.User;
@@ -15,7 +16,6 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.user.dto.ActivityFeedDTO;
 import com.team14.amazon.user.repository.mongodb.AuthEventRepository;
 import com.team14.amazon.user.model.mongodb.AuthEvent;
 import org.springframework.data.domain.Page;
@@ -32,12 +32,13 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 
-import com.team14.amazon.user.client.OrderServiceClient;
+import com.team14.amazon.contracts.feign.*;
+import com.team14.amazon.contracts.dto.*;
+import com.team14.amazon.contracts.events.*;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import com.team14.amazon.contracts.events.UserRegisteredEvent;
-import com.team14.amazon.user.dto.OrderSummaryDTO;
 
-import com.team14.amazon.user.client.BillingServiceClient;
+
 import java.math.BigDecimal;
 import com.team14.amazon.contracts.events.UserDeactivatedEvent;
 
