@@ -1,17 +1,21 @@
 package com.team14.amazon.shipping.dto;
 
-import lombok.*;
+import com.team14.amazon.shipping.model.Shipment;
 
 import java.time.LocalDateTime;
+import java.util.Map;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class ShipmentDTO {
-    private Long id;
-    private String status;
-    private String trackingNumber;
-    private LocalDateTime lastUpdate;
-}
+public record ShipmentDTO (
+        Long id,
+        Long orderId,
+        String carrier,
+        String trackingNumber,
+        Shipment.Status status,
+        Double latitude,
+        Double longitude,
+        LocalDateTime estimatedDelivery,
+        LocalDateTime actualDelivery,
+        Map<String, Object> metadata,
+        LocalDateTime lastUpdate,
+        LocalDateTime createdAt
+) {}
