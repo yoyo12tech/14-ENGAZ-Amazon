@@ -2,6 +2,7 @@ package com.team14.amazon.shipping.service;
 
 import com.team14.amazon.shipping.adapter.CassandraRowAdapter;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
+import com.team14.amazon.shipping.client.OrderServiceClient;
 import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
@@ -11,6 +12,7 @@ import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
+import feign.FeignException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -46,14 +48,16 @@ public class ShipmentService {
     private final ShipmentTrackingEventRepository trackingRepository;
     private final CassandraRowAdapter cassandraRowAdapter;
     private final StringRedisTemplate redisTemplate;
+    private final OrderServiceClient orderServiceClient;
 
-    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate) {
+    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate, OrderServiceClient orderServiceClient) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
         this.shipmentEventRepository = shipmentEventRepository;
         this.trackingRepository = trackingRepository;
         this.redisTemplate = redisTemplate;
+        this.orderServiceClient = orderServiceClient;
 
         register(mongoEventLogger);
         this.cassandraRowAdapter = cassandraRowAdapter;
@@ -522,5 +526,28 @@ return savedEvent;
     public void unregisterObserver(EntityObserver observer) {
         this.observers.remove(observer);
     }
+
+    public ShipmentDTO getActiveShipment(Long orderId) {
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order Not Found");
+        } catch (FeignException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Order service temporarily unavailable");
+        }
+
+        ShipmentDTO shipment = shipmentRepository.getActiveShipment(orderId);
+        if (shipment == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                    "No active shipment for this order");
+        }
+        return shipment;
+    }
+
+    public List<Long> getShipmentIdsByOrderId(Long orderId) {
+        return shipmentRepository.findShipmentIdsByOrderId(orderId);
+    }
+
 
 }

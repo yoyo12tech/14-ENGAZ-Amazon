@@ -3,9 +3,7 @@ package com.team14.amazon.shipping.controller;
 import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
-import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
 import com.team14.amazon.shipping.service.ShipmentService;
-import org.antlr.v4.runtime.misc.LogManager;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +11,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.dto.ShipmentTrackingRequestDTO;
-import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -181,4 +178,15 @@ public class ShipmentController {
         return ResponseEntity.ok(shipmentService.getTrackingTimeline(id, startTime, endTime));
     }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/order/{orderId}/active")
+    public ResponseEntity<ShipmentDTO> getActiveShipment(@PathVariable Long orderId) {
+        return ResponseEntity.ok(shipmentService.getActiveShipment(orderId));
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/order/{orderId}/ids")
+    public ResponseEntity<List<Long>> getShipmentIdsByOrderId(@PathVariable Long orderId) {
+        return ResponseEntity.ok(shipmentService.getShipmentIdsByOrderId(orderId));
+    }
 }
