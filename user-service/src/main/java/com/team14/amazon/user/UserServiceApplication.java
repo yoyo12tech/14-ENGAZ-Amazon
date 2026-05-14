@@ -7,7 +7,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 
 
 @SpringBootApplication
-@EnableFeignClients
+@EnableFeignClients(basePackages = "com.team14.amazon.contracts.feign")
 @EntityScan("com.team14.amazon.user.model")
 public class UserServiceApplication {
 
