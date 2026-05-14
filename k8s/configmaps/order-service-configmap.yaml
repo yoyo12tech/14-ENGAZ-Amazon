@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: order-service-configmap
+  namespace: amazon
+data:
+  application.properties: |
+    # Spring Boot datasource config
+    spring.datasource.url=jdbc:postgresql://order-postgres-svc:5432/orders
+    spring.datasource.username=postgres
+    spring.datasource.password=postgres
+    spring.jpa.hibernate.ddl-auto=update
+    spring.jpa.show-sql=true
