@@ -28,7 +28,7 @@ public class Shipment {
 
     
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = true)
     private Status status = Status.PROCESSING;
 
 
@@ -57,7 +57,7 @@ public class Shipment {
     private LocalDateTime createdAt;
 
     public enum Status {
-        PROCESSING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED
+        PROCESSING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED, CANCELLED
     }
 
     // --- GETTERS AND SETTERS ---
@@ -95,7 +95,7 @@ public class Shipment {
     }
 
     public Status getStatus() {
-        return status;
+        return status != null ? status : Status.PROCESSING;
     }
 
     public void setStatus(Status status) {

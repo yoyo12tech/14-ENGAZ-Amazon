@@ -145,7 +145,7 @@ services:
       start_period: 10s
 
   elasticsearch:
-    image: elasticsearch:8.13.4
+    image: elasticsearch:8.16.6
     container_name: amazon-elasticsearch
     ports:
       - "9200:9200"
@@ -226,6 +226,14 @@ services:
       timeout: 5s
       retries: 5
 
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: amazon-loki
+    ports:
+      - "3100:3100"
+    networks:
+      - amazon-network
+
   # User Service
   user-service:
     build:
@@ -291,7 +299,7 @@ services:
       redis:
         condition: service_started
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       rabbitmq:
         condition: service_healthy
     networks:
@@ -356,6 +364,7 @@ services:
     ports:
       - "8084:8080"
     environment:
+      FEIGN_ORDER_SERVICE_URL: http://order-service:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://shipping-postgres:5432/amazondb-shipments
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
