@@ -1,0 +1,46 @@
+<configuration>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - correlationId=%X{correlationId:-} orderId=%X{orderId:-} userId=%X{userId:-} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push</url>
+        </http>
+        <format>
+            <label>
+                <pattern>app=amazon,service=order-service,level=%level,env=k8s</pattern>
+            </label>
+            <message>
+                <pattern>
+                    {
+                    "timestamp": "%d{ISO8601}",
+                    "level": "%level",
+                    "service": "order-service",
+                    "thread": "%thread",
+                    "logger": "%logger{36}",
+                    "correlationId": "%X{correlationId:-}",
+                    "userId": "%X{userId:-}",
+                    "productId": "%X{productId:-}",
+                    "orderId": "%X{orderId:-}",
+                    "shippingAddressId": "%X{shippingAddressId:-}",
+                    "shipmentId": "%X{shipmentId:-}",
+                    "transactionId": "%X{transactionId:-}",
+                    "routingKey": "%X{routingKey:-}",
+                    "message": "%msg"
+                    }
+                </pattern>
+            </message>
+            <sortByTime>true</sortByTime>
+        </format>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOKI"/>
+    </root>
+
+</configuration>

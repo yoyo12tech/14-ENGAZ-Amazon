@@ -1,17 +1,12 @@
 apiVersion: v1
-kind: Pod
+kind: Service
 metadata:
-  name: $title$
-  labels:
-    role: $title$
+  name: order-postgres
+  namespace: amazon
 spec:
-  containers:
-    - name: $title$
-      image: $nginx$
-      imagePullPolicy: IfNotPresent
-      ports:
-        - name: $title$
-          containerPort: $80$
-          protocol: $TCP$
-  restartPolicy: Always
-  $END$
+  clusterIP: None
+  selector:
+    app: order-postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
