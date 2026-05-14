@@ -61,6 +61,41 @@ public class ProductController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
+    @GetMapping("/{id}/exists")
+    public ResponseEntity<Map<String, Boolean>> productExists(@PathVariable Long id) {
+        boolean exists = productService.getProductById(id).isPresent();
+        return ResponseEntity.ok(Map.of("exists", exists));
+    }
+
+    @GetMapping("/{id}/price")
+    public ResponseEntity<Double> getProductPrice(@PathVariable Long id) {
+        return productService.getProductById(id)
+                .map(p -> ResponseEntity.ok(p.getPrice()))
+                .orElse(ResponseEntity.notFound().build());
+    }
+
+    @PostMapping("/{id}/stock/deduct")
+    public ResponseEntity<Boolean> deductStock(@PathVariable Long id, @RequestParam Integer quantity) {
+        try {
+            boolean success = productService.deductStock(id, quantity);
+            return ResponseEntity.ok(success);
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(false);
+        }
+    }
+
+    @PostMapping("/{id}/stock/restore")
+    public ResponseEntity<Void> restoreStock(@PathVariable Long id, @RequestParam Integer quantity) {
+        try {
+            productService.restoreStock(id, quantity);
+            return ResponseEntity.ok().build();
+        } catch (NoSuchElementException e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
     @PostMapping
     public ResponseEntity<?> createProduct(@RequestBody Product product) {
         try {

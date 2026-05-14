@@ -145,7 +145,7 @@ services:
       start_period: 10s
 
   elasticsearch:
-    image: elasticsearch:8.13.4
+    image: elasticsearch:9.0.3
     container_name: amazon-elasticsearch
     ports:
       - "9200:9200"

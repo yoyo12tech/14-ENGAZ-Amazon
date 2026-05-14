@@ -4,6 +4,7 @@ import com.team14.amazon.contracts.dto.ProductDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
@@ -20,4 +21,13 @@ public interface ProductServiceClient {
 
     @GetMapping("/api/products/batch")
     List<ProductDTO> getProductsBatch(@RequestParam("ids") List<Long> ids);
+
+    @GetMapping("/api/products/{id}/price")
+    Double getProductPrice(@PathVariable("id") Long id);
+
+    @PostMapping("/api/products/{id}/stock/deduct")
+    Boolean deductStock(@PathVariable("id") Long id, @RequestParam("quantity") Integer quantity);
+
+    @PostMapping("/api/products/{id}/stock/restore")
+    void restoreStock(@PathVariable("id") Long id, @RequestParam("quantity") Integer quantity);
 }
