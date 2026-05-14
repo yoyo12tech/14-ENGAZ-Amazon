@@ -4,7 +4,7 @@ metadata:
   name: order-postgres
   namespace: amazon
 spec:
-  serviceName: order-postgres-svc
+  serviceName: order-postgres
   replicas: 1
   selector:
     matchLabels:
@@ -20,24 +20,32 @@ spec:
           ports:
             - containerPort: 5432
           env:
-            - name: POSTGRES_DB
-              value: orders
             - name: POSTGRES_USER
               valueFrom:
                 secretKeyRef:
                   name: order-postgres-secret
-                  key: username
+                  key: POSTGRES_USER
             - name: POSTGRES_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: order-postgres-secret
-                  key: password
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: order-postgres-secret
+                  key: POSTGRES_DB
           volumeMounts:
-            - name: order-postgres-pvc
+            - name: data
               mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "postgres"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
   volumeClaimTemplates:
     - metadata:
-        name: order-postgres-pvc
+        name: data
       spec:
         accessModes: ["ReadWriteOnce"]
         resources:
