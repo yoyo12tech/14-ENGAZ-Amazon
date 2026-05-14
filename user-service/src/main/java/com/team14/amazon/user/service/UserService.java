@@ -486,9 +486,9 @@ public class UserService {
             return UserOrderSummaryDTO.builder()
                     .userId(user.getId())
                     .name(user.getName())
-                    .totalOrders(0)
-                    .completedOrders(0)
-                    .cancelledOrders(0)
+                    .totalOrders(0L)
+                    .completedOrders(0L)
+                    .cancelledOrders(0L)
                     .totalSpent(0.0)
                     .averageOrderValue(0.0)
                     .build();
