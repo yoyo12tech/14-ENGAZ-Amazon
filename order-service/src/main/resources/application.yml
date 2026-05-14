@@ -66,10 +66,12 @@
     port: 8080
 
   management:
-    endpoint:
-      health:
-        show-details: always
-    health:
-      defaults:
-        enabled: false
+    endpoints:
+      web:
+        exposure:
+          include: "prometheus,health,info"
+    metrics:
+      distribution:
+        percentiles-histogram:
+          http.server.requests: true
 

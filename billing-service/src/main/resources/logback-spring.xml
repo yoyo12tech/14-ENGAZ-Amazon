@@ -1,0 +1,31 @@
+<configuration>
+
+    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="billing-service"/>
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%-5level","service":"${appName}","traceId":"%X{correlationId}","logger":"%logger{36}","message":"%replace(%msg){'\"','\\\"'}"}%n</pattern>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/billing-service.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/billing-service.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>7</maxHistory>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%-5level","service":"${appName}","traceId":"%X{correlationId}","logger":"%logger{36}","message":"%replace(%msg){'\"','\\\"'}"}%n</pattern>
+        </encoder>
+    </appender>
+
+    <logger name="com.team14.amazon.billing" level="INFO"/>
+    <logger name="org.springframework.web" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="WARN"/>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+</configuration>

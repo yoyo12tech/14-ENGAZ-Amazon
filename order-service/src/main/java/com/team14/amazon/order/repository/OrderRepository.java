@@ -148,4 +148,95 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             "WHERE o.orderedAt BETWEEN :start AND :end GROUP BY o.status")
     List<Object[]> countGroupByStatusBetween(@Param("start") LocalDateTime start,
                                              @Param("end")   LocalDateTime end);
+
+
+
+
+
+
+    //MS3
+    // ── S1-F3: summary for a user ────────────────────────────────────────────────
+    @Query(value = """
+    SELECT COUNT(*) AS total_orders,
+           SUM(CASE WHEN status IN ('DELIVERED','PAID') THEN 1 ELSE 0 END) AS completed_orders,
+           SUM(CASE WHEN status = 'CANCELLED' THEN 1 ELSE 0 END)           AS cancelled_orders,
+           COALESCE(SUM(CASE WHEN status IN ('DELIVERED','PAID') THEN total_amount ELSE 0 END), 0) AS total_spent
+    FROM orders WHERE user_id = :userId
+    """, nativeQuery = true)
+    Map<String, Object> getUserOrderSummaryRaw(@Param("userId") Long userId);
+
+    // ── S1-F4: active order count ─────────────────────────────────────────────────
+    @Query(value = """
+    SELECT COUNT(*) FROM orders
+    WHERE user_id = :userId
+      AND status IN ('PENDING','CONFIRMED','SHIPPED','PAYMENT_PENDING')
+    """, nativeQuery = true)
+    int getActiveOrderCountForUser(@Param("userId") Long userId);
+
+    // ── S1-F9: DELIVERED order count ──────────────────────────────────────────────
+    @Query(value = """
+    SELECT COUNT(*) FROM orders
+    WHERE user_id = :userId AND status = 'DELIVERED'
+    """, nativeQuery = true)
+    long getDeliveredOrderCountForUser(@Param("userId") Long userId);
+
+    // ── S2-F3: product sales aggregate ───────────────────────────────────────────
+    @Query(value = """
+    SELECT COALESCE(SUM(oi.quantity), 0)                             AS total_units_sold,
+           COALESCE(SUM(oi.quantity * oi.price_at_purchase), 0)      AS total_revenue,
+           COALESCE(AVG(oi.price_at_purchase), 0)                    AS avg_selling_price
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE oi.product_id = :productId
+      AND o.status IN ('DELIVERED','PAID')
+      AND o.delivered_at BETWEEN :startDate AND :endDate
+    """, nativeQuery = true)
+    Map<String, Object> getProductSalesRaw(@Param("productId") Long productId,
+                                           @Param("startDate") String startDate,
+                                           @Param("endDate") String endDate);
+
+    // ── S2-F4: pending order count for a product ──────────────────────────────────
+    @Query(value = """
+    SELECT COUNT(*) FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE oi.product_id = :productId AND o.status = 'PENDING'
+    """, nativeQuery = true)
+    int getPendingOrderCountForProduct(@Param("productId") Long productId);
+
+    // ── S2-F6: total units sold for a product ─────────────────────────────────────
+    @Query(value = """
+    SELECT COALESCE(SUM(oi.quantity), 0)
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE oi.product_id = :productId AND o.status IN ('DELIVERED','PAID')
+    """, nativeQuery = true)
+    long getUnitsSoldForProduct(@Param("productId") Long productId);
+
+    // ── S2-F9: recent sales count (last N days) ───────────────────────────────────
+    @Query(value = """
+    SELECT COALESCE(SUM(oi.quantity), 0)
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE oi.product_id = :productId
+      AND o.status IN ('DELIVERED','PAID')
+      AND o.delivered_at >= CURRENT_DATE - CAST(:days AS INT)
+    """, nativeQuery = true)
+    int getRecentSalesCountForProduct(@Param("productId") Long productId,
+                                      @Param("days") int days);
+
+    // ── S2-F7/S2-F8: has user purchased product ───────────────────────────────────
+    @Query(value = """
+    SELECT COUNT(*) > 0
+    FROM order_items oi
+    JOIN orders o ON o.id = oi.order_id
+    WHERE o.user_id = :userId
+      AND oi.product_id = :productId
+      AND o.status IN ('DELIVERED','PAID')
+    """, nativeQuery = true)
+    boolean hasUserPurchasedProduct(@Param("userId") Long userId,
+                                    @Param("productId") Long productId);
+
+// ── S5-F12: items for an order ────────────────────────────────────────────────
+// (already returned by the JPA relationship — just need the controller endpoint)
+// Use findById and getOrderItems() from the entity instead of a native query
 }
