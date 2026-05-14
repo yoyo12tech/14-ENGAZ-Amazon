@@ -11,6 +11,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.time.LocalDateTime;
 import org.springframework.data.jpa.repository.Query;
@@ -25,6 +26,14 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     List<Transaction> findByCreatedAtBetween(LocalDateTime startDate, LocalDateTime endDate);
 
     boolean existsByUserId(Long userId);
+
+    // Sum of COMPLETED transaction amounts for a user in a date range
+    @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.userId = :userId AND t.createdAt BETWEEN :start AND :end AND t.status = com.team14.amazon.billing.model.TransactionStatus.COMPLETED")
+    BigDecimal getUserTransactionTotal(@Param("userId") Long userId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
+    // Count of all transactions (1 per order) for a user in a date range
+    @Query("SELECT COUNT(t) FROM Transaction t WHERE t.userId = :userId AND t.createdAt BETWEEN :start AND :end")
+    long getUserOrderCount(@Param("userId") Long userId, @Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
     @Query("SELECT t.method, COUNT(t), SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.status = :status GROUP BY t.method")
     List<Object[]> getCompletedTransactionSummaryByUser(@Param("userId") Long userId, @Param("status") TransactionStatus status);
