@@ -1,0 +1,88 @@
+{
+  "id": null,
+  "title": "User Service Dashboard",
+  "tags": ["user-service"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"user-service\"}[1m])",
+          "legendFormat": "requests/sec"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 }
+    },
+    {
+      "id": 2,
+      "title": "Error Rate",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"user-service\",status!~\"2..\"}[1m])",
+          "legendFormat": "errors/sec"
+        }
+      ],
+      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 }
+    },
+    {
+      "id": 3,
+      "title": "Average Response Latency",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{job=\"user-service\"}[1m]) / rate(http_server_requests_seconds_count{job=\"user-service\"}[1m])",
+          "legendFormat": "avg latency (s)"
+        }
+      ],
+      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 }
+    },
+    {
+      "id": 4,
+      "title": "Error Logs",
+      "type": "logs",
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "{job=\"user-service\"} |= \"ERROR\"",
+          "legendFormat": ""
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
+      "id": 5,
+      "title": "Auth Logs",
+      "type": "logs",
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "{job=\"user-service\"} |~ \"auth|login|register|token\"",
+          "legendFormat": ""
+        }
+      ],
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+    },
+    {
+      "id": 6,
+      "title": "Log Volume Over Time",
+      "type": "timeseries",
+      "datasource": "Loki",
+      "targets": [
+        {
+          "expr": "sum(rate({job=\"user-service\"}[1m]))",
+          "legendFormat": "log lines/sec"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+    }
+  ]
+}
