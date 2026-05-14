@@ -67,6 +67,11 @@ public class ProductController {
         return ResponseEntity.ok(Map.of("exists", exists));
     }
 
+    @GetMapping("/batch")
+    public ResponseEntity<List<com.team14.amazon.contracts.dto.ProductDTO>> getProductsBatch(@RequestParam("ids") List<Long> ids) {
+        return ResponseEntity.ok(productService.getProductsBatch(ids));
+    }
+
     @GetMapping("/{id}/price")
     public ResponseEntity<Double> getProductPrice(@PathVariable Long id) {
         return productService.getProductById(id)

@@ -84,6 +84,18 @@ public class ProductService {
         return productRepository.findById(id);
     }
 
+    public List<com.team14.amazon.contracts.dto.ProductDTO> getProductsBatch(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        return productRepository.findAllById(ids).stream()
+                .map(p -> new com.team14.amazon.contracts.dto.ProductDTO(
+                        p.getId(), p.getName(), p.getDescription(), p.getPrice(),
+                        p.getCategory() != null ? p.getCategory().name() : null,
+                        p.getBrand(), p.getStockQuantity(),
+                        p.getStatus() != null ? p.getStatus().name() : null,
+                        p.getRating(), p.getSpecifications()))
+                .toList();
+    }
+
     public Product createProduct(Product product) {
         if (product.getStatus() == null)        product.setStatus(ProductStatus.ACTIVE);
         if (product.getStockQuantity() == null) product.setStockQuantity(0);

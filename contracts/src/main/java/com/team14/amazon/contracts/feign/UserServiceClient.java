@@ -16,6 +16,6 @@ public interface UserServiceClient {
 
 
     @GetMapping("/api/users/{userId}/addresses/{addressId}")
-    ShippingAddressDTO getShippingAddress(@PathVariable Long userId,
-                                          @PathVariable Long addressId);
+    ShippingAddressDTO getShippingAddress(@PathVariable("userId") Long userId,
+                                          @PathVariable("addressId") Long addressId);
 }
