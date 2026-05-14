@@ -358,8 +358,14 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        // M3: Replace direct count query with Feign call
-        int activeOrdersCount = orderServiceClient.getActiveOrderCount(id);
+        int activeOrdersCount = 0;
+        try {
+            // M3: Replace direct count query with Feign call
+            activeOrdersCount = orderServiceClient.getActiveOrderCount(id);
+        } catch (feign.FeignException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
+        }
+
         if (activeOrdersCount > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "User has active orders");
         }
@@ -449,7 +455,13 @@ public class UserService {
                 .toList();
 
         return matchingUsers.stream()
-                .filter(u -> orderServiceClient.getTotalOrderCount(u.getId()) >= minOrders)
+                .filter(u -> {
+                    try {
+                        return orderServiceClient.getTotalOrderCount(u.getId()) >= minOrders;
+                    } catch (feign.FeignException e) {
+                        return false; // Skip user if order service is down
+                    }
+                })
                 .collect(Collectors.toList());
     }
 
@@ -457,18 +469,32 @@ public class UserService {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // M3: Replace cross-service SQL JOIN with Feign call
-        OrderSummaryDTO orderSummary = orderServiceClient.getUserOrderSummary(id);
+        try {
+            // M3: Replace cross-service SQL JOIN with Feign call
+            OrderSummaryDTO orderSummary = orderServiceClient.getUserOrderSummary(id);
 
-        return UserOrderSummaryDTO.builder()
-                .userId(user.getId())
-                .name(user.getName())
-                .totalOrders(orderSummary.getTotalOrders())
-                .completedOrders(orderSummary.getCompletedOrders())
-                .cancelledOrders(orderSummary.getCancelledOrders())
-                .totalSpent(orderSummary.getTotalSpent())
-                .averageOrderValue(orderSummary.getAverageOrderValue())
-                .build();
+            return UserOrderSummaryDTO.builder()
+                    .userId(user.getId())
+                    .name(user.getName())
+                    .totalOrders(orderSummary.getTotalOrders())
+                    .completedOrders(orderSummary.getCompletedOrders())
+                    .cancelledOrders(orderSummary.getCancelledOrders())
+                    .totalSpent(orderSummary.getTotalSpent())
+                    .averageOrderValue(orderSummary.getAverageOrderValue())
+                    .build();
+        } catch (feign.FeignException.NotFound e) {
+            return UserOrderSummaryDTO.builder()
+                    .userId(user.getId())
+                    .name(user.getName())
+                    .totalOrders(0)
+                    .completedOrders(0)
+                    .cancelledOrders(0)
+                    .totalSpent(0.0)
+                    .averageOrderValue(0.0)
+                    .build();
+        } catch (feign.FeignException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
+        }
     }
 
     public User updateUserPreferences(Long id, Map<String, Object> newPreferences) {
