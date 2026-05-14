@@ -13,13 +13,13 @@ public interface BillingServiceClient {
 
     @GetMapping("/api/transactions/user/{userId}/total")
     BigDecimal getUserTransactionTotal(
-            @PathVariable Long userId,
-            @RequestParam String startDate,
-            @RequestParam String endDate
+            @PathVariable("userId") Long userId,
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate
     );
 
     @GetMapping("/api/transactions/user/{userId}/order-count")
-    long getUserOrderCount(@PathVariable Long userId,
-                           @RequestParam String startDate,
-                           @RequestParam String endDate);
+    long getUserOrderCount(@PathVariable("userId") Long userId,
+                           @RequestParam("startDate") String startDate,
+                           @RequestParam("endDate") String endDate);
 }

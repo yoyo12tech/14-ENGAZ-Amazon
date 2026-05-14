@@ -1,5 +1,6 @@
 package com.team14.amazon.shipping.controller;
 
+import com.team14.amazon.contracts.dto.ShipmentDTO;
 import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
@@ -180,5 +181,15 @@ public class ShipmentController {
 
         return ResponseEntity.ok(shipmentService.getTrackingTimeline(id, startTime, endTime));
     }
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/order/{orderId}/active")
+    public ResponseEntity<ShipmentDTO> getActiveShipment(@PathVariable Long orderId) {
+        return ResponseEntity.ok(shipmentService.getActiveShipment(orderId));
+    }
 
+    @PreAuthorize("hasAnyRole('ADMIN', 'CUSTOMER')")
+    @GetMapping("/order/{orderId}/ids")
+    public ResponseEntity<List<Long>> getShipmentIdsByOrderId(@PathVariable Long orderId) {
+        return ResponseEntity.ok(shipmentService.getShipmentIdsByOrderId(orderId));
+    }
 }

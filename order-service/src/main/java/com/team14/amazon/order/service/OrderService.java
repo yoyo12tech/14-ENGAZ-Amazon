@@ -107,7 +107,8 @@ public class OrderService {
 
     @Cacheable(value = "order-service::order", key = "#id")
     public Optional<Order> getById(Long id) {
-        return orderRepository.findById(id);
+        return Optional.of(orderRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found: " + id)));
     }
 
     public List<Order> getAll() {
