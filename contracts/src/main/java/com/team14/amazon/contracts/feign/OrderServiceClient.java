@@ -2,6 +2,7 @@ package com.team14.amazon.contracts.feign;
 
 
 import com.team14.amazon.contracts.dto.OrderDTO;
+import com.team14.amazon.contracts.dto.OrderDetailsDTO;
 import com.team14.amazon.contracts.dto.OrderSummaryDTO;
 import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -14,6 +15,9 @@ public interface OrderServiceClient {
 
     @GetMapping("/api/orders/{orderId}")
     OrderDTO getOrder(@PathVariable("orderId") Long orderId);
+
+    @GetMapping("/api/orders/{orderId}/details")
+    OrderDetailsDTO getOrderDetails(@PathVariable("orderId") Long orderId);
 
     @GetMapping("/api/orders/user/{userId}/summary")
     OrderSummaryDTO getUserOrderSummary(@PathVariable("userId") Long userId);
