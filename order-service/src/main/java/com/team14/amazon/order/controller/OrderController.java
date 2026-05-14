@@ -1,5 +1,9 @@
 package com.team14.amazon.order.controller;
 
+import com.team14.amazon.contracts.dto.OrderSummaryDTO;
+import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
+import com.team14.amazon.contracts.dto.OrderItemDTO;
+import com.team14.amazon.order.service.OrderReadService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.team14.amazon.order.dto.*;
@@ -26,13 +30,16 @@ public class OrderController {
     private final OrderService orderService;
     private final OrderItemService orderItemService;
     private final RecommendationService recommendationService;
+    private final OrderReadService orderReadService;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     public OrderController(OrderService orderService, OrderItemService orderItemService,
-                           RecommendationService recommendationService) {
+                           RecommendationService recommendationService,
+                           OrderReadService orderReadService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
         this.recommendationService = recommendationService;
+        this.orderReadService = orderReadService;
 
     }
 
@@ -172,7 +179,7 @@ public class OrderController {
 
     /**
      * S3-F10: GET /api/orders/analytics/dashboard
-     *
+     * <p>
      * DISTINCT from M1's GET /api/orders/analytics (S3-F6).
      * Both coexist — do NOT overwrite the existing /analytics endpoint.
      */
@@ -200,4 +207,85 @@ public class OrderController {
             @RequestParam(required = false, defaultValue = "5") int limit) {
         return ResponseEntity.ok(recommendationService.getRecommendations(productId, limit));
     }
+
+
+    //MS3 endpoints
+
+
+// Add orderReadService to the constructor:
+// public OrderController(OrderService orderService,
+//                        OrderItemService orderItemService,
+//                        RecommendationService recommendationService,
+//                        OrderReadService orderReadService) { ... }
+
+    @GetMapping("/user/{userId}/summary")
+    public ResponseEntity<OrderSummaryDTO> getUserOrderSummary(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/summary", userId);
+        OrderSummaryDTO result = orderReadService.getUserOrderSummary(userId);
+        log.info("Returning 200 for GET /api/orders/user/{}/summary", userId);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/user/{userId}/active-count")
+    public ResponseEntity<Integer> getActiveOrderCount(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/active-count", userId);
+        return ResponseEntity.ok(orderReadService.getActiveOrderCount(userId));
+    }
+
+    @GetMapping("/user/{userId}/count")
+    public ResponseEntity<Long> getTotalOrderCount(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/count", userId);
+        return ResponseEntity.ok(orderReadService.getTotalOrderCount(userId));
+    }
+
+    @GetMapping("/product/{productId}/sales")
+    public ResponseEntity<ProductSalesAggregateDTO> getProductSales(
+            @PathVariable Long productId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        log.info("Received GET /api/orders/product/{}/sales [{} – {}]", productId, startDate, endDate);
+        return ResponseEntity.ok(orderReadService.getProductSales(productId, startDate, endDate));
+    }
+
+    @GetMapping("/product/{productId}/pending-count")
+    public ResponseEntity<Integer> getPendingOrderCountForProduct(@PathVariable Long productId) {
+        log.info("Received GET /api/orders/product/{}/pending-count", productId);
+        return ResponseEntity.ok(orderReadService.getPendingOrderCountForProduct(productId));
+    }
+
+    @GetMapping("/product/{productId}/units-sold")
+    public ResponseEntity<Long> getUnitsSold(@PathVariable Long productId) {
+        log.info("Received GET /api/orders/product/{}/units-sold", productId);
+        return ResponseEntity.ok(orderReadService.getUnitsSold(productId));
+    }
+
+    @GetMapping("/product/{productId}/recent-sales-count")
+    public ResponseEntity<Integer> getRecentSalesCount(
+            @PathVariable Long productId,
+            @RequestParam("days") int days) {
+        log.info("Received GET /api/orders/product/{}/recent-sales-count?days={}", productId, days);
+        return ResponseEntity.ok(orderReadService.getRecentSalesCount(productId, days));
+    }
+
+    @GetMapping("/user/{userId}/has-purchased/{productId}")
+    public ResponseEntity<Boolean> hasUserPurchasedProduct(
+            @PathVariable Long userId,
+            @PathVariable Long productId) {
+        log.info("Received GET /api/orders/user/{}/has-purchased/{}", userId, productId);
+        return ResponseEntity.ok(orderReadService.hasUserPurchasedProduct(userId, productId));
+    }
+
+
+
+
+    //The below might conflict with the old orderItem DTO didnt test it yet
+    @GetMapping("/{orderId}/items")
+    public ResponseEntity<List<OrderItemDTO>> getOrderItems(@PathVariable Long orderId) {
+        log.info("Received GET /api/orders/{}/items", orderId);
+        List<OrderItemDTO> items = orderReadService.getOrderItems(orderId);
+        log.info("Returning {} items for orderId={}", items.size(), orderId);
+        return ResponseEntity.ok(items);
+
+    }
+
 }
