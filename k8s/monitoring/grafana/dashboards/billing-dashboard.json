@@ -1,0 +1,105 @@
+{
+  "id": null,
+  "uid": "billing-service-dashboard",
+  "title": "Billing Service Dashboard",
+  "tags": ["billing-service", "microservices"],
+  "timezone": "browser",
+  "schemaVersion": 36,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Billing Service Error Logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} | json | level=~\"ERROR|WARN\"",
+          "datasource": "Loki",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Loki"
+    },
+    {
+      "id": 2,
+      "title": "Transaction Event Logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} |= \"TRANSACTION\" | json",
+          "datasource": "Loki",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Loki"
+    },
+    {
+      "id": 3,
+      "title": "Refund Event Logs",
+      "type": "logs",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "expr": "{service=\"billing-service\"} |= \"REFUND\" | json",
+          "datasource": "Loki",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Loki"
+    },
+    {
+      "id": 4,
+      "title": "Request Rate",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"billing-service\"}[5m])",
+          "datasource": "Prometheus",
+          "legendFormat": "{{method}} {{uri}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 5,
+      "title": "JVM Memory Usage",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"billing-service\", area=\"heap\"}",
+          "datasource": "Prometheus",
+          "legendFormat": "Heap Used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_max_bytes{job=\"billing-service\", area=\"heap\"}",
+          "datasource": "Prometheus",
+          "legendFormat": "Heap Max",
+          "refId": "B"
+        }
+      ],
+      "datasource": "Prometheus"
+    },
+    {
+      "id": 6,
+      "title": "HTTP Error Rate",
+      "type": "graph",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"billing-service\", status=~\"4..|5..\"}[5m])",
+          "datasource": "Prometheus",
+          "legendFormat": "Error Rate {{status}}",
+          "refId": "A"
+        }
+      ],
+      "datasource": "Prometheus"
+    }
+  ]
+}

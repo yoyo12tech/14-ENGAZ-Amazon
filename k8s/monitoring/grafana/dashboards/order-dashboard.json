@@ -1,0 +1,95 @@
+{
+  "__inputs": [],
+  "__requires": [],
+  "annotations": { "list": [] },
+  "description": "Order service — LogQL observability panels (M3 S3-READ-DB)",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "id": 1,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"amazon\", service=\"order-service\", level=\"ERROR\"} | json | line_format \"[{{.correlationId}}] {{.orderId}} {{.message}}\"",
+          "legendFormat": "errors",
+          "refId": "A"
+        }
+      ],
+      "title": "Order service — ERROR log lines",
+      "description": "All ERROR-level log lines from order-service. Used for spike detection — correlate with orderId and correlationId to trace failures.",
+      "type": "logs"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 1 } },
+        "overrides": []
+      },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "id": 2,
+      "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" } },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "sum by (level) (count_over_time({app=\"amazon\", service=\"order-service\"} | json [1m]))",
+          "legendFormat": "{{level}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Order service — log volume by level (per minute)",
+      "description": "Count of log lines per level per minute. Spike in ERROR means something is failing; spike in INFO without WARN/ERROR is healthy load.",
+      "type": "timeseries"
+    },
+    {
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "id": 3,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": true,
+        "showTime": true,
+        "sortOrder": "Ascending",
+        "wrapLogMessage": false
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "expr": "{app=\"amazon\", service=\"order-service\"} | json | orderId != \"\" | line_format \"[{{.correlationId}}] orderId={{.orderId}} {{.level}} {{.message}}\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Order service — per-order trace (filter by orderId in Loki explorer)",
+      "description": "All log lines that carry an orderId. In Loki Explore, add a label filter `orderId=<id>` to trace a single order across all saga steps. Correlates with saga state transitions (DELIVERED → PAYMENT_PENDING → PAID).",
+      "type": "logs"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["amazon", "order-service", "m3"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Order service dashboard",
+  "uid": "order-service-m3",
+  "version": 1
+}

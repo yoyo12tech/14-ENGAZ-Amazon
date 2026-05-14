@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.HashMap;
 import java.time.LocalDate;
@@ -92,6 +93,22 @@ public class TransactionController {
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate) {
         return transactionService.searchTransactions(status, startDate, endDate);
+    }
+
+    @GetMapping("/user/{userId}/total")
+    public ResponseEntity<BigDecimal> getUserTransactionTotal(
+            @PathVariable Long userId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        return ResponseEntity.ok(transactionService.getUserTransactionTotal(userId, startDate, endDate));
+    }
+
+    @GetMapping("/user/{userId}/order-count")
+    public ResponseEntity<Long> getUserOrderCount(
+            @PathVariable Long userId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        return ResponseEntity.ok(transactionService.getUserOrderCount(userId, startDate, endDate));
     }
 
     @GetMapping("/user/{userId}/summary")

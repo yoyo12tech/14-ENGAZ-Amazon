@@ -154,6 +154,18 @@ public class TransactionService {
         }
     }
 
+    public java.math.BigDecimal getUserTransactionTotal(Long userId, String startDate, String endDate) {
+        LocalDateTime start = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime end = LocalDate.parse(endDate).atTime(LocalTime.MAX);
+        return transactionRepository.getUserTransactionTotal(userId, start, end);
+    }
+
+    public long getUserOrderCount(Long userId, String startDate, String endDate) {
+        LocalDateTime start = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime end = LocalDate.parse(endDate).atTime(LocalTime.MAX);
+        return transactionRepository.getUserOrderCount(userId, start, end);
+    }
+
     public Transaction findByOrderId(Long id) {
         return transactionRepository.findByOrderId(id);
     }
