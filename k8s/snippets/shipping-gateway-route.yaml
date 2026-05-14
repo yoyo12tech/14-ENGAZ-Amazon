@@ -1,0 +1,6 @@
+- id: shipping-service
+
+  uri: http://shipping-service:8080
+
+  predicates:
+    - Path=/api/shipments/**

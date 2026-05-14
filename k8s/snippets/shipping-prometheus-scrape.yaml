@@ -1,0 +1,7 @@
+- job_name: 'shipping-service'
+
+  metrics_path: '/actuator/prometheus'
+
+  static_configs:
+    - targets:
+        - 'shipping-service.amazon.svc.cluster.local:8080'

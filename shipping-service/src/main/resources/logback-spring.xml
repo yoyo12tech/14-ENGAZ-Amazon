@@ -1,30 +1,37 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <!-- ── Console appender (standard Spring Boot format) ───────────────── -->
+    <!-- ── Console appender ─────────────────────────────────────────────── -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [${spring.application.name:-shipping-service}] [%t] %logger{36} : %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- ── Loki4J appender — pushes structured logs to Grafana Loki ─────── -->
+    <!-- ── Loki4J appender ──────────────────────────────────────────────── -->
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
-            <!-- Loki URL — override via LOKI_URL env var in K8s ConfigMap   -->
-            <url>${LOKI_URL:-http://loki:3100}/loki/api/v1/push</url>
+            <url>http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push</url>
         </http>
         <format>
             <label>
-                <!-- Labels used in LogQL queries for the Grafana dashboard   -->
-                <pattern>
-                    app=shipping-service,
-                    host=${HOSTNAME:-unknown},
-                    level=%level
-                </pattern>
+                <pattern>app=amazon,service=shipping-service,level=%level,env=k8s</pattern>
             </label>
             <message>
-                <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [%t] %logger{36} : %msg%n</pattern>
+                <pattern>
+                    {
+                      "timestamp": "%d{ISO8601}",
+                      "level": "%level",
+                      "service": "shipping-service",
+                      "thread": "%thread",
+                      "logger": "%logger{36}",
+                      "correlationId": "%X{correlationId:-}",
+                      "shipmentId": "%X{shipmentId:-}",
+                      "orderId": "%X{orderId:-}",
+                      "routingKey": "%X{routingKey:-}",
+                      "message": "%msg"
+                    }
+                </pattern>
             </message>
             <sortByTime>true</sortByTime>
         </format>
@@ -36,7 +43,7 @@
         <appender-ref ref="LOKI"/>
     </root>
 
-    <!-- ── Reduce Hibernate SQL noise in production ──────────────────────── -->
+    <!-- ── Reduce Hibernate noise ────────────────────────────────────────── -->
     <logger name="org.hibernate.SQL" level="WARN"/>
     <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
 
