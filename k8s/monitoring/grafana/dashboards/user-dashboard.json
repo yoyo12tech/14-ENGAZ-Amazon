@@ -1,14 +1,36 @@
 {
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "target": {
+          "limit": 100,
+          "matchAny": false,
+          "tags": [],
+          "type": "dashboard"
+        },
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
   "id": null,
-  "title": "User Service Dashboard",
-  "tags": ["user-service"],
-  "timezone": "browser",
-  "schemaVersion": 36,
-  "version": 1,
+  "links": [],
+  "liveNow": false,
   "panels": [
     {
-      "id": 1,
-      "title": "Request Rate",
+      "id": 101,
+      "title": "Request Rate (Prometheus)",
       "type": "timeseries",
       "datasource": "Prometheus",
       "targets": [
@@ -20,8 +42,8 @@
       "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 }
     },
     {
-      "id": 2,
-      "title": "Error Rate",
+      "id": 102,
+      "title": "Error Rate (Prometheus)",
       "type": "timeseries",
       "datasource": "Prometheus",
       "targets": [
@@ -33,8 +55,8 @@
       "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 }
     },
     {
-      "id": 3,
-      "title": "Average Response Latency",
+      "id": 103,
+      "title": "Average Response Latency (Prometheus)",
       "type": "timeseries",
       "datasource": "Prometheus",
       "targets": [
@@ -46,21 +68,74 @@
       "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 }
     },
     {
-      "id": 4,
-      "title": "Error Logs",
-      "type": "logs",
-      "datasource": "Loki",
+      "id": 1,
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "prettifyLogMessage": false,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": false
+      },
       "targets": [
         {
-          "expr": "{job=\"user-service\"} |= \"ERROR\"",
-          "legendFormat": ""
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "{app=\"amazon\", service=\"user-service\"}",
+          "queryType": "range",
+          "refId": "A"
         }
       ],
-      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+      "title": "User Service Logs (Loki)",
+      "type": "logs"
     },
     {
-      "id": 5,
-      "title": "Auth Logs",
+      "id": 2,
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "count_over_time({app=\"amazon\", service=\"user-service\", level=\"ERROR\"}[1m])",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "Error Rate (Loki per min)",
+      "type": "timeseries"
+    },
+    {
+      "id": 3,
+      "datasource": { "type": "loki", "uid": "loki" },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "datasource": { "type": "loki", "uid": "loki" },
+          "editorMode": "code",
+          "expr": "count_over_time({app=\"amazon\", service=\"user-service\"} |= \"deactivate\" [5m])",
+          "queryType": "range",
+          "refId": "A"
+        }
+      ],
+      "title": "User Deactivations (last 5m)",
+      "type": "timeseries"
+    },
+    {
+      "id": 105,
+      "title": "Auth Logs (Loki)",
       "type": "logs",
       "datasource": "Loki",
       "targets": [
@@ -69,11 +144,11 @@
           "legendFormat": ""
         }
       ],
-      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
     },
     {
-      "id": 6,
-      "title": "Log Volume Over Time",
+      "id": 106,
+      "title": "Log Volume Over Time (Loki)",
       "type": "timeseries",
       "datasource": "Loki",
       "targets": [
@@ -82,7 +157,19 @@
           "legendFormat": "log lines/sec"
         }
       ],
-      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 }
     }
-  ]
+  ],
+  "refresh": "5s",
+  "schemaVersion": 38,
+  "style": "dark",
+  "tags": ["amazon", "user-service"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "User Service Dashboard",
+  "uid": "user-service-dashboard",
+  "version": 1,
+  "weekStart": ""
 }

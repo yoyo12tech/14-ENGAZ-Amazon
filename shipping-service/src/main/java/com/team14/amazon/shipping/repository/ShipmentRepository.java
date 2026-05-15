@@ -1,6 +1,5 @@
 package com.team14.amazon.shipping.repository;
 
-import com.team14.amazon.contracts.dto.ShipmentDTO;
 import com.team14.amazon.shipping.model.Shipment;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -109,6 +108,17 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
         """, nativeQuery = true
     )
     Shipment getActiveShipment(@Param("orderId") Long orderId);
+
+    @Query(
+            value = """
+            SELECT s FROM Shipment s
+            WHERE s.orderId = :orderId
+            AND s.status IN ('PROCESSING','SHIPPED','IN_TRANSIT','OUT_FOR_DELIVERY')
+            ORDER BY s.lastUpdate DESC
+            LIMIT 1
+        """
+    )
+    Optional<Shipment> findActiveShipmentByOrderId(@Param("orderId") Long orderId);
 
     // Returns all shipment IDs for a given orderId — used by /ids endpoint (S5-F11)
     @Query(
