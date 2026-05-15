@@ -46,7 +46,6 @@ public class Voucher {
 
     @JsonManagedReference("voucher-transactionvoucher")
     @OneToMany(mappedBy = "voucher")
-    @JsonManagedReference("voucher")
     private List<TransactionVoucher> transactionVoucher;
 
     @PrePersist

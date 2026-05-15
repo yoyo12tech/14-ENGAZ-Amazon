@@ -48,7 +48,6 @@ public class Transaction {
 
     @JsonManagedReference
     @OneToMany(mappedBy = "transaction", cascade = CascadeType.ALL)
-    @JsonManagedReference("transaction")
     private List<TransactionVoucher> transactionVouchers;
 
     @PrePersist
