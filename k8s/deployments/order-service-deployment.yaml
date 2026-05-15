@@ -20,17 +20,17 @@ spec:
             - containerPort: 8080
           env:
             - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://order-postgres-svc:5432/orders
+              value: jdbc:postgresql://order-postgres:5432/amazondb-orders
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: order-postgres-secret
-                  key: username
+                  key: POSTGRES_USER
             - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: order-postgres-secret
-                  key: password
+                  key: POSTGRES_PASSWORD
           volumeMounts:
             - name: order-service-config
               mountPath: /config
