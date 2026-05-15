@@ -16,9 +16,6 @@ spring:
         format_sql: true
 
   data:
-    mongodb:
-      uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
-
     redis:
       host: redis
       port: 6379
@@ -39,7 +36,9 @@ spring:
         retry:
           enabled: true
           initial-interval: 1000
-          max-attempts: 3
+          max-retries: 3
+  mongodb:
+    uri: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
 
 feign:
   user-service:
@@ -60,14 +59,24 @@ jwt:
 server:
   port: 8080
 
+# ── Actuator + Prometheus ──────────────────────────────────────────────────────
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus,metrics
   endpoint:
     health:
       show-details: always
+    prometheus:
+      enabled: true
+  metrics:
+    tags:
+      application: user-service        # label on every Prometheus metric
   health:
     defaults:
       enabled: true
+  prometheus:
+    metrics:
+      export:
+        enabled: true

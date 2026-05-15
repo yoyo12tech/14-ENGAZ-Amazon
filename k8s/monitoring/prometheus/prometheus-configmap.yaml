@@ -5,56 +5,24 @@ metadata:
   namespace: monitoring
 data:
   prometheus.yml: |
-    global:
-      scrape_interval: 10s
-      evaluation_interval: 10s
-
     scrape_configs:
-
-      # =========================
-      # API Gateway (EDGE LAYER)
-      # =========================
-      - job_name: "api-gateway"
-        metrics_path: "/actuator/prometheus"
+      - job_name: user-service
         static_configs:
-          - targets: ["api-gateway:8080"]
-
-      # =========================
-      # CORE MICROSERVICES
-      # =========================
-      - job_name: "user-service"
-        metrics_path: "/actuator/prometheus"
+          - targets: ['user-service.amazon.svc.cluster.local:8080']
+        metrics_path: /actuator/prometheus
+      - job_name: product-service
         static_configs:
-          - targets: ["user-service:8080"]
-
-      - job_name: "product-service"
-        metrics_path: "/actuator/prometheus"
+          - targets: ['product-service.amazon.svc.cluster.local:8080']
+        metrics_path: /actuator/prometheus
+      - job_name: order-service
         static_configs:
-          - targets: ["product-service:8080"]
-
-      - job_name: "order-service"
-        metrics_path: "/actuator/prometheus"
+          - targets: ['order-service.amazon.svc.cluster.local:8080']
+        metrics_path: /actuator/prometheus
+      - job_name: shipping-service
         static_configs:
-          - targets: ["order-service:8080"]
-
-      - job_name: "shipping-service"
-        metrics_path: "/actuator/prometheus"
+          - targets: ['shipping-service.amazon.svc.cluster.local:8080']
+        metrics_path: /actuator/prometheus
+      - job_name: billing-service
         static_configs:
-          - targets: ["shipping-service:8080"]
-
-      - job_name: "billing-service"
-        metrics_path: "/actuator/prometheus"
-        static_configs:
-          - targets: ["billing-service:8080"]
-
-      # =========================
-      # MESSAGE + SEARCH INFRA
-      # =========================
-
-      - job_name: "rabbitmq"
-        static_configs:
-          - targets: ["rabbitmq:15692"]
-
-      - job_name: "elasticsearch"
-        static_configs:
-          - targets: ["elasticsearch:9200"]
+          - targets: ['billing-service.amazon.svc.cluster.local:8080']
+        metrics_path: /actuator/prometheus
