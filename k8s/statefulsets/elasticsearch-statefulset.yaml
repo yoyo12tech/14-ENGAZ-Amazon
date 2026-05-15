@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: StatefulSet
+
+metadata:
+  name: elasticsearch
+
+spec:
+  serviceName: elasticsearch
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: elasticsearch
+
+  template:
+    metadata:
+      labels:
+        app: elasticsearch
+
+    spec:
+      containers:
+        - name: elasticsearch
+          image: elasticsearch:8.13.0
+
+          env:
+            - name: discovery.type
+              value: single-node
+
+          ports:
+            - containerPort: 9200

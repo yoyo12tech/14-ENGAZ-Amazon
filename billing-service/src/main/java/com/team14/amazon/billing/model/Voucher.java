@@ -132,8 +132,5 @@ public class Voucher {
         this.transactionVoucher = transactionVoucher;
     }
 
-    public void setCurrentUses(Integer currentUses) {
-        this.currentUses = currentUses;
-    }
 }
 

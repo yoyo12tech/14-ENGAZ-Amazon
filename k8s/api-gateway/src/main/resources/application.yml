@@ -1,0 +1,8 @@
+spring:
+  cloud:
+    gateway:
+      routes:
+        - id: billing-service
+          uri: http://billing-service:8080
+          predicates:
+            - Path=/api/billing/**
