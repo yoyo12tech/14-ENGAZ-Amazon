@@ -22,13 +22,11 @@ public class TransactionVoucher {
     @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "transaction_id", nullable = false)
-    @JsonBackReference("transaction")
     private Transaction transaction;
 
     @JsonBackReference("voucher-transactionvoucher")
     @ManyToOne
     @JoinColumn(name = "voucher_id", nullable = false)
-    @JsonBackReference("voucher")
     private Voucher voucher;
 
     @PrePersist
