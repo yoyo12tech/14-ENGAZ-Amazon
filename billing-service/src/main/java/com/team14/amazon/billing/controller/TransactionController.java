@@ -68,13 +68,18 @@ public class TransactionController {
         return ResponseEntity.ok(transactionService.processRefund(id, reason));
     }
 
+    @PreAuthorize("isAuthenticated()")
     @PostMapping("/order/{orderId}")
     public ResponseEntity<Transaction> processOrderTransaction(
             @PathVariable Long orderId,
             @RequestParam(name = "simulateFailure", defaultValue = "false") boolean simulateFailure,
-            @RequestBody ProcessTransactionRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED)
-                .body(transactionService.processOrderTransaction(orderId, request, simulateFailure));
+            @RequestBody(required = false) ProcessTransactionRequest request) {
+        ProcessTransactionRequest body = request != null ? request : new ProcessTransactionRequest();
+        Transaction tx = transactionService.processOrderTransaction(orderId, body, simulateFailure);
+        if (simulateFailure) {
+            return ResponseEntity.status(HttpStatus.OK).body(tx);
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(tx);
     }
 
     @PutMapping("/{id}/retry")

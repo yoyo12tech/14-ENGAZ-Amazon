@@ -13,10 +13,10 @@ import java.util.Map;
 public interface ProductServiceClient {
 
     @GetMapping("/api/products/{id}")
-    ProductDTO getProduct(@PathVariable Long id);
+    ProductDTO getProduct(@PathVariable("id") Long id);
 
     @GetMapping("/api/products/{id}/exists")
-    Map<String, Boolean> productExists(@PathVariable Long id);
+    Map<String, Boolean> productExists(@PathVariable("id") Long id);
 
     @GetMapping("/api/products/batch")
     List<ProductDTO> getProductsBatch(@RequestParam("ids") List<Long> ids);

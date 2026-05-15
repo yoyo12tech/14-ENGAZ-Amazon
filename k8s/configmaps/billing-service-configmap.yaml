@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: billing-service-configmap
+  namespace: amazon
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+  # Add other environment variables here
+
+

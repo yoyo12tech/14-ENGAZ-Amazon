@@ -10,6 +10,14 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
+import com.team14.amazon.contracts.feign.OrderServiceClient;
+import com.team14.amazon.contracts.feign.ProductServiceClient;
+import com.team14.amazon.contracts.feign.ShippingServiceClient;
+import com.team14.amazon.contracts.feign.UserServiceClient;
+import com.team14.amazon.contracts.dto.OrderDTO;
+import com.team14.amazon.billing.messaging.PaymentEventPublisher;
+import com.team14.amazon.contracts.events.PaymentCompletedEvent;
+import com.team14.amazon.contracts.events.PaymentFailedEvent;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -34,20 +42,17 @@ import java.util.List;
 
 import com.team14.amazon.billing.dto.AppliedVoucherDetail;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
-import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.team14.amazon.billing.dto.CategoryRevenueDTO;
-import com.team14.amazon.billing.repository.CategoryRevenueProjection;
 import com.team14.amazon.billing.dto.LifecycleEventDTO;
+import com.team14.amazon.billing.exception.ConflictException;
+import com.team14.amazon.contracts.dto.OrderDetailsDTO;
+import com.team14.amazon.contracts.dto.OrderItemDTO;
+import com.team14.amazon.contracts.dto.ProductDTO;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Criteria;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.Authentication;
 import org.bson.Document;
 import java.util.Comparator;
-import java.util.Date;
 import java.time.ZoneId;
 
 @Service
@@ -59,16 +64,32 @@ public class TransactionService {
     private final BillingCacheInvalidationService cacheInvalidationService;
     private final MongoTemplate mongoTemplate;
 
+    private final OrderServiceClient orderServiceClient;
+    private final ProductServiceClient productServiceClient;
+    private final ShippingServiceClient shippingServiceClient;
+    private final UserServiceClient userServiceClient;
+    private final PaymentEventPublisher paymentEventPublisher;
+
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
             TransactionVoucherRepository transactionVoucherRepository,
             List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService,
-            MongoTemplate mongoTemplate) {
+            MongoTemplate mongoTemplate,
+            OrderServiceClient orderServiceClient,
+            ProductServiceClient productServiceClient,
+            ShippingServiceClient shippingServiceClient,
+            UserServiceClient userServiceClient,
+            PaymentEventPublisher paymentEventPublisher) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
         this.observers = new ArrayList<>(observers);
         this.cacheInvalidationService = cacheInvalidationService;
         this.mongoTemplate = mongoTemplate;
+        this.orderServiceClient = orderServiceClient;
+        this.productServiceClient = productServiceClient;
+        this.shippingServiceClient = shippingServiceClient;
+        this.userServiceClient = userServiceClient;
+        this.paymentEventPublisher = paymentEventPublisher;
     }
 
     public void register(EntityObserver observer) {
@@ -233,15 +254,36 @@ public class TransactionService {
 
     @Cacheable(cacheNames = BillingCacheNames.S5_F3, key = "'userId:' + #userId")
     public UserTransactionSummaryDTO getUserTransactionSummary(Long userId) {
-        if (!transactionRepository.existsByUserId(userId)) {
+        com.team14.amazon.contracts.dto.UserDTO user = userServiceClient.getUser(userId);
+        if (user == null) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
         }
 
-        List<Object[]> results = transactionRepository.getCompletedTransactionSummaryByUser(userId,
-                TransactionStatus.COMPLETED);
+        List<Transaction> transactions = transactionRepository.findAll().stream()
+                .filter(t -> t.getUserId().equals(userId) && t.getStatus() == TransactionStatus.COMPLETED)
+                .toList();
 
-        ObjectArrayDtoAdapter adapter = new ObjectArrayDtoAdapter();
-        return adapter.adapt(userId, results);
+        Map<String, Double> methodBreakdown = new HashMap<>();
+
+        long totalTransactions = 0;
+        double totalVolume = 0.0;
+
+        for (Transaction t : transactions) {
+            String mStr = t.getMethod() != null ? t.getMethod().name() : "UNKNOWN";
+            double amt = t.getAmount() != null ? t.getAmount() : 0.0;
+
+            methodBreakdown.put(mStr, methodBreakdown.getOrDefault(mStr, 0.0) + amt);
+
+            totalTransactions++;
+            totalVolume += amt;
+        }
+
+        return UserTransactionSummaryDTO.builder()
+                .userId(userId)
+                .totalTransactions(totalTransactions)
+                .totalAmount(totalVolume)
+                .methodBreakdown(methodBreakdown)
+                .build();
     }
 
     @Cacheable(
@@ -285,42 +327,42 @@ public class TransactionService {
     @Transactional
     public Transaction processOrderTransaction(Long orderId, ProcessTransactionRequest request,
             boolean simulateFailure) {
-        String orderStatus = transactionRepository.findOrderStatusByOrderId(orderId);
-        if (orderStatus == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "Order not found: " + orderId);
+
+        ProcessTransactionRequest req = request != null ? request : new ProcessTransactionRequest();
+
+        OrderDTO order;
+        try {
+            order = orderServiceClient.getOrder(orderId);
+        } catch (ResponseStatusException e) {
+            if (e.getStatusCode().value() == HttpStatus.NOT_FOUND.value()) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+            }
+            throw e;
         }
 
-        if (!orderStatus.equalsIgnoreCase("DELIVERED")) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only DELIVERED orders can be processed");
+        String oStatus = order != null ? order.status() : "";
+
+        if (!"DELIVERED".equalsIgnoreCase(oStatus) && !"PAYMENT_PENDING".equalsIgnoreCase(oStatus)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid order status");
         }
 
         Transaction existing = transactionRepository.findByOrderId(orderId);
-        if (existing == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "No transaction found for order: " + orderId);
-        }
-
-        if (existing.getStatus() == TransactionStatus.COMPLETED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "already paid");
+        if (existing == null || existing.getStatus() != TransactionStatus.PENDING) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not initialized for this order - saga state may be corrupt; check billing-service logs");
         }
 
         TransactionMethod effectiveMethod = existing.getMethod();
-        if (request.getMethod() != null) {
-            effectiveMethod = request.getMethod();
-        }
-
-        if (!simulateFailure) {
-            Map<String, Object> createdEventDetails = new HashMap<>();
-            createdEventDetails.put("orderId", orderId);
-            String methodName = effectiveMethod != null ? effectiveMethod.name() : null;
-            notifyObservers("CREATED",
-                    auditPayload(existing.getId(), methodName, existing.getAmount(), createdEventDetails));
+        if (req.getMethod() != null) {
+            effectiveMethod = req.getMethod();
         }
 
         existing.setMethod(effectiveMethod);
+
         if (simulateFailure) {
+            int updated = transactionRepository.updateStatusAtomically(existing.getId(), TransactionStatus.PENDING, TransactionStatus.FAILED);
+            if (updated == 0) {
+                throw new ConflictException("Conflict updating status");
+            }
             existing.setStatus(TransactionStatus.FAILED);
             Map<String, Object> details = new HashMap<>();
             if (existing.getTransactionDetails() != null) {
@@ -329,33 +371,31 @@ public class TransactionService {
             details.put("simulateFailure", true);
             existing.setTransactionDetails(details);
             Transaction saved = transactionRepository.save(existing);
-            Map<String, Object> failedDetails = new HashMap<>();
-            failedDetails.put("orderId", orderId);
-            failedDetails.put("reason", "SIMULATED_FAILURE");
-            String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
-            notifyObservers("FAILED", auditPayload(saved.getId(), methodName, saved.getAmount(), failedDetails));
+
+            paymentEventPublisher.publishFailed(new PaymentFailedEvent(saved.getId(), orderId, "SIMULATED_FAILURE"));
             cacheInvalidationService.evictTransactionCaches(saved.getId());
             return saved;
         }
 
-        existing.setStatus(TransactionStatus.COMPLETED);
+        int updated = transactionRepository.updateStatusAtomically(existing.getId(), TransactionStatus.PENDING, TransactionStatus.COMPLETED);
+        if (updated == 0) {
+            throw new ConflictException("Conflict updating status");
+        }
 
+        existing.setStatus(TransactionStatus.COMPLETED);
         Map<String, Object> details = new HashMap<>();
         if (existing.getTransactionDetails() != null) {
             details.putAll(existing.getTransactionDetails());
         }
         details.put("gatewayResponse", "approved");
-        if (request.getCardLastFour() != null) {
-            details.put("cardLastFour", request.getCardLastFour());
+        if (req.getCardLastFour() != null) {
+            details.put("cardLastFour", req.getCardLastFour());
         }
         existing.setTransactionDetails(details);
 
         Transaction saved = transactionRepository.save(existing);
-        Map<String, Object> completedDetails = new HashMap<>();
-        completedDetails.put("orderId", orderId);
-        completedDetails.put("gatewayResponse", "approved");
-        String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
-        notifyObservers("COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), completedDetails));
+
+        paymentEventPublisher.publishCompleted(new PaymentCompletedEvent(saved.getId(), orderId, saved.getUserId(), saved.getAmount()));
         cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
@@ -530,7 +570,38 @@ public class TransactionService {
         LocalDateTime start = startDate.atStartOfDay();
         LocalDateTime end = endDate.atTime(LocalTime.MAX);
 
-        List<CategoryRevenueProjection> rawData = transactionRepository.findCategoryRevenueRawData(start, end);
+        List<Transaction> transactions = transactionRepository.findByCreatedAtBetweenAndStatusIn(start, end,
+                List.of(TransactionStatus.COMPLETED, TransactionStatus.REFUNDED));
+
+        Map<Long, List<OrderItemDTO>> orderItemsCache = new HashMap<>();
+        for (Transaction t : transactions) {
+            Long oid = t.getOrderId();
+            if (oid != null) {
+                orderItemsCache.computeIfAbsent(oid, this::loadOrderItemsForOrder);
+            }
+        }
+
+        Map<Long, String> productCategoryCache = new HashMap<>();
+        Set<Long> allProductIds = new HashSet<>();
+        for (List<OrderItemDTO> items : orderItemsCache.values()) {
+            for (OrderItemDTO oi : items) {
+                if (oi.productId() != null) {
+                    allProductIds.add(oi.productId());
+                }
+            }
+        }
+
+        List<Long> idList = new ArrayList<>(allProductIds);
+        final int batchSize = 80;
+        for (int i = 0; i < idList.size(); i += batchSize) {
+            List<Long> batch = idList.subList(i, Math.min(i + batchSize, idList.size()));
+            List<ProductDTO> products = productServiceClient.getProductsBatch(batch);
+            for (ProductDTO p : products) {
+                if (p.id() != null) {
+                    productCategoryCache.put(p.id(), p.category() != null ? p.category() : "UNKNOWN");
+                }
+            }
+        }
 
         class CategoryAgg {
             String category;
@@ -538,50 +609,65 @@ public class TransactionService {
             double refundedRevenue = 0.0;
             Set<Long> txIds = new HashSet<>();
             Set<Long> refundTxIds = new HashSet<>();
-            CategoryAgg(String c) { category = c; }
+
+            CategoryAgg(String c) {
+                this.category = c;
+            }
         }
 
         Map<String, CategoryAgg> map = new HashMap<>();
-        ObjectMapper mapper = new ObjectMapper();
 
-        for (CategoryRevenueProjection row : rawData) {
-            String cat = row.getCategory();
-            map.putIfAbsent(cat, new CategoryAgg(cat));
-            CategoryAgg agg = map.get(cat);
+        for (Transaction t : transactions) {
+            Long oid = t.getOrderId();
+            if (oid == null) {
+                continue;
+            }
+            List<OrderItemDTO> items = orderItemsCache.getOrDefault(oid, List.of());
+            for (OrderItemDTO oi : items) {
+                if (oi.id() == null || oi.quantity() == null || oi.priceAtPurchase() == null) {
+                    continue;
+                }
+                Long pid = oi.productId();
+                String cat = pid == null ? "UNKNOWN" : productCategoryCache.getOrDefault(pid, "UNKNOWN");
+                map.putIfAbsent(cat, new CategoryAgg(cat));
+                CategoryAgg agg = map.get(cat);
 
-            agg.txIds.add(row.getTransactionId());
-            double lineGross = row.getQuantity() * row.getPriceAtPurchase();
-            agg.grossRevenue += lineGross;
+                agg.txIds.add(t.getId());
+                double lineGross = oi.quantity() * oi.priceAtPurchase();
+                agg.grossRevenue += lineGross;
 
-            if ("REFUNDED".equals(row.getTransactionStatus())) {
-                agg.refundTxIds.add(row.getTransactionId());
+                if (t.getStatus() == TransactionStatus.REFUNDED) {
+                    agg.refundTxIds.add(t.getId());
 
-                boolean hasRefundedItemsArray = false;
-                if (row.getTransactionDetails() != null) {
-                    try {
-                        Map<String, Object> details = mapper.readValue(row.getTransactionDetails(), new TypeReference<Map<String, Object>>() {});
-                        if (details.containsKey("refundedItems")) {
+                    boolean hasRefundedItemsArray = false;
+                    Map<String, Object> det = t.getTransactionDetails();
+                    if (det != null && det.containsKey("refundedItems")) {
+                        Object rawRi = det.get("refundedItems");
+                        if (rawRi instanceof List<?> refundedItems) {
                             hasRefundedItemsArray = true;
-                            List<Map<String, Object>> refundedItems = (List<Map<String, Object>>) details.get("refundedItems");
-                            for (Map<String, Object> rItem : refundedItems) {
-                                Number oId = (Number) rItem.get("orderItemId");
-                                if (oId != null && oId.longValue() == row.getOrderItemId()) {
-                                    Number amt = (Number) rItem.get("amount");
-                                    if (amt != null) {
-                                        agg.refundedRevenue += amt.doubleValue();
-                                    }
-                                    break; // Found the item, stop searching this array
+                            for (Object o : refundedItems) {
+                                if (!(o instanceof Map<?, ?> m)) {
+                                    continue;
                                 }
+                                Object oIdObj = m.get("orderItemId");
+                                if (!(oIdObj instanceof Number num)) {
+                                    continue;
+                                }
+                                if (num.longValue() != oi.id()) {
+                                    continue;
+                                }
+                                Object amtObj = m.get("amount");
+                                if (amtObj instanceof Number amt) {
+                                    agg.refundedRevenue += amt.doubleValue();
+                                }
+                                break;
                             }
                         }
-                    } catch (Exception e) {
-                        // Ignore parse errors, fallback will occur if hasRefundedItemsArray remains false
                     }
-                }
 
-                if (!hasRefundedItemsArray) {
-                    // M1 Legacy Schema (Full Refund Fallback)
-                    agg.refundedRevenue += lineGross;
+                    if (!hasRefundedItemsArray) {
+                        agg.refundedRevenue += lineGross;
+                    }
                 }
             }
         }
@@ -633,7 +719,16 @@ public class TransactionService {
 
         List<Long> shipmentIds = new ArrayList<>();
         if (transaction.getOrderId() != null) {
-            shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
+            try {
+                List<Long> ids = shippingServiceClient.getShipmentIdsForOrder(transaction.getOrderId());
+                if (ids != null) {
+                    shipmentIds = ids;
+                }
+            } catch (ResponseStatusException e) {
+                if (e.getStatusCode().value() != HttpStatus.NOT_FOUND.value()) {
+                    throw e;
+                }
+            }
         }
         List<LifecycleEventDTO> timeline = new ArrayList<>();
 
@@ -654,7 +749,7 @@ public class TransactionService {
         }
 
         // 3. Shipment Events
-        if (shipmentIds != null && !shipmentIds.isEmpty()) {
+        if (!shipmentIds.isEmpty()) {
             Query sQuery = new Query(Criteria.where("shipmentId").in(shipmentIds));
             List<Document> sDocs = mongoTemplate.find(sQuery, Document.class, "shipment_events");
             for (Document d : sDocs) {
@@ -664,6 +759,20 @@ public class TransactionService {
 
         timeline.sort(Comparator.comparing(LifecycleEventDTO::getTimestamp, Comparator.nullsLast(Comparator.naturalOrder())));
         return timeline;
+    }
+
+    private List<OrderItemDTO> loadOrderItemsForOrder(Long orderId) {
+        try {
+            OrderDetailsDTO details = orderServiceClient.getOrderDetails(orderId);
+            if (details != null && details.getItems() != null) {
+                return details.getItems();
+            }
+        } catch (ResponseStatusException e) {
+            if (e.getStatusCode().value() != HttpStatus.NOT_FOUND.value()) {
+                throw e;
+            }
+        }
+        return List.of();
     }
 
     private LifecycleEventDTO mapToDTO(Document d, String source) {

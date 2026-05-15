@@ -1,7 +1,8 @@
 package com.team14.amazon.contracts.feign;
 
-
 import com.team14.amazon.contracts.dto.OrderDTO;
+import com.team14.amazon.contracts.dto.OrderItemDTO;
+import com.team14.amazon.contracts.dto.OrderDetailsDTO;
 import com.team14.amazon.contracts.dto.OrderSummaryDTO;
 import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -9,11 +10,17 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.List;
+
 @FeignClient(name = "order-service", url = "${feign.order-service.url}")
 public interface OrderServiceClient {
 
     @GetMapping("/api/orders/{orderId}")
     OrderDTO getOrder(@PathVariable("orderId") Long orderId);
+
+    @GetMapping("/api/orders/{orderId}/details")
+    OrderDetailsDTO getOrderDetails(@PathVariable("orderId") Long orderId);
+
 
     @GetMapping("/api/orders/user/{userId}/summary")
     OrderSummaryDTO getUserOrderSummary(@PathVariable("userId") Long userId);
@@ -47,4 +54,7 @@ public interface OrderServiceClient {
 
 //    @GetMapping("/api/orders/product/{productId}/units-sold")
 //    long getUnitsSoldForProduct(@PathVariable("productId") Long productId);
+    // Used by S5-F12 to validate orderItemIds belong to an order
+    @GetMapping("/api/orders/{orderId}/items")
+    List<OrderItemDTO> getOrderItems(@PathVariable("orderId") Long orderId);
 }
