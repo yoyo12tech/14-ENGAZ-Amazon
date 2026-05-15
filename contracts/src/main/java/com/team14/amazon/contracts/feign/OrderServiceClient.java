@@ -15,10 +15,10 @@ import java.util.List;
 public interface OrderServiceClient {
 
     @GetMapping("/api/orders/{orderId}")
-    OrderDTO getOrder(@PathVariable Long orderId);
+    OrderDTO getOrder(@PathVariable("orderId") Long orderId);
 
     @GetMapping("/api/orders/user/{userId}/summary")
-    OrderSummaryDTO getUserOrderSummary(@PathVariable Long userId);
+    OrderSummaryDTO getUserOrderSummary(@PathVariable("userId") Long userId);
 
     @GetMapping("/api/orders/user/{userId}/active-count")
     int getActiveOrderCount(@PathVariable("userId") Long userId);
@@ -28,26 +28,25 @@ public interface OrderServiceClient {
 
     @GetMapping("/api/orders/product/{productId}/sales")
     ProductSalesAggregateDTO getProductSales(
-            @PathVariable Long productId,
-            @RequestParam String startDate,
-            @RequestParam String endDate
+            @PathVariable("productId") Long productId,
+            @RequestParam("startDate") String startDate,
+            @RequestParam("endDate") String endDate
     );
 
     @GetMapping("/api/orders/product/{productId}/pending-count")
-    int getPendingOrderCountForProduct(@PathVariable Long productId);
+    int getPendingOrderCountForProduct(@PathVariable("productId") Long productId);
 
     @GetMapping("/api/orders/product/{productId}/units-sold")
-    long getUnitsSold(@PathVariable Long productId);
+    long getUnitsSold(@PathVariable("productId") Long productId);
 
     @GetMapping("/api/orders/user/{userId}/has-purchased/{productId}")
-    boolean hasUserPurchasedProduct(@PathVariable Long userId,
-                                    @PathVariable Long productId);
+    boolean hasUserPurchasedProduct(@PathVariable("userId") Long userId,
+                                    @PathVariable("productId") Long productId);
 
     @GetMapping("/api/orders/product/{productId}/recent-sales-count")
-    int getRecentSalesCount(@PathVariable Long productId,
+    int getRecentSalesCount(@PathVariable("productId") Long productId,
                             @RequestParam("days") int days);
 
-    // Used by S5-F12 to validate orderItemIds belong to an order
     @GetMapping("/api/orders/{orderId}/items")
-    List<OrderItemDTO> getOrderItems(@PathVariable Long orderId);
+    List<OrderItemDTO> getOrderItems(@PathVariable("orderId") Long orderId);
 }

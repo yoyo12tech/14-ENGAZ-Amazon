@@ -18,17 +18,15 @@ public class UserEventConsumer {
         this.userRepository = userRepository;
     }
 
-    @RabbitListener(queues = "user.order.queue")
+    @RabbitListener(queues = "user.order.saga-listener")
     public void handleOrderCompleted(OrderCompletedEvent event) {
-        log.info("Received order.completed event for orderId: {} and userId: {}", 
+        log.info("Received order.completed event for orderId: {} and userId: {}",
                 event.orderId(), event.userId());
-        // Potential logic: Update user loyalty points, etc.
     }
 
-    @RabbitListener(queues = "user.order.queue")
+    @RabbitListener(queues = "user.order.saga-listener")
     public void handleOrderCancelled(OrderCancelledEvent event) {
-        log.info("Received order.cancelled event for orderId: {} and userId: {}", 
+        log.info("Received order.cancelled event for orderId: {} and userId: {}",
                 event.orderId(), event.userId());
-        // Potential logic: Rollback user state if needed
     }
 }
