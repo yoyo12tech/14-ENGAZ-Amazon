@@ -189,7 +189,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     JOIN orders o ON o.id = oi.order_id
     WHERE oi.product_id = :productId
       AND o.status IN ('DELIVERED','PAID')
-      AND o.delivered_at BETWEEN :startDate AND :endDate
+      AND o.delivered_at BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp)
     """, nativeQuery = true)
     Map<String, Object> getProductSalesRaw(@Param("productId") Long productId,
                                            @Param("startDate") String startDate,
