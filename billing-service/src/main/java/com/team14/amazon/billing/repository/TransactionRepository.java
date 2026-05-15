@@ -18,7 +18,7 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Transactional
     @Query("UPDATE Transaction t SET t.status = :newStatus WHERE t.id = :id AND t.status = :oldStatus")
     int updateStatusAtomically(@Param("id") Long id,
