@@ -8,6 +8,5 @@ public enum ProductCategory {
     BEAUTY,
     SPORTS,
     TOYS,
-    FASHION,
     OTHER
 }
