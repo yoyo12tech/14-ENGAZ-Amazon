@@ -1,3 +1,5 @@
 package com.team14.amazon.contracts.events;
 
-public record UserDeactivatedEvent(Long userId) {}
+import java.io.Serializable;
+
+public record UserDeactivatedEvent(Long userId) implements Serializable {}

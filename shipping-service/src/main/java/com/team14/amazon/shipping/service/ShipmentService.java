@@ -52,8 +52,10 @@ public class ShipmentService {
     private final CassandraRowAdapter cassandraRowAdapter;
     private final StringRedisTemplate redisTemplate;
     private final OrderServiceClient orderServiceClient;
+    private final ShipmentEventPublisher publisher;
 
-    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate, OrderServiceClient orderServiceClient) {
+
+    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate, OrderServiceClient orderServiceClient, ShipmentEventPublisher publisher) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
@@ -61,6 +63,7 @@ public class ShipmentService {
         this.trackingRepository = trackingRepository;
         this.redisTemplate = redisTemplate;
         this.orderServiceClient = orderServiceClient;
+        this.publisher = publisher;
 
         register(mongoEventLogger);
         this.cassandraRowAdapter = cassandraRowAdapter;
@@ -81,13 +84,13 @@ public class ShipmentService {
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
     public Shipment createShipment(Shipment shipment) {
-            if (shipment.getTrackingNumber() != null && 
+            if (shipment.getTrackingNumber() != null &&
                 shipmentRepository.findByTrackingNumber(shipment.getTrackingNumber()).isPresent()) {
                 throw new IllegalArgumentException("Tracking number already exists.");
             }
 
             shipment.setLastUpdate(LocalDateTime.now());
-            
+
             if (shipment.getStatus() == null) {
                 shipment.setStatus(Shipment.Status.PROCESSING);
             }
@@ -211,35 +214,48 @@ public class ShipmentService {
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
     public Shipment createShipment(Long orderId, Shipment shipment){
-        if(!shipmentRepository.existsOrderById(orderId)){
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "The Order does not exist!");
+        // S4-F2: Replace direct order-existence check with Feign call to order-service
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+        } catch (FeignException e) {
+            log.error("Feign call failed for orderId {}. Error: {}", orderId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
         }
+
         shipment.setOrderId(orderId);
         shipment.setStatus(Shipment.Status.PROCESSING);
         shipment.setLastUpdate(LocalDateTime.now());
 
         Shipment saved = shipmentRepository.save(shipment);
+
+        // Publish shipment.created event
+        publisher.publishShipmentCreated(saved);
+
         notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
                 "orderId", saved.getOrderId(),
                 "carrier", saved.getCarrier(),
                 "status", saved.getStatus().name()
         ));
         return saved;
-  
      }
     @Cacheable(value = "shipping-service::S4-F1", key = "#orderId")
     public Shipment getLatestShipmentForOrder(Long orderId){
-        if(!shipmentRepository.existsByOrderId(orderId)){
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "The Order has no shipping yet!");
+        // S4-F1: Replace direct order-existence check with Feign call to order-service
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+        } catch (FeignException e) {
+            log.error("Feign call failed for orderId {}. Error: {}", orderId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
         }
+
         return shipmentRepository.findLatestShipmentByOrderId(orderId)
         .orElseThrow(()-> new ResponseStatusException(
                 HttpStatus.NOT_FOUND,
-                "The Order provided is still being processed!"));
+                "No shipment for this order"));
         }
 
 
@@ -331,7 +347,7 @@ public class ShipmentService {
         }
 
         // Since we grouped by carrier, there is only one row in the list
-        Object[] row = results.getFirst();
+        Object[] row = results.get(0);
 
 //        return new CarrierSummaryDTO(
 //                row[0] != null ? row[0].toString() : carrier, // carrier name
@@ -529,6 +545,7 @@ return savedEvent;
     public void unregisterObserver(EntityObserver observer) {
         this.observers.remove(observer);
     }
+
     public ShipmentDTO getActiveShipment(Long orderId) {
         // 1. Check order-service (This part is working perfectly!)
         try {
@@ -562,6 +579,5 @@ return savedEvent;
     public List<Long> getShipmentIdsByOrderId(Long orderId) {
         return shipmentRepository.findShipmentIdsByOrderId(orderId);
     }
-
 
 }
