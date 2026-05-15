@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: shipping-service
-  namespace: amazon
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -16,29 +16,29 @@ spec:
       containers:
         - name: shipping-service
           image: shipping-service:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: shipping-service-configmap
+                name: shipping-service-config
             - secretRef:
                 name: shipping-postgres-secret
           env:
-            - name: JWT_SECRET
+            - name: SPRING_DATASOURCE_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: jwt-secret
-                  key: jwt-secret
-          # readinessProbe:
-          #   httpGet:
-          #     path: /actuator/health
-          #     port: 8080
-          #   initialDelaySeconds: 90
-          #   periodSeconds: 10
+                  name: shipping-postgres-secret
+                  key: POSTGRES_PASSWORD
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 120
-            periodSeconds: 30
+            initialDelaySeconds: 60
+            periodSeconds: 15
