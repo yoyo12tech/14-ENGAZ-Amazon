@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: shipping-service
-  namespace: default
+  namespace: amazon
 spec:
   replicas: 1
   selector:
@@ -21,7 +21,7 @@ spec:
             - containerPort: 8080
           envFrom:
             - configMapRef:
-                name: shipping-service-config
+                name: shipping-service-configmap
             - secretRef:
                 name: shipping-postgres-secret
           env:
@@ -34,11 +34,11 @@ spec:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 30
+            initialDelaySeconds: 180
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 60
+            initialDelaySeconds: 150
             periodSeconds: 15
