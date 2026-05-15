@@ -39,7 +39,7 @@ public class OrderReadService {
             long completed = toLong(raw.get("completed_orders"));
             long cancelled = toLong(raw.get("cancelled_orders"));
             double spent   = toDouble(raw.get("total_spent"));
-            double avg     = total > 0 ? spent / completed : 0.0;
+            double avg     = completed > 0 ? spent / completed : 0.0;
 
             log.info("Order summary for userId={}: total={}, completed={}, cancelled={}, spent={}",
                     userId, total, completed, cancelled, spent);
