@@ -2,7 +2,7 @@
   "__inputs": [],
   "__requires": [],
   "annotations": { "list": [] },
-  "description": "Order service — LogQL observability panels (M3 S3-READ-DB)",
+  "description": "Order service dashboard — Combined Prometheus & Loki panels",
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
@@ -11,8 +11,41 @@
   "liveNow": false,
   "panels": [
     {
+      "title": "Request Rate (Prometheus)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"order-service\"}[1m])",
+          "legendFormat": "requests/sec"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Error Rate (Prometheus)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_count{job=\"order-service\",status!~\"2..\"}[1m])",
+          "legendFormat": "errors/sec"
+        }
+      ],
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
+    },
+    {
+      "title": "Latency (Average Response Time)",
+      "type": "graph",
+      "targets": [
+        {
+          "expr": "rate(http_server_requests_seconds_sum{job=\"order-service\"}[1m]) / rate(http_server_requests_seconds_count{job=\"order-service\"}[1m])",
+          "legendFormat": "avg latency (s)"
+        }
+      ],
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+    },
+    {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
       "id": 1,
       "options": {
         "dedupStrategy": "none",
@@ -42,7 +75,7 @@
         "defaults": { "color": { "mode": "palette-classic" }, "custom": { "lineWidth": 1 } },
         "overrides": []
       },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 24 },
       "id": 2,
       "options": { "legend": { "calcs": [], "displayMode": "list", "placement": "bottom" } },
       "targets": [
@@ -59,7 +92,7 @@
     },
     {
       "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
       "id": 3,
       "options": {
         "dedupStrategy": "none",

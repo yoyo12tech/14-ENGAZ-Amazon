@@ -7,20 +7,18 @@ import org.springframework.context.annotation.Configuration;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
-
 @Configuration
 public class RabbitMQConfig {
 
-    @Bean
-    public Jackson2JsonMessageConverter jackson2JsonMessageConverter() {
-        return new Jackson2JsonMessageConverter();
-    }
-
-    public static final String USER_EXCHANGE = "user.events";
+    // Exchange names
+    public static final String USER_EXCHANGE  = "user.events";
     public static final String ORDER_EXCHANGE = "order.events";
-    public static final String USER_ORDER_QUEUE = "user.order.queue";
-    public static final String USER_ORDER_DLQ = "user.order.dlq";
+
+    // Queue names (spec-mandated)
+    public static final String USER_ORDER_SAGA_QUEUE = "user.order.saga-listener";
+    public static final String USER_ORDER_SAGA_DLQ   = "user.order.saga-listener.dlq";
+
+    // ── Exchanges ──────────────────────────────────────────────────────────────
 
     @Bean
     public TopicExchange userExchange() {
@@ -32,26 +30,40 @@ public class RabbitMQConfig {
         return new TopicExchange(ORDER_EXCHANGE);
     }
 
+    // ── DLQ (declared first — main queue references it) ───────────────────────
+
     @Bean
-    public Queue userOrderQueue() {
+    public Queue userOrderSagaDlq() {
+        // Plain durable queue; dead-lettered messages land here via default exchange
+        return QueueBuilder.durable(USER_ORDER_SAGA_DLQ).build();
+    }
+
+    // ── Main consumer queue ────────────────────────────────────────────────────
+
+    @Bean
+    public Queue userOrderSagaQueue() {
         Map<String, Object> args = new HashMap<>();
-        args.put("x-dead-letter-exchange", ORDER_EXCHANGE);
-        args.put("x-dead-letter-routing-key", "user.order.dlq");
-        return new Queue(USER_ORDER_QUEUE, true, false, false, args);
+        // Route rejected/expired messages to the DLQ via the default exchange
+        args.put("x-dead-letter-exchange", "");
+        args.put("x-dead-letter-routing-key", USER_ORDER_SAGA_DLQ);
+        return new Queue(USER_ORDER_SAGA_QUEUE, true, false, false, args);
+    }
+
+    // ── Bindings: saga queue listens to order.events ──────────────────────────
+
+    @Bean
+    public Binding bindOrderCompleted() {
+        return BindingBuilder
+                .bind(userOrderSagaQueue())
+                .to(orderExchange())
+                .with("order.completed");
     }
 
     @Bean
-    public Queue userOrderDlq() {
-        return new Queue(USER_ORDER_DLQ);
-    }
-
-    @Bean
-    public Binding bindOrderCompleted(Queue userOrderQueue, TopicExchange orderExchange) {
-        return BindingBuilder.bind(userOrderQueue).to(orderExchange).with("order.completed");
-    }
-
-    @Bean
-    public Binding bindOrderCancelled(Queue userOrderQueue, TopicExchange orderExchange) {
-        return BindingBuilder.bind(userOrderQueue).to(orderExchange).with("order.cancelled");
+    public Binding bindOrderCancelled() {
+        return BindingBuilder
+                .bind(userOrderSagaQueue())
+                .to(orderExchange())
+                .with("order.cancelled");
     }
 }
