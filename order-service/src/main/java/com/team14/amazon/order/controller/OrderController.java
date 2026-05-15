@@ -1,22 +1,24 @@
 package com.team14.amazon.order.controller;
 
-
-import com.team14.amazon.order.dto.OrderDetailsDTO;
-import com.team14.amazon.order.dto.OrderItemRequestDTO;
-import com.team14.amazon.order.dto.OrderAnalyticsDTO;
-import com.team14.amazon.order.dto.DeliverRequest;
-import com.team14.amazon.order.dto.OrderEstimateDTO;
+import com.team14.amazon.contracts.dto.OrderSummaryDTO;
+import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
+import com.team14.amazon.contracts.dto.OrderItemDTO;
+import com.team14.amazon.order.service.OrderReadService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import com.team14.amazon.order.dto.*;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.service.OrderItemService;
 import com.team14.amazon.order.service.OrderService;
+import com.team14.amazon.order.service.RecommendationService;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
-import javax.naming.ldap.PagedResultsControl;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -27,14 +29,19 @@ public class OrderController {
 
     private final OrderService orderService;
     private final OrderItemService orderItemService;
+    private final RecommendationService recommendationService;
+    private final OrderReadService orderReadService;
+    private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
-
-    public OrderController(OrderService orderService, OrderItemService orderItemService) {
+    public OrderController(OrderService orderService, OrderItemService orderItemService,
+                           RecommendationService recommendationService,
+                           OrderReadService orderReadService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
+        this.recommendationService = recommendationService;
+        this.orderReadService = orderReadService;
 
     }
-
 
     @GetMapping("/analytics")
     public ResponseEntity<OrderAnalyticsDTO> getOrderAnalytics(
@@ -47,8 +54,7 @@ public class OrderController {
     public ResponseEntity<List<Order>> searchOrders(
             @RequestParam(required = false) String status,
             @RequestParam String startDate,
-            @RequestParam String endDate
-    ) {
+            @RequestParam String endDate) {
         try {
             List<Order> orders = orderService.search(status, startDate, endDate);
             return ResponseEntity.ok(orders);
@@ -56,11 +62,11 @@ public class OrderController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, ex.getMessage());
         }
     }
+
     @GetMapping
     public ResponseEntity<List<Order>> getAll() {
         return ResponseEntity.ok(orderService.getAll());
     }
-
 
     @GetMapping("/metadata/search")
     public List<Order> searchOrdersByMetadata(
@@ -68,6 +74,7 @@ public class OrderController {
             @RequestParam String value) {
         return orderService.searchByMetadata(key, value);
     }
+
     @PostMapping("/estimate")
     public ResponseEntity<OrderEstimateDTO> getEstimate(@RequestBody List<Map<String, Object>> items) {
         return ResponseEntity.ok(orderService.estimateOrder(items));
@@ -76,18 +83,15 @@ public class OrderController {
     @GetMapping("/{orderId}/items/{itemId}")
     public ResponseEntity<OrderItem> getOrderItem(
             @PathVariable Long orderId,
-            @PathVariable Long itemId
-    ) {
+            @PathVariable Long itemId) {
         OrderItem item = orderItemService.getOrderItem(orderId, itemId);
         return ResponseEntity.ok(item);
     }
 
-
     @DeleteMapping("/{orderId}/items/{itemId}")
     public ResponseEntity<Void> deleteOrderItem(
             @PathVariable Long orderId,
-            @PathVariable Long itemId
-    ) {
+            @PathVariable Long itemId) {
         orderItemService.deleteOrderItem(orderId, itemId);
         return ResponseEntity.noContent().build(); // 204 ✅
     }
@@ -97,23 +101,18 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getOrderDetails(orderId));
     }
 
-
-
-
-
     @PostMapping("/{orderId}/items")
-    public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId, @RequestBody List<OrderItemRequestDTO> items) {
+    public ResponseEntity<Order> addItemsToOrder(@PathVariable Long orderId,
+                                                 @RequestBody List<OrderItemRequestDTO> items) {
         return ResponseEntity.ok(orderService.addItemsToOrder(orderId, items));
     }
-
-
-
 
     @PutMapping("/{id}/cancel")
     public ResponseEntity<Void> cancelOrder(@PathVariable Long id) {
         orderService.cancelOrder(id);
         return ResponseEntity.ok().build();
     }
+
     @PostMapping
     public ResponseEntity<Order> create(@RequestBody Order order) {
         return ResponseEntity.ok(orderService.create(order));
@@ -125,7 +124,6 @@ public class OrderController {
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
-
 
     @PutMapping("/{id}")
     public ResponseEntity<Order> update(@PathVariable Long id,
@@ -139,38 +137,155 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
+    // @PutMapping("/{id}/deliver")
+    // public ResponseEntity<Order> markAsDelivered(
+    // @PathVariable Long id,
+    // @RequestBody DeliverRequest request) {
+    // return ResponseEntity.ok(orderService.markAsDelivered(id,
+    // request.getMethod()));
+    // }
 
+    @PostMapping("/{orderId}/record-co-purchase")
+    public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
 
+        try {
+            orderService.recordCoPurchase(orderId);
+            return ResponseEntity.ok().build();
+        } catch (ResponseStatusException e) {
+            throw e; // IMPORTANT: rethrow so Spring handles correct status
+        }
+    }
 
-
-
-//    @PutMapping("/{id}/deliver")
-//    public ResponseEntity<Order> markAsDelivered(
-//            @PathVariable Long id,
-//            @RequestBody DeliverRequest request) {
-//        return ResponseEntity.ok(orderService.markAsDelivered(id, request.getMethod()));
-//    }
-
-
-    //claude code
+    // claude code
     @PutMapping("/{id}/deliver")
     public ResponseEntity<Order> markAsDelivered(
             @PathVariable Long id,
             @RequestBody(required = false) DeliverRequest request) {
         String method = (request != null && request.getMethod() != null)
-                ? request.getMethod() : "CASH_ON_DELIVERY";
-        return ResponseEntity.ok(orderService.markAsDelivered(id));
+                ? request.getMethod()
+                : "CASH_ON_DELIVERY";
+        return ResponseEntity.ok(orderService.markAsDelivered(id, method));
     }
-
-
-
-
-      
-
 
     @PutMapping("/{orderId}/confirm")
     public Order confirmOrder(@PathVariable Long orderId,
                               @RequestParam Long shippingAddressId) {
         return orderService.confirmOrder(orderId, shippingAddressId);
     }
+
+    // S3
+    // ADD inside OrderController.java — after the existing getOrderAnalytics()
+    // method
+
+    /**
+     * S3-F10: GET /api/orders/analytics/dashboard
+     * <p>
+     * DISTINCT from M1's GET /api/orders/analytics (S3-F6).
+     * Both coexist — do NOT overwrite the existing /analytics endpoint.
+     */
+    @GetMapping("/analytics/dashboard")
+    public ResponseEntity<?> getOrderAnalyticsDashboard(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+
+        // 400 if startDate is after endDate
+        if (startDate.isAfter(endDate)) {
+            return ResponseEntity.badRequest().body("startDate must not be after endDate");
+        }
+
+        // Log ANALYTICS_VIEWED on EVERY call — outside the cached method
+        // so it runs even on cache hits (spec §10.3.1 step d)
+        orderService.logAnalyticsViewed(startDate, endDate);
+
+        OrderAnalyticsDashboardDTO result = orderService.getOrderAnalyticsDashboard(startDate, endDate);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/recommendations")
+    public ResponseEntity<List<ProductRecommendationDTO>> getRecommendations(
+            @RequestParam Long productId,
+            @RequestParam(required = false, defaultValue = "5") int limit) {
+        return ResponseEntity.ok(recommendationService.getRecommendations(productId, limit));
+    }
+
+
+    //MS3 endpoints
+
+
+// Add orderReadService to the constructor:
+// public OrderController(OrderService orderService,
+//                        OrderItemService orderItemService,
+//                        RecommendationService recommendationService,
+//                        OrderReadService orderReadService) { ... }
+
+    @GetMapping("/user/{userId}/summary")
+    public ResponseEntity<OrderSummaryDTO> getUserOrderSummary(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/summary", userId);
+        OrderSummaryDTO result = orderReadService.getUserOrderSummary(userId);
+        log.info("Returning 200 for GET /api/orders/user/{}/summary", userId);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/user/{userId}/active-count")
+    public ResponseEntity<Integer> getActiveOrderCount(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/active-count", userId);
+        return ResponseEntity.ok(orderReadService.getActiveOrderCount(userId));
+    }
+
+    @GetMapping("/user/{userId}/count")
+    public ResponseEntity<Long> getTotalOrderCount(@PathVariable Long userId) {
+        log.info("Received GET /api/orders/user/{}/count", userId);
+        return ResponseEntity.ok(orderReadService.getTotalOrderCount(userId));
+    }
+
+    @GetMapping("/product/{productId}/sales")
+    public ResponseEntity<ProductSalesAggregateDTO> getProductSales(
+            @PathVariable Long productId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        log.info("Received GET /api/orders/product/{}/sales [{} – {}]", productId, startDate, endDate);
+        return ResponseEntity.ok(orderReadService.getProductSales(productId, startDate, endDate));
+    }
+
+    @GetMapping("/product/{productId}/pending-count")
+    public ResponseEntity<Integer> getPendingOrderCountForProduct(@PathVariable Long productId) {
+        log.info("Received GET /api/orders/product/{}/pending-count", productId);
+        return ResponseEntity.ok(orderReadService.getPendingOrderCountForProduct(productId));
+    }
+
+    @GetMapping("/product/{productId}/units-sold")
+    public ResponseEntity<Long> getUnitsSold(@PathVariable Long productId) {
+        log.info("Received GET /api/orders/product/{}/units-sold", productId);
+        return ResponseEntity.ok(orderReadService.getUnitsSold(productId));
+    }
+
+    @GetMapping("/product/{productId}/recent-sales-count")
+    public ResponseEntity<Integer> getRecentSalesCount(
+            @PathVariable Long productId,
+            @RequestParam("days") int days) {
+        log.info("Received GET /api/orders/product/{}/recent-sales-count?days={}", productId, days);
+        return ResponseEntity.ok(orderReadService.getRecentSalesCount(productId, days));
+    }
+
+    @GetMapping("/user/{userId}/has-purchased/{productId}")
+    public ResponseEntity<Boolean> hasUserPurchasedProduct(
+            @PathVariable Long userId,
+            @PathVariable Long productId) {
+        log.info("Received GET /api/orders/user/{}/has-purchased/{}", userId, productId);
+        return ResponseEntity.ok(orderReadService.hasUserPurchasedProduct(userId, productId));
+    }
+
+
+
+
+    //The below might conflict with the old orderItem DTO didnt test it yet
+    @GetMapping("/{orderId}/items")
+    public ResponseEntity<List<OrderItemDTO>> getOrderItems(@PathVariable Long orderId) {
+        log.info("Received GET /api/orders/{}/items", orderId);
+        List<OrderItemDTO> items = orderReadService.getOrderItems(orderId);
+        log.info("Returning {} items for orderId={}", items.size(), orderId);
+        return ResponseEntity.ok(items);
+
+    }
+
 }

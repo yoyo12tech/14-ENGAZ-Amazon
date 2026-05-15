@@ -23,36 +23,46 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 @Configuration
 public class RedisConfig {
 
-    @Bean
-    @SuppressWarnings("removal")
-    public RedisCacheManager cacheManager(RedisConnectionFactory cf) {
+        @Bean
+        @SuppressWarnings("removal")
+        public RedisCacheManager cacheManager(RedisConnectionFactory cf) {
 
-        GenericJackson2JsonRedisSerializer serializer =
-                new GenericJackson2JsonRedisSerializer(redisObjectMapper());
+                GenericJackson2JsonRedisSerializer serializer = new GenericJackson2JsonRedisSerializer(
+                                redisObjectMapper());
 
-        RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
-                .serializeValuesWith(RedisSerializationContext.SerializationPair.fromSerializer(serializer));
+                RedisCacheConfiguration defaults = RedisCacheConfiguration.defaultCacheConfig()
+                                .serializeValuesWith(
+                                                RedisSerializationContext.SerializationPair.fromSerializer(serializer));
 
-        return RedisCacheManager.builder(cf)
-                .cacheDefaults(defaults)
-                .withCacheConfiguration("shipping-service::shipment", defaults.entryTtl(Duration.ofMinutes(15)))
-                .withCacheConfiguration("shipping-service::S4-F1", defaults.entryTtl(Duration.ofMinutes(5)))
-                .withCacheConfiguration("shipping-service::S4-F3", defaults.entryTtl(Duration.ofMinutes(10)))
-                .withCacheConfiguration("shipping-service::S4-F6", defaults.entryTtl(Duration.ofMinutes(10)))
-                .withCacheConfiguration("shipping-service::S4-F8", defaults.entryTtl(Duration.ofMinutes(15)))
-                .withCacheConfiguration("shipping-service::S4-F9", defaults.entryTtl(Duration.ofMinutes(10)))
-                .build();
-    }
+                return RedisCacheManager.builder(cf)
+                                .cacheDefaults(defaults)
+                                .withCacheConfiguration("shipping-service::shipment",
+                                                defaults.entryTtl(Duration.ofMinutes(15)))
+                                .withCacheConfiguration("shipping-service::S4-F1",
+                                                defaults.entryTtl(Duration.ofMinutes(5)))
+                                .withCacheConfiguration("shipping-service::S4-F3",
+                                                defaults.entryTtl(Duration.ofMinutes(10)))
+                                .withCacheConfiguration("shipping-service::S4-F6",
+                                                defaults.entryTtl(Duration.ofMinutes(10)))
+                                .withCacheConfiguration("shipping-service::S4-F8",
+                                                defaults.entryTtl(Duration.ofMinutes(15)))
+                                .withCacheConfiguration("shipping-service::S4-F9",
+                                                defaults.entryTtl(Duration.ofMinutes(10)))
+                                .withCacheConfiguration("shipping-service::S4-F10",
+                                                defaults.entryTtl(Duration.ofMinutes(10)))
+                                .withCacheConfiguration("shipping-service::S4-F12",
+                                                defaults.entryTtl(Duration.ofSeconds(300)))
+                                .build();
+        }
 
-    private ObjectMapper redisObjectMapper() {
-        ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
-        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
-        mapper.activateDefaultTyping(
-                BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
-                DefaultTyping.EVERYTHING,
-                JsonTypeInfo.As.PROPERTY
-        );
-        return mapper;
-    }
+        private ObjectMapper redisObjectMapper() {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.registerModule(new JavaTimeModule());
+                mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+                mapper.activateDefaultTyping(
+                                BasicPolymorphicTypeValidator.builder().allowIfBaseType(Object.class).build(),
+                                DefaultTyping.EVERYTHING,
+                                JsonTypeInfo.As.PROPERTY);
+                return mapper;
+        }
 }

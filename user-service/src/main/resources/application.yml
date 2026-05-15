@@ -3,7 +3,7 @@ spring:
     name: user-service
 
   datasource:
-    url: jdbc:postgresql://postgres:5432/amazondb
+    url: jdbc:postgresql://user-postgres:5432/amazondb-users
     username: postgres
     password: postgres
 
@@ -27,6 +27,32 @@ spring:
   cache:
     type: redis
 
+  rabbitmq:
+    host: rabbitmq
+    port: 5672
+    username: guest
+    password: guest
+    listener:
+      simple:
+        acknowledge-mode: auto
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          initial-interval: 1000
+          max-attempts: 3
+
+feign:
+  user-service:
+    url: http://user-service:8080
+  product-service:
+    url: http://product-service:8080
+  order-service:
+    url: http://order-service:8080
+  shipping-service:
+    url: http://shipping-service:8080
+  billing-service:
+    url: http://billing-service:8080
+
 jwt:
   secret: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
   expiration: 86400000
@@ -35,9 +61,13 @@ server:
   port: 8080
 
 management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
   endpoint:
     health:
       show-details: always
   health:
     defaults:
-      enabled: false
+      enabled: true

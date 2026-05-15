@@ -3,6 +3,7 @@ package com.team14.amazon.order.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -53,7 +54,7 @@ public class Order {
     @Column(nullable = true)
     private LocalDateTime deliveredAt =null;
 
-   // @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

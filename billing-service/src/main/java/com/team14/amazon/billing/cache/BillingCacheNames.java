@@ -6,6 +6,8 @@ public final class BillingCacheNames {
     public static final String S5_F6 = "billing-service::S5-F6";
     public static final String S5_F8 = "billing-service::S5-F8";
     public static final String S5_F9 = "billing-service::S5-F9";
+    public static final String S5_F10 = "billing-service::S5-F10";
+    public static final String S5_F11 = "billing-service::S5-F11";
 
     public static final String TRANSACTION = "billing-service::transaction";
     public static final String VOUCHER = "billing-service::voucher";
@@ -20,4 +22,3 @@ public final class BillingCacheNames {
         return "id:" + id;
     }
 }
-

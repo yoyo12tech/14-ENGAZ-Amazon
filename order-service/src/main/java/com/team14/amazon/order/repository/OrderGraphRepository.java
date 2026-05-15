@@ -1,0 +1,137 @@
+package com.team14.amazon.order.repository;
+
+import com.team14.amazon.order.model.OrderItem;
+import org.springframework.data.neo4j.core.Neo4jClient;
+import org.springframework.stereotype.Repository;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Repository
+public class OrderGraphRepository {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderGraphRepository.class);
+    private final Neo4jClient neo4jClient;
+
+    public OrderGraphRepository(Neo4jClient neo4jClient) {
+        this.neo4jClient = neo4jClient;
+    }
+
+    // ─── Idempotency Check ───────────────────────────────────────────────
+    public boolean isOrderRecorded(Long orderId) {
+        return neo4jClient.query("""
+                MATCH (r:RecordedOrder {orderId: $orderId})
+                RETURN r
+                """)
+                .bind(orderId).to("orderId")
+                .fetch().first().isPresent();
+    }
+
+    // ─── Ensure Product Node ─────────────────────────────────────────────
+    public void ensureProductNode(Map<String, Object> product) {
+        neo4jClient.query("""
+                MERGE (p:Product {productId: $id})
+                SET p.name = $name,
+                    p.category = $category
+                """)
+                .bind(product.get("id")).to("id")
+                .bind(product.get("name")).to("name")
+                .bind(product.get("category")).to("category")
+                .run();
+    }
+
+    // ─── Record BOUGHT_TOGETHER Pairs ────────────────────────────────────
+//    public void recordCoPurchasePairs(Long orderId, List<OrderItem> items) {
+//        List<Long> productIds = items.stream()
+//                .map(OrderItem::getProductId)
+//                .distinct()
+//                .sorted()                      // ← sort so p1 < p2 is always true
+//                .toList();
+//
+//        for (int i = 0; i < productIds.size(); i++) {
+//            for (int j = i + 1; j < productIds.size(); j++) {
+//                neo4jClient.query("""
+//                                MERGE (a:Product {productId: $p1})
+//                                MERGE (b:Product {productId: $p2})
+//                                MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
+//                     ON CREATE SET r.coPurchaseCount = 1,
+//                                   r.lastCoPurchaseDate = datetime(),
+//                                   r.recordedOrderIds = [$orderId]
+//                     ON MATCH SET r.coPurchaseCount = r.coPurchaseCount + 1,
+//                                  r.lastCoPurchaseDate = datetime(),
+//                                  r.recordedOrderIds = r.recordedOrderIds + $orderId
+//                    """)
+//                        .bind(productIds.get(i)).to("p1")
+//                        .bind(productIds.get(j)).to("p2")
+//                        .bind(orderId).to("orderId")
+//                        .run();
+//            }
+//        }
+//        // sentinel last
+//        neo4jClient.query("CREATE (:RecordedOrder {orderId: $orderId})")
+//                .bind(orderId).to("orderId")
+//                .run();
+//    }
+
+    // ─── Record BOUGHT_TOGETHER Pairs ────────────────────────────────────
+    public void recordCoPurchasePairs(Long orderId, List<OrderItem> items) {
+        List<Long> productIds = items.stream()
+                .map(OrderItem::getProductId)
+                .distinct()
+                .sorted()   // enforce canonical direction p1 < p2
+                .toList();
+
+        for (int i = 0; i < productIds.size(); i++) {
+            for (int j = i + 1; j < productIds.size(); j++) {
+                neo4jClient.query("""
+                MERGE (a:Product {productId: $p1})
+                MERGE (b:Product {productId: $p2})
+                MERGE (a)-[r:BOUGHT_TOGETHER]->(b)
+                ON CREATE SET r.coPurchaseCount = 1,
+                              r.lastCoPurchaseDate = datetime(),
+                              r.recordedOrderIds = [$orderId]
+                ON MATCH SET
+                    r.coPurchaseCount = CASE
+                        WHEN NOT $orderId IN r.recordedOrderIds
+                        THEN r.coPurchaseCount + 1
+                        ELSE r.coPurchaseCount END,
+                    r.lastCoPurchaseDate = datetime(),
+                    r.recordedOrderIds = CASE
+                        WHEN NOT $orderId IN r.recordedOrderIds
+                        THEN r.recordedOrderIds + $orderId
+                        ELSE r.recordedOrderIds END
+                """)
+                        .bind(productIds.get(i)).to("p1")
+                        .bind(productIds.get(j)).to("p2")
+                        .bind(orderId).to("orderId")
+                        .run();
+            }
+        }
+
+        // Sentinel node for idempotency check
+        neo4jClient.query("""
+        MERGE (:RecordedOrder {orderId: $orderId})
+        """)
+                .bind(orderId).to("orderId")
+                .run();
+    }
+
+    public List<Map<String, Object>> findCoPurchases(Long productId) {
+        try {
+            return new ArrayList<>(neo4jClient.query("""
+            MATCH (p:Product {productId: $productId})-[r:BOUGHT_TOGETHER]-(other:Product)
+            WHERE other.productId <> $productId
+            RETURN other.productId AS productId, r.coPurchaseCount AS score
+            ORDER BY r.coPurchaseCount DESC, r.lastCoPurchaseDate DESC
+            """)
+                    .bind(productId).to("productId")
+                    .fetch().all());
+        } catch (Exception e) {
+            log.warn("[Neo4j] findCoPurchases failed for productId={}: {}", productId, e.getMessage());
+            return List.of();
+        }
+    }
+}

@@ -1,36 +1,72 @@
 package com.team14.amazon.shipping.service;
 
+import com.team14.amazon.contracts.dto.ShipmentDTO;
+import com.team14.amazon.contracts.feign.OrderServiceClient;
+import com.team14.amazon.shipping.adapter.CassandraRowAdapter;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
-import com.team14.amazon.shipping.dto.DelayedShipmentDTO;
-import com.team14.amazon.shipping.dto.CarrierSummaryDTO;
-import com.team14.amazon.shipping.dto.NearbyShipmentDTO;
+import com.team14.amazon.shipping.dto.*;
 import com.team14.amazon.shipping.model.Shipment;
+import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
+import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
+import com.team14.amazon.shipping.observer.MongoEventLogger;
+import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
+import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
+import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
+import feign.FeignException;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
+import org.springframework.context.annotation.Lazy;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import com.team14.amazon.shipping.dto.BatchStatusUpdateRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.observer.EntityObserver;
+import com.team14.amazon.shipping.observer.MongoEventLogger;
+import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 public class ShipmentService {
 
     private final ShipmentRepository shipmentRepository;
+    private final MongoEventLogger mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
+    private final CachedServices cachedServices;
+    private final ShipmentEventRepository shipmentEventRepository;
+    private final ShipmentTrackingEventRepository trackingRepository;
+    private final CassandraRowAdapter cassandraRowAdapter;
+    private final StringRedisTemplate redisTemplate;
+    private final OrderServiceClient orderServiceClient;
+    private final ShipmentEventPublisher publisher;
 
-    public ShipmentService(ShipmentRepository shipmentRepository) {
+
+    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate, OrderServiceClient orderServiceClient, ShipmentEventPublisher publisher) {
         this.shipmentRepository = shipmentRepository;
+        this.mongoEventLogger = mongoEventLogger;
+        this.cachedServices = cachedServices;
+        this.shipmentEventRepository = shipmentEventRepository;
+        this.trackingRepository = trackingRepository;
+        this.redisTemplate = redisTemplate;
+        this.orderServiceClient = orderServiceClient;
+        this.publisher = publisher;
+
+        register(mongoEventLogger);
+        this.cassandraRowAdapter = cassandraRowAdapter;
     }
 
     public List<Shipment> getAllShipments() {
@@ -48,13 +84,13 @@ public class ShipmentService {
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
     public Shipment createShipment(Shipment shipment) {
-            if (shipment.getTrackingNumber() != null && 
+            if (shipment.getTrackingNumber() != null &&
                 shipmentRepository.findByTrackingNumber(shipment.getTrackingNumber()).isPresent()) {
                 throw new IllegalArgumentException("Tracking number already exists.");
             }
 
             shipment.setLastUpdate(LocalDateTime.now());
-            
+
             if (shipment.getStatus() == null) {
                 shipment.setStatus(Shipment.Status.PROCESSING);
             }
@@ -105,8 +141,12 @@ public class ShipmentService {
     }
 
     private void notifyObservers(String action, Long shipmentId, Map<String, Object> details) {
+        Map<String, Object> payload = new java.util.HashMap<>();
+        payload.put("shipmentId", shipmentId);
+        payload.put("details", details);
+
         for (EntityObserver observer : observers) {
-            observer.onEvent(action, shipmentId, details);
+            observer.onEvent(action, payload);
         }
     }
     @Transactional
@@ -174,35 +214,48 @@ public class ShipmentService {
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
     public Shipment createShipment(Long orderId, Shipment shipment){
-        if(!shipmentRepository.existsOrderById(orderId)){
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "The Order does not exist!");
+        // S4-F2: Replace direct order-existence check with Feign call to order-service
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+        } catch (FeignException e) {
+            log.error("Feign call failed for orderId {}. Error: {}", orderId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
         }
+
         shipment.setOrderId(orderId);
         shipment.setStatus(Shipment.Status.PROCESSING);
         shipment.setLastUpdate(LocalDateTime.now());
 
         Shipment saved = shipmentRepository.save(shipment);
+
+        // Publish shipment.created event
+        publisher.publishShipmentCreated(saved);
+
         notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
                 "orderId", saved.getOrderId(),
                 "carrier", saved.getCarrier(),
                 "status", saved.getStatus().name()
         ));
         return saved;
-  
      }
     @Cacheable(value = "shipping-service::S4-F1", key = "#orderId")
     public Shipment getLatestShipmentForOrder(Long orderId){
-        if(!shipmentRepository.existsByOrderId(orderId)){
-            throw new ResponseStatusException(
-                    HttpStatus.NOT_FOUND,
-                    "The Order has no shipping yet!");
+        // S4-F1: Replace direct order-existence check with Feign call to order-service
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found");
+        } catch (FeignException e) {
+            log.error("Feign call failed for orderId {}. Error: {}", orderId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
         }
+
         return shipmentRepository.findLatestShipmentByOrderId(orderId)
         .orElseThrow(()-> new ResponseStatusException(
                 HttpStatus.NOT_FOUND,
-                "The Order provided is still being processed!"));
+                "No shipment for this order"));
         }
 
 
@@ -294,7 +347,7 @@ public class ShipmentService {
         }
 
         // Since we grouped by carrier, there is only one row in the list
-        Object[] row = results.getFirst();
+        Object[] row = results.get(0);
 
 //        return new CarrierSummaryDTO(
 //                row[0] != null ? row[0].toString() : carrier, // carrier name
@@ -329,4 +382,202 @@ public class ShipmentService {
                 .map(ObjectArrayDtoAdapter::adaptToDelayedShipmentDTO)
                 .toList();
     }
+
+//    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
+//        if (start.isAfter(end)) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+//        }
+//        mongoEventLogger.onEvent("ANALYTICS_VIEWED", null, Map.of(
+//                "startDate", start.toString(),
+//                "endDate", end.toString()
+//        ));
+//        return cachedServices.getShippingAnalyticsCached(start, end);
+//    }
+
+// Old implementation removed
+    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
+        }
+
+        // DP-2: Instead of direct repo save, notify observers
+        notifyObservers("ANALYTICS_VIEWED", null, Map.of(
+                "startDate", startDate.toString(),
+                "endDate", endDate.toString()
+        ));
+
+        return cachedServices.getShippingAnalyticsCached(startDate, endDate);
+    }
+
+
+
+
+//    @Cacheable(value="shipping-service::S4-F10", key = "#start + '::' + #end")
+//    public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end){
+//        //cache hit would ignore this section
+////        if(start.isAfter(end)){
+////            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
+////        }
+//        Object[] result = shipmentRepository.getShippingAnalytics(start, end);
+//
+//        // a null result means no shipping analytics within this time frame (start->end)
+//        if (result == null) {
+//            return ShippingAnalyticsDTO.builder()
+//                    .totalShipments(0L)
+//                    .averageDeliveryDays(0.0)
+//                    .onTimeRate(0.0)
+//                    .shipmentsByStatus(Map.of())
+//                    .averageAttempts(0.0)
+//                    .build();
+//        }
+//
+//        Map<String, Long> shipmentsByStatus = Map.of(
+//                "PROCESSING",       ((Number) result[3]).longValue(),
+//                "SHIPPED",          ((Number) result[4]).longValue(),
+//                "IN_TRANSIT",       ((Number) result[5]).longValue(),
+//                "OUT_FOR_DELIVERY", ((Number) result[6]).longValue(),
+//                "DELIVERED",        ((Number) result[7]).longValue(),
+//                "RETURNED",         ((Number) result[8]).longValue()
+//        );
+//
+//        return ShippingAnalyticsDTO.builder()
+//                .totalShipments(((Number) result[0]).longValue())
+//                .averageDeliveryDays(((Number) result[1]).doubleValue())
+//                .onTimeRate(((Number) result[2]).doubleValue())
+//                .shipmentsByStatus(shipmentsByStatus)
+//                .averageAttempts(((Number) result[9]).doubleValue())
+//                .build();
+//    }
+
+@Caching(evict = {
+        @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
+        @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
+})
+
+
+
+
+
+
+public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
+
+Shipment shipment = shipmentRepository.findById(shipmentId)
+        .orElseThrow(() -> new ResponseStatusException(
+                HttpStatus.NOT_FOUND,
+                "Shipment not found"
+        ));
+
+Shipment.Status status;
+
+try {
+    status = Shipment.Status.valueOf(request.getStatus());
+} catch (Exception e) {
+    throw new ResponseStatusException(
+            HttpStatus.BAD_REQUEST,
+            "Invalid shipment status"
+    );
+}
+
+shipment.setStatus(status);
+
+if (request.getLatitude() != null) {
+    shipment.setLatitude(request.getLatitude());
+}
+
+if (request.getLongitude() != null) {
+    shipment.setLongitude(request.getLongitude());
+}
+
+shipment.setLastUpdate(LocalDateTime.now());
+
+shipmentRepository.save(shipment);
+
+ShipmentTrackingEvent event = new ShipmentTrackingEvent(
+    shipment.getId(),
+    Instant.now(),
+    status,
+    shipment.getCarrier(),
+    shipment.getTrackingNumber(),
+    request.getLatitude(),
+    request.getLongitude(),
+    request.getNotes()
+);
+
+ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
+    Set<String> keys = redisTemplate.keys("shipping-service::S4-F12::*");
+    if (keys != null) redisTemplate.delete(keys);
+    notifyObservers(
+            "TRACKING_RECORDED",
+            shipment.getId(),
+            Map.of(
+                    "trackingNumber", shipment.getTrackingNumber(),
+                    "status", status.name(),
+                    "carrier", shipment.getCarrier(),
+                    "notes", request.getNotes() != null ? request.getNotes() : ""
+            )
+    );
+
+return savedEvent;
+}
+
+    @Cacheable(value = "shipping-service::S4-F12",
+            key = "#id + (#start == null ? 'none' : #start.toString()) + (#end == null ? 'none' : #end.toString())")
+    public List<ShipmentTrackingDTO> getTrackingTimeline(Long id, LocalDateTime start, LocalDateTime end) {
+
+        // 1. PostgreSQL check: Throw 404 if shipment doesn't exist[cite: 1]
+        if (!shipmentRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipment not found");
+        }
+        // 2. Query Cassandra[cite: 1]
+        List<ShipmentTrackingEvent> events;
+
+        if (start != null && end != null) {
+            Instant startTime = start.atZone(ZoneId.systemDefault()).toInstant();
+            Instant endTime = end.atZone(ZoneId.systemDefault()).toInstant();
+            events = trackingRepository.findByShipmentIdAndTimeRange(id, startTime, endTime);
+        } else {
+            events = trackingRepository.findByShipmentId(id);
+        }
+
+        // 3. Adapt and return[cite: 1]
+        return events.stream().map(cassandraRowAdapter::adapt).toList();
+    }
+    public void unregisterObserver(EntityObserver observer) {
+        this.observers.remove(observer);
+    }
+
+    public ShipmentDTO getActiveShipment(Long orderId) {
+        // 1. Check order-service (This part is working perfectly!)
+        try {
+            orderServiceClient.getOrder(orderId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Order Not Found");
+        } catch (FeignException e) {
+            log.error("Feign call failed for orderId {}. Error: {}", orderId, e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Order service temporarily unavailable");
+        }
+
+        // 2. Fetch the actual Entity from the database
+        Shipment shipmentEntity = shipmentRepository.getActiveShipment(orderId);
+
+        if (shipmentEntity == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No active shipment for this order");
+        }
+
+        // 3. Convert the Entity into your DTO!
+        return new ShipmentDTO(
+                shipmentEntity.getId(),
+                shipmentEntity.getOrderId(),
+                shipmentEntity.getCarrier(),
+                shipmentEntity.getTrackingNumber(),
+                shipmentEntity.getStatus().name(), // Convert Enum to String if needed
+                shipmentEntity.getLastUpdate(),
+                shipmentEntity.getActualDelivery()
+        );
+    }
+
+    public List<Long> getShipmentIdsByOrderId(Long orderId) {
+        return shipmentRepository.findShipmentIdsByOrderId(orderId);
+    }
+
 }

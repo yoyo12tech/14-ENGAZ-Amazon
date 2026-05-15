@@ -9,52 +9,55 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.stereotype.Component;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Collections;
+import org.springframework.http.HttpMethod;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 
-@Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final TokenExtractionHandler tokenExtractionHandler;
-    private final SignatureValidationHandler signatureValidationHandler;
-    private final RoleAuthorizationHandler roleAuthorizationHandler;
-
-    public JwtAuthenticationFilter(TokenExtractionHandler tokenExtractionHandler,
-                         SignatureValidationHandler signatureValidationHandler,
-                         RoleAuthorizationHandler roleAuthorizationHandler) {
-        this.tokenExtractionHandler = tokenExtractionHandler;
-        this.signatureValidationHandler = signatureValidationHandler;
-        this.roleAuthorizationHandler = roleAuthorizationHandler;
-
-        // Wire the chain
-        tokenExtractionHandler.setNext(signatureValidationHandler);
-        signatureValidationHandler.setNext(roleAuthorizationHandler);
-    }
-
     @Override
-    protected void doFilterInternal(HttpServletRequest request,
-                                    HttpServletResponse response,
-                                    FilterChain filterChain)
+    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        AuthContext ctx = new AuthContext(request);
-        tokenExtractionHandler.handle(ctx);
-
-        if (ctx.hasError()) {
-            response.setStatus(ctx.getErrorStatus());
-            response.setContentType("application/json");
-            response.getWriter().write(
-                    "{\"error\": \"" + ctx.getErrorReason() + "\"}"
-            );
+        if (HttpMethod.GET.matches(request.getMethod()) && "/api/shipments/health".equals(request.getServletPath())) {
+            filterChain.doFilter(request, response);
             return;
         }
 
-        // Attach claims to request for downstream use if needed
-        request.setAttribute("uid", ctx.getUid());
-        request.setAttribute("role", ctx.getTokenRole());
-        request.setAttribute("subject", ctx.getSubject());
+        AuthContext ctx = new AuthContext(request);
+
+        AuthHandler tokenExtraction = new TokenExtractionHandler();
+        AuthHandler signatureValidation = new SignatureValidationHandler();
+        AuthHandler roleAuthorization = new RoleAuthorizationHandler();
+
+        tokenExtraction.setNext(signatureValidation);
+        signatureValidation.setNext(roleAuthorization);
+
+        tokenExtraction.handle(ctx);
+
+        if (ctx.hasError()) {
+            response.setStatus(ctx.getErrorStatus());
+            response.getWriter().write(ctx.getErrorReason());
+            return;
+        }
+
+        UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                ctx.getSubject(),
+                null,
+                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + ctx.getTokenRole()))
+        );
+        authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+        SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+        securityContext.setAuthentication(authentication);
+        SecurityContextHolder.setContext(securityContext);
 
         filterChain.doFilter(request, response);
     }

@@ -25,38 +25,4 @@ public interface UserRepository extends JpaRepository<User, Long> {
       AND (:role IS NULL OR CAST(u.role AS VARCHAR) = :role)
 """, nativeQuery = true)
 List<User> searchUsers(@Param("name") String name,@Param("email") String email,@Param("role") String role);
-
-    @Query(value = "SELECT u.id, u.name, SUM(o.total_amount) AS totalSpent, COUNT(o.id) AS orderCount " +
-                   "FROM users u JOIN orders o ON u.id = o.user_id " +
-                   "WHERE o.status = 'DELIVERED' " +
-                   "AND o.ordered_at >= :startDateTime AND o.ordered_at <= :endDateTime " +
-                   "GROUP BY u.id, u.name " +
-                   "ORDER BY SUM(o.total_amount) DESC " +
-                   "LIMIT :limit", nativeQuery = true)
-    List<Object[]> findTopBuyers(@Param("startDateTime") LocalDateTime startDateTime,
-                                 @Param("endDateTime") LocalDateTime endDateTime,
-                                 @Param("limit") Integer limit);
-
-    @Query(value = "SELECT COUNT(*) FROM orders o WHERE o.user_id = :userId AND o.status NOT IN ('DELIVERED', 'CANCELLED', 'RETURNED')", nativeQuery = true)
-    int countActiveOrdersForUser(@Param("userId") Long userId);
-
-    @Query(value = "SELECT u.* FROM users u " +
-            "JOIN orders o ON u.id = o.user_id " +
-            "WHERE u.preferences ->> 'language' = :lang " +
-            "GROUP BY u.id " +
-            "HAVING COUNT(o.id) >= :minOrders",
-            nativeQuery = true)
-    List<User> findUsersByLanguageAndMinOrders(@Param("lang") String lang, @Param("minOrders") Integer minOrders);
-
-    @Query(value = """
-    SELECT
-        COUNT(o.id)                                                         AS totalOrders,
-        COUNT(CASE WHEN o.status = 'DELIVERED'  THEN 1 END)                AS completedOrders,
-        COUNT(CASE WHEN o.status = 'CANCELLED'  THEN 1 END)                AS cancelledOrders,
-        COALESCE(SUM(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS totalSpent,
-        COALESCE(AVG(CASE WHEN o.status = 'DELIVERED' THEN o.total_amount END), 0) AS averageOrderValue
-    FROM orders o
-    WHERE o.user_id = :userId
-    """, nativeQuery = true)
-    Object[] getOrderSummaryByUserId(@Param("userId") Long userId);
 }

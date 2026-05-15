@@ -2,6 +2,7 @@ package com.team14.amazon.user.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -29,7 +30,7 @@ public class User {
     @Column(nullable = false)
     private String password;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = true, unique = true)
     private String phone;
 
 
@@ -46,6 +47,7 @@ public class User {
     private Map<String, Object> preferences;
 
     @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

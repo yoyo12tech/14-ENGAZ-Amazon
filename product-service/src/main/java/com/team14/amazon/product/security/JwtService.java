@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 @Service
 public class JwtService {
 
-    private final JwtConfigurationManager config = JwtConfigurationManager.getInstance();
 
     public boolean validateToken(String token) {
         try {
@@ -53,7 +52,7 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = config.getSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] keyBytes = JwtConfigurationManager.getInstance().getSecret().getBytes(StandardCharsets.UTF_8);
         return Keys.hmacShaKeyFor(keyBytes);
     }
 }

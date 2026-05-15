@@ -1,22 +1,110 @@
-version: '3.8'
 services:
-  postgres:
-    image: postgres:17
-    container_name: amazon-db
+  user-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: user-postgres
     restart: always
     environment:
-      POSTGRES_DB: amazondb
+      POSTGRES_DB: amazondb-users
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - user-pgdata:/var/lib/postgresql/data
     networks:
       - amazon-network
     healthcheck:
-      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb" ]
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-users" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  product-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: product-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-products
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - product-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-products" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  order-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: order-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-orders
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - order-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-orders" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  shipping-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: shipping-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-shipments
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - shipping-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-shipments" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  billing-postgres:
+    build:
+      context: .
+      dockerfile: Dockerfile.db
+    container_name: billing-postgres
+    restart: always
+    environment:
+      POSTGRES_DB: amazondb-billing
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - billing-pgdata:/var/lib/postgresql/data
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d amazondb-billing" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -39,6 +127,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
 
   redis:
     image: redis:latest
@@ -53,26 +142,27 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
 
   elasticsearch:
-    image: elasticsearch:8.19.12
+    image: elasticsearch:8.13.4
     container_name: amazon-elasticsearch
     ports:
       - "9200:9200"
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
     volumes:
       - es-data:/usr/share/elasticsearch/data
     networks:
       - amazon-network
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1" ]
-      interval: 10s
-      timeout: 5s
+      interval: 15s
+      timeout: 10s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
   neo4j:
     image: neo4j:latest
@@ -82,9 +172,9 @@ services:
       - "7687:7687"
     environment:
       NEO4J_AUTH: neo4j/neo4jpass
-      NEO4J_server_memory_heap_max__size: 512m
-      NEO4J_server_memory_heap_initial__size: 256m
-      NEO4J_server_memory_pagecache_size: 256m
+      NEO4J_server_memory_heap_max__size: 256m
+      NEO4J_server_memory_heap_initial__size: 128m
+      NEO4J_server_memory_pagecache_size: 128m
     volumes:
       - neo4j-data:/data
     networks:
@@ -94,7 +184,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
   cassandra:
     image: cassandra:latest
@@ -102,21 +192,50 @@ services:
     ports:
       - "9042:9042"
     environment:
-      CASSANDRA_CLUSTER_NAME: amazoncluster
-      CASSANDRA_DC: datacenter1
-      CASSANDRA_KEYSPACE: amazonks
-      MAX_HEAP_SIZE: 512M
-      HEAP_NEWSIZE: 128M
+      - CASSANDRA_CLUSTER_NAME=amazoncluster
+      - CASSANDRA_DC=datacenter1
+      - CASSANDRA_KEYSPACE=amazonks
+      - MAX_HEAP_SIZE=512M
+      - HEAP_NEWSIZE=128M
+      - JVM_OPTS=-Dcassandra.skip_wait_for_gossip_to_settle=0 -Dcassandra.ring_delay_ms=1000 -Dcassandra.write_request_timeout_in_ms=30000
     volumes:
       - cassandra-data:/var/lib/cassandra
     networks:
       - amazon-network
     healthcheck:
       test: [ "CMD-SHELL", "cqlsh -e 'DESCRIBE KEYSPACES'" ]
-      interval: 15s
-      timeout: 10s
+      interval: 20s
+      timeout: 15s
       retries: 10
+      start_period: 90s
+
+  rabbitmq:
+    image: rabbitmq:4.0-management
+    container_name: amazon-rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - amazon-network
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
       start_period: 60s
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: amazon-loki
+    ports:
+      - "3100:3100"
+    networks:
+      - amazon-network
 
   # User Service
   user-service:
@@ -127,7 +246,7 @@ services:
     ports:
       - "8081:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://user-postgres:5432/amazondb-users
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -136,16 +255,25 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      user-postgres:
         condition: service_healthy
       mongo:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/users/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   # Product Service
   product-service:
@@ -156,7 +284,7 @@ services:
     ports:
       - "8082:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://product-postgres:5432/amazondb-products
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -165,18 +293,27 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      product-postgres:
         condition: service_healthy
       mongo:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
       elasticsearch:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/products/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   # Order Service
   order-service:
@@ -187,22 +324,39 @@ services:
     ports:
       - "8083:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/amazondb-orders
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_NEO4J_URI: bolt://neo4j:7687
+      SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+      SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      order-postgres:
         condition: service_healthy
       mongo:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
       neo4j:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/orders/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   # Shipping Service
   shipping-service:
@@ -213,22 +367,37 @@ services:
     ports:
       - "8084:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+#      FEIGN_ORDER_SERVICE_URL: http://order-service:8080
+      SPRING_DATASOURCE_URL: jdbc:postgresql://shipping-postgres:5432/amazondb-shipments
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
+      SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      shipping-postgres:
         condition: service_healthy
       mongo:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
       cassandra:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/shipments/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 
   # Billing Service
   billing-service:
@@ -239,7 +408,7 @@ services:
     ports:
       - "8085:8080"
     environment:
-      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/amazondb
+      SPRING_DATASOURCE_URL: jdbc:postgresql://billing-postgres:5432/amazondb-billing
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
       SPRING_JPA_HIBERNATE_DDL_AUTO: update
@@ -248,23 +417,36 @@ services:
       SPRING_DATA_REDIS_HOST: redis
       SPRING_DATA_REDIS_PORT: 6379
       SPRING_DATA_REDIS_PASSWORD: redispass
+      SPRING_RABBITMQ_HOST: rabbitmq
     depends_on:
-      postgres:
+      billing-postgres:
         condition: service_healthy
       mongo:
-        condition: service_started
+        condition: service_healthy
       redis:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
     networks:
       - amazon-network
-    restart: unless-stopped
+    restart: on-failure
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/api/transactions/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 30s
 volumes:
-  pgdata:
-    name: pgdata
+  user-pgdata:
+  product-pgdata:
+  order-pgdata:
+  shipping-pgdata:
+  billing-pgdata:
   mongo-data:
   es-data:
   neo4j-data:
   cassandra-data:
+  rabbitmq-data:
 networks:
   amazon-network:
     name: amazon-network

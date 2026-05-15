@@ -2,6 +2,7 @@ package com.team14.amazon.product.model;
 
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -37,6 +38,7 @@ public class ProductReview {
     private Map<String, Object> metadata;
 
     @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

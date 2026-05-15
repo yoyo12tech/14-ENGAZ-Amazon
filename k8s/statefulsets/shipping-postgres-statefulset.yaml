@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: shipping-postgres
+  namespace: default
+spec:
+  serviceName: shipping-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: shipping-postgres
+  template:
+    metadata:
+      labels:
+        app: shipping-postgres
+    spec:
+      containers:
+        - name: shipping-postgres
+          image: postgres:17
+          ports:
+            - containerPort: 5432
+          envFrom:
+            - secretRef:
+                name: shipping-postgres-secret
+          volumeMounts:
+            - name: shipping-pgdata
+              mountPath: /var/lib/postgresql/data
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -d
+                - amazondb-shipments
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 5
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - postgres
+                - -d
+                - amazondb-shipments
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 5
+      volumes:
+        - name: shipping-pgdata
+          persistentVolumeClaim:
+            claimName: shipping-pgdata

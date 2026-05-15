@@ -5,13 +5,16 @@ import com.team14.amazon.product.model.ProductReview;
 import com.team14.amazon.product.observer.EntityObserver;
 import com.team14.amazon.product.repository.ProductRepository;
 import com.team14.amazon.product.repository.ProductReviewRepository;
+import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 import java.util.List;
@@ -23,14 +26,39 @@ public class ProductReviewService {
 
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
+    private final CacheInvalidationService cacheInvalidationService;
     private final EntityObserver mongoEventLogger;
+    private final List<EntityObserver> observers = new ArrayList<>();
 
     public ProductReviewService(ProductReviewRepository reviewRepository,
                                 ProductRepository productRepository,
+                                CacheInvalidationService cacheInvalidationService,
                                 @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
+        this.cacheInvalidationService = cacheInvalidationService;
         this.mongoEventLogger = mongoEventLogger;
+    }
+
+    @PostConstruct
+    public void init() {
+        register(mongoEventLogger);
+    }
+
+    public void register(EntityObserver observer) {
+        if (observer != null) {
+            observers.add(observer);
+        }
+    }
+
+    public void unregister(EntityObserver observer) {
+        observers.remove(observer);
+    }
+
+    public void notifyObservers(String eventType, Object payload) {
+        for (EntityObserver observer : observers) {
+            observer.onEvent(eventType, payload);
+        }
     }
 
     private Map<String, Object> reviewPayload(Long productId, Long reviewId, Long userId, Map<String, Object> details) {
@@ -53,6 +81,7 @@ public class ProductReviewService {
         return reviewRepository.findAll();
     }
 
+    @Cacheable(value = "product-service::product-review", key = "#id")
     public Optional<ProductReview> getReviewById(Long id) {
         return reviewRepository.findById(id);
     }
@@ -62,8 +91,10 @@ public class ProductReviewService {
     }
 
     public ProductReview createReview(ProductReview review) {
-
-        return reviewRepository.save(review);
+        ProductReview saved = reviewRepository.save(review);
+        Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
+        cacheInvalidationService.invalidateProductCaches(productId);
+        return saved;
     }
 
     public Optional<ProductReview> updateReview(Long id, ProductReview updatedReview) {
@@ -73,13 +104,17 @@ public class ProductReviewService {
             existing.setComment(updatedReview.getComment());
             existing.setVerified(updatedReview.getVerified());
             existing.setMetadata(updatedReview.getMetadata());
-            return reviewRepository.save(existing);
+            ProductReview saved = reviewRepository.save(existing);
+            Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
+            cacheInvalidationService.invalidateReviewCaches(id, productId);
+            return saved;
         });
     }
 
-    public boolean deleteReview(Long id) {
+    public boolean deleteReview(Long id, Long productId) {
         if (reviewRepository.existsById(id)) {
             reviewRepository.deleteById(id);
+            cacheInvalidationService.invalidateReviewCaches(id, productId);
             return true;
         }
         return false;
@@ -129,8 +164,9 @@ public class ProductReviewService {
 
         // 7. Save updated product and return the created review payload
         productRepository.save(product);
+        cacheInvalidationService.invalidateProductCaches(productId);
 
-        mongoEventLogger.onEvent("REVIEW_ADDED", reviewPayload(
+        notifyObservers("REVIEW_ADDED", reviewPayload(
                 productId,
                 savedReview.getId(),
                 savedReview.getUserId(),
@@ -191,8 +227,9 @@ public class ProductReviewService {
 
         // 8. Save the review
         ProductReview savedReview = reviewRepository.save(review);
+        cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
 
-        mongoEventLogger.onEvent("REVIEW_VERIFIED", reviewPayload(
+        notifyObservers("REVIEW_VERIFIED", reviewPayload(
                 productId,
                 savedReview.getId(),
                 savedReview.getUserId(),

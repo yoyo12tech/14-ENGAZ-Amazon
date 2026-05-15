@@ -40,3 +40,17 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+m2-tests-*/
+*.zip
+-v
+
+
+
+.claude/
+
+docs/
+M3_description_sections/
+GEMINI.md
+git_constraints.txt
+

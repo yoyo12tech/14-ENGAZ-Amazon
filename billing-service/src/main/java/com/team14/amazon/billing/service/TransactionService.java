@@ -11,6 +11,7 @@ import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -23,9 +24,12 @@ import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.billing.dto.ProcessTransactionRequest;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.HashSet;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
@@ -34,6 +38,20 @@ import java.util.List;
 import com.team14.amazon.billing.dto.AppliedVoucherDetail;
 import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.adapter.ObjectArrayDtoAdapter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.team14.amazon.billing.dto.CategoryRevenueDTO;
+import com.team14.amazon.billing.repository.CategoryRevenueProjection;
+import com.team14.amazon.billing.dto.LifecycleEventDTO;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.Authentication;
+import org.bson.Document;
+import java.util.Comparator;
+import java.util.Date;
+import java.time.ZoneId;
 
 @Service
 public class TransactionService {
@@ -41,14 +59,19 @@ public class TransactionService {
     private final VoucherRepository voucherRepository;
     private final TransactionVoucherRepository transactionVoucherRepository;
     private final List<EntityObserver> observers;
+    private final BillingCacheInvalidationService cacheInvalidationService;
+    private final MongoTemplate mongoTemplate;
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
             TransactionVoucherRepository transactionVoucherRepository,
-            List<EntityObserver> observers) {
+            List<EntityObserver> observers, BillingCacheInvalidationService cacheInvalidationService,
+            MongoTemplate mongoTemplate) {
         this.transactionRepository = transactionRepository;
         this.voucherRepository = voucherRepository;
         this.transactionVoucherRepository = transactionVoucherRepository;
         this.observers = new ArrayList<>(observers);
+        this.cacheInvalidationService = cacheInvalidationService;
+        this.mongoTemplate = mongoTemplate;
     }
 
     public void register(EntityObserver observer) {
@@ -86,6 +109,7 @@ public class TransactionService {
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
 
         notifyObservers("SYSTEM_CREATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
 
         return saved;
     }
@@ -94,6 +118,10 @@ public class TransactionService {
     public Transaction findTransactionById(Long id) {
         return transactionRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Not found"));
+    }
+
+    public Transaction findTransactionByIdDirect(Long id) {
+        return transactionRepository.findById(id).orElse(null);
     }
 
     public List<Transaction> findAllTransactions() {
@@ -111,6 +139,7 @@ public class TransactionService {
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
 
         notifyObservers("SYSTEM_UPDATE", auditPayload(saved.getId(), methodName, saved.getAmount(), details));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
 
         return saved;
     }
@@ -118,6 +147,7 @@ public class TransactionService {
     public void deleteTransaction(Long id) {
         Transaction existing = transactionRepository.findById(id).orElse(null);
         transactionRepository.deleteById(id);
+        cacheInvalidationService.evictTransactionCaches(id);
 
         if (existing != null) {
             Map<String, Object> details = new HashMap<>();
@@ -126,6 +156,18 @@ public class TransactionService {
 
             notifyObservers("SYSTEM_DELETE", auditPayload(id, methodName, existing.getAmount(), details));
         }
+    }
+
+    public java.math.BigDecimal getUserTransactionTotal(Long userId, String startDate, String endDate) {
+        LocalDateTime start = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime end = LocalDate.parse(endDate).atTime(LocalTime.MAX);
+        return transactionRepository.getUserTransactionTotal(userId, start, end);
+    }
+
+    public long getUserOrderCount(Long userId, String startDate, String endDate) {
+        LocalDateTime start = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime end = LocalDate.parse(endDate).atTime(LocalTime.MAX);
+        return transactionRepository.getUserOrderCount(userId, start, end);
     }
 
     public Transaction findByOrderId(Long id) {
@@ -297,6 +339,7 @@ public class TransactionService {
             failedDetails.put("reason", "SIMULATED_FAILURE");
             String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
             notifyObservers("FAILED", auditPayload(saved.getId(), methodName, saved.getAmount(), failedDetails));
+            cacheInvalidationService.evictTransactionCaches(saved.getId());
             return saved;
         }
 
@@ -318,6 +361,7 @@ public class TransactionService {
         completedDetails.put("gatewayResponse", "approved");
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), completedDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
@@ -345,6 +389,7 @@ public class TransactionService {
         refundDetails.put("refundReason", reason);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("REFUNDED", auditPayload(saved.getId(), methodName, saved.getAmount(), refundDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
@@ -405,6 +450,7 @@ public class TransactionService {
         voucherDetails.put("discountApplied", discount);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("VOUCHER_APPLIED", auditPayload(saved.getId(), methodName, saved.getAmount(), voucherDetails));
+        cacheInvalidationService.evictTransactionAndVoucherCaches(saved.getId(), voucherId);
         return saved;
     }
 
@@ -435,6 +481,7 @@ public class TransactionService {
         eventDetails.put("retryAttempt", retryAttempt + 1);
         String methodName = saved.getMethod() != null ? saved.getMethod().name() : null;
         notifyObservers("RETRY_COMPLETED", auditPayload(saved.getId(), methodName, saved.getAmount(), eventDetails));
+        cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
 
@@ -478,5 +525,188 @@ public class TransactionService {
     public List<VoucherUsageDTO> getTopUsedVouchers(int limit) {
         Pageable pageable = PageRequest.of(0, limit);
         return transactionVoucherRepository.findTopUsedVouchers(pageable);
+    }
+
+    @Cacheable(value = BillingCacheNames.S5_F10, key = "#startDate.toString() + '_' + #endDate.toString()")
+    public List<CategoryRevenueDTO> getCategoryRevenue(LocalDate startDate, LocalDate endDate) {
+        if (startDate.isAfter(endDate)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
+        }
+        LocalDateTime start = startDate.atStartOfDay();
+        LocalDateTime end = endDate.atTime(LocalTime.MAX);
+
+        List<CategoryRevenueProjection> rawData = transactionRepository.findCategoryRevenueRawData(start, end);
+
+        class CategoryAgg {
+            String category;
+            double grossRevenue = 0.0;
+            double refundedRevenue = 0.0;
+            Set<Long> txIds = new HashSet<>();
+            Set<Long> refundTxIds = new HashSet<>();
+            CategoryAgg(String c) { category = c; }
+        }
+
+        Map<String, CategoryAgg> map = new HashMap<>();
+        ObjectMapper mapper = new ObjectMapper();
+
+        for (CategoryRevenueProjection row : rawData) {
+            String cat = row.getCategory();
+            map.putIfAbsent(cat, new CategoryAgg(cat));
+            CategoryAgg agg = map.get(cat);
+
+            agg.txIds.add(row.getTransactionId());
+            double lineGross = row.getQuantity() * row.getPriceAtPurchase();
+            agg.grossRevenue += lineGross;
+
+            if ("REFUNDED".equals(row.getTransactionStatus())) {
+                agg.refundTxIds.add(row.getTransactionId());
+
+                boolean hasRefundedItemsArray = false;
+                if (row.getTransactionDetails() != null) {
+                    try {
+                        Map<String, Object> details = mapper.readValue(row.getTransactionDetails(), new TypeReference<Map<String, Object>>() {});
+                        if (details.containsKey("refundedItems")) {
+                            hasRefundedItemsArray = true;
+                            List<Map<String, Object>> refundedItems = (List<Map<String, Object>>) details.get("refundedItems");
+                            for (Map<String, Object> rItem : refundedItems) {
+                                Number oId = (Number) rItem.get("orderItemId");
+                                if (oId != null && oId.longValue() == row.getOrderItemId()) {
+                                    Number amt = (Number) rItem.get("amount");
+                                    if (amt != null) {
+                                        agg.refundedRevenue += amt.doubleValue();
+                                    }
+                                    break; // Found the item, stop searching this array
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignore parse errors, fallback will occur if hasRefundedItemsArray remains false
+                    }
+                }
+
+                if (!hasRefundedItemsArray) {
+                    // M1 Legacy Schema (Full Refund Fallback)
+                    agg.refundedRevenue += lineGross;
+                }
+            }
+        }
+
+        List<CategoryRevenueDTO> result = new ArrayList<>();
+        for (CategoryAgg agg : map.values()) {
+            double net = agg.grossRevenue - agg.refundedRevenue;
+            long txCount = agg.txIds.size();
+            long refCount = agg.refundTxIds.size();
+            double rate = txCount == 0 ? 0.0 : ((double) refCount / txCount);
+
+            result.add(new CategoryRevenueDTO.Builder()
+                    .category(agg.category)
+                    .grossRevenue(agg.grossRevenue)
+                    .refundedRevenue(agg.refundedRevenue)
+                    .netRevenue(net)
+                    .transactionCount(txCount)
+                    .refundCount(refCount)
+                    .returnRate(rate)
+                    .build());
+        }
+        return result;
+    }
+
+    @Cacheable(cacheNames = BillingCacheNames.S5_F11, key = "#transactionId")
+    public List<LifecycleEventDTO> getTransactionLifecycle(Long transactionId) {
+//        if (auth == null || !auth.isAuthenticated()) {
+//            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
+//        }
+//
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
+
+
+//        String uidStr = (String) auth.getPrincipal();
+//        Long uid;
+//        try {
+//            uid = Long.parseLong(uidStr);
+//        } catch (NumberFormatException e) {
+//             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user ID in token");
+//        }
+//
+//        boolean isAdmin = auth.getAuthorities().stream()
+//                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
+//
+//        if (!transaction.getUserId().equals(uid) && !isAdmin) {
+//            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
+//        }
+
+        List<Long> shipmentIds = new ArrayList<>();
+        if (transaction.getOrderId() != null) {
+            shipmentIds = transactionRepository.findShipmentIdsByOrderId(transaction.getOrderId());
+        }
+        List<LifecycleEventDTO> timeline = new ArrayList<>();
+
+        // 1. Transaction Events
+        Query tQuery = new Query(Criteria.where("transactionId").is(transactionId));
+        List<Document> tDocs = mongoTemplate.find(tQuery, Document.class, "transaction_audit_trail");
+        for (Document d : tDocs) {
+            timeline.add(mapToDTO(d, "TRANSACTION"));
+        }
+
+        // 2. Order Events
+        if (transaction.getOrderId() != null) {
+            Query oQuery = new Query(Criteria.where("orderId").is(transaction.getOrderId()));
+            List<Document> oDocs = mongoTemplate.find(oQuery, Document.class, "order_events");
+            for (Document d : oDocs) {
+                timeline.add(mapToDTO(d, "ORDER"));
+            }
+        }
+
+        // 3. Shipment Events
+        if (shipmentIds != null && !shipmentIds.isEmpty()) {
+            Query sQuery = new Query(Criteria.where("shipmentId").in(shipmentIds));
+            List<Document> sDocs = mongoTemplate.find(sQuery, Document.class, "shipment_events");
+            for (Document d : sDocs) {
+                timeline.add(mapToDTO(d, "SHIPMENT"));
+            }
+        }
+
+        timeline.sort(Comparator.comparing(LifecycleEventDTO::getTimestamp, Comparator.nullsLast(Comparator.naturalOrder())));
+        return timeline;
+    }
+
+    private LifecycleEventDTO mapToDTO(Document d, String source) {
+        LocalDateTime timestamp = null;
+        Object tsObj = d.get("timestamp");
+        if (tsObj instanceof java.util.Date) {
+            timestamp = ((java.util.Date) tsObj).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+        } else if (tsObj instanceof String) {
+            String tsStr = (String) tsObj;
+            try {
+                timestamp = LocalDateTime.parse(tsStr);
+            } catch (Exception e) {
+                try {
+                    timestamp = LocalDateTime.ofInstant(Instant.parse(tsStr), ZoneId.systemDefault());
+                } catch (Exception ex) {
+                    // Fallback if parsing fails
+                }
+            }
+        } else if (tsObj instanceof LocalDateTime) {
+            timestamp = (LocalDateTime) tsObj;
+        } else if (tsObj instanceof Long) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli((Long) tsObj), ZoneId.systemDefault());
+        } else if (tsObj instanceof Integer) {
+            timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Integer) tsObj).longValue()), ZoneId.systemDefault());
+        }
+        
+        // details can be a nested Document or a Map — copy to plain HashMap so Jackson can serialize/deserialize it cleanly from Redis cache
+        Map<String, Object> details = null;
+        Object detailsObj = d.get("details");
+        if (detailsObj instanceof Map) {
+            details = new HashMap<>((Map<String, Object>) detailsObj);
+        }
+
+        return LifecycleEventDTO.builder()
+                .timestamp(timestamp)
+                .source(source)
+                .action(d.getString("action"))
+                .details(details)
+                .build();
     }
 }

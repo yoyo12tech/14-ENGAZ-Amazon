@@ -1,6 +1,7 @@
 package com.team14.amazon.shipping.model;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -51,11 +52,12 @@ public class Shipment {
     private LocalDateTime lastUpdate = LocalDateTime.now();
 
     @CreationTimestamp
+    @ColumnDefault("now()")
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     public enum Status {
-        PROCESSING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED
+        PROCESSING, SHIPPED, IN_TRANSIT, OUT_FOR_DELIVERY, DELIVERED, RETURNED, CANCELLED
     }
 
     // --- GETTERS AND SETTERS ---
@@ -93,7 +95,7 @@ public class Shipment {
     }
 
     public Status getStatus() {
-        return status;
+        return status != null ? status : Status.PROCESSING;
     }
 
     public void setStatus(Status status) {

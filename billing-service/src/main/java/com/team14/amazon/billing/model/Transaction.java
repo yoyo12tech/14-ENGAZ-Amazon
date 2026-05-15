@@ -3,6 +3,7 @@ package com.team14.amazon.billing.model;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
@@ -41,6 +42,7 @@ public class Transaction {
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> transactionDetails;
 
+    @ColumnDefault("now()")
     @Column(name= "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

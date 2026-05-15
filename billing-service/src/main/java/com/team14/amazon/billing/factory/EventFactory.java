@@ -1,7 +1,5 @@
 package com.team14.amazon.billing.factory;
 
-import org.springframework.stereotype.Component;
-
 import com.team14.amazon.billing.model.mongodb.EventType;
 import com.team14.amazon.billing.model.mongodb.MongoEvent;
 import com.team14.amazon.billing.model.mongodb.TransactionAuditEvent;
@@ -9,7 +7,9 @@ import com.team14.amazon.billing.model.mongodb.TransactionAuditEvent;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public class EventFactory {
+public final class EventFactory {
+
+    private EventFactory() {}
 
     public static MongoEvent createEvent(EventType type, Map<String, Object> params) {
         if (type == EventType.TRANSACTION_AUDIT) {

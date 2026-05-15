@@ -7,7 +7,7 @@ import com.team14.amazon.product.model.mongodb.ProductEvent;
 import java.time.LocalDateTime;
 import java.util.Map;
 
-public class EventFactory {
+public final class EventFactory {
 
     private EventFactory() {
     }
