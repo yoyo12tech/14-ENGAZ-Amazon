@@ -33,13 +33,12 @@ public class User {
     @Column(nullable = true, unique = true)
     private String phone;
 
-
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "role", nullable = false)
+    @Column(name = "role", nullable = false, columnDefinition = "UserRole DEFAULT 'CUSTOMER'")
     private UserRole role = UserRole.CUSTOMER;
 
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = false)
+    @Column(name = "status", nullable = false, columnDefinition = "UserStatus DEFAULT 'ACTIVE'")
     private UserStatus status = UserStatus.ACTIVE;
 
     @JdbcTypeCode(SqlTypes.JSON)
