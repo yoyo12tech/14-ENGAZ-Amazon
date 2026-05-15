@@ -8,9 +8,28 @@
         </encoder>
     </appender>
 
+    <!-- ── Loki4J appender — pushes structured logs to Grafana Loki ─────── -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>${LOKI_URL:-http://loki:3100}/loki/api/v1/push</url>
+            <connectionTimeoutMs>500</connectionTimeoutMs>
+            <requestTimeoutMs>500</requestTimeoutMs>
+        </http>
+        <format>
+            <label>
+                <pattern>app=user-service,host=${HOSTNAME:-unknown},level=%level</pattern>
+            </label>
+            <message>
+                <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [%t] %logger{36} : %msg%n</pattern>
+            </message>
+            <sortByTime>true</sortByTime>
+        </format>
+    </appender>
+
     <!-- ── Root logger ───────────────────────────────────────────────────── -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="LOKI"/>
     </root>
 
     <!-- ── Reduce Hibernate SQL noise in production ──────────────────────── -->
