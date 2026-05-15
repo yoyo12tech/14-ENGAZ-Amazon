@@ -2,7 +2,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: user-service
-  namespace: default
+  namespace: amazon
   labels:
     app: user-service
 spec:
