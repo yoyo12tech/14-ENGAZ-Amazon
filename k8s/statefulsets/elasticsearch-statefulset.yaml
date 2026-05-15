@@ -3,7 +3,7 @@ kind: StatefulSet
 
 metadata:
   name: elasticsearch
-
+  namespace: amazon
 spec:
   serviceName: elasticsearch
   replicas: 1
@@ -13,18 +13,24 @@ spec:
       app: elasticsearch
 
   template:
-    metadata:
-      labels:
-        app: elasticsearch
-
     spec:
       containers:
         - name: elasticsearch
-          image: elasticsearch:8.13.0
-
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
           env:
             - name: discovery.type
               value: single-node
-
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms512m -Xmx512m"
           ports:
             - containerPort: 9200
+            - containerPort: 9300   # ← missing transport port
+          volumeMounts: # ← missing entirely
+            - name: elasticsearch-data
+              mountPath: /usr/share/elasticsearch/data
+      volumes:
+        - name: elasticsearch-data
+          persistentVolumeClaim:
+            claimName: elasticsearch-pvc

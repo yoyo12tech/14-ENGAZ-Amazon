@@ -3,7 +3,7 @@ kind: StatefulSet
 
 metadata:
   name: rabbitmq
-
+  namespace: amazon
 spec:
   serviceName: rabbitmq
   replicas: 1
@@ -12,16 +12,18 @@ spec:
     matchLabels:
       app: rabbitmq
 
-  template:
-    metadata:
-      labels:
-        app: rabbitmq
-
-    spec:
-      containers:
-        - name: rabbitmq
-          image: rabbitmq:3-management
-
-          ports:
-            - containerPort: 5672
-            - containerPort: 15672
+template:
+  spec:
+    containers:
+      - name: rabbitmq
+        image: rabbitmq:3-management
+        ports:
+          - containerPort: 5672
+          - containerPort: 15672
+        volumeMounts:             # ← missing entirely
+          - name: rabbitmq-data
+            mountPath: /var/lib/rabbitmq
+    volumes:
+      - name: rabbitmq-data
+        persistentVolumeClaim:
+          claimName: rabbitmq-pvc

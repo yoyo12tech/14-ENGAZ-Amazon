@@ -5,4 +5,4 @@ spring:
         - id: billing-service
           uri: http://billing-service:8080
           predicates:
-            - Path=/api/billing/**
+            - Path=/api/transactions/**, /api/voucher/**
