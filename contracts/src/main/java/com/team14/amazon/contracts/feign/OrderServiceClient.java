@@ -1,15 +1,13 @@
 package com.team14.amazon.contracts.feign;
 
+
 import com.team14.amazon.contracts.dto.OrderDTO;
-import com.team14.amazon.contracts.dto.OrderItemDTO;
 import com.team14.amazon.contracts.dto.OrderSummaryDTO;
 import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-
-import java.util.List;
 
 @FeignClient(name = "order-service", url = "${feign.order-service.url}")
 public interface OrderServiceClient {
@@ -47,6 +45,6 @@ public interface OrderServiceClient {
     int getRecentSalesCount(@PathVariable("productId") Long productId,
                             @RequestParam("days") int days);
 
-    @GetMapping("/api/orders/{orderId}/items")
-    List<OrderItemDTO> getOrderItems(@PathVariable("orderId") Long orderId);
+//    @GetMapping("/api/orders/product/{productId}/units-sold")
+//    long getUnitsSoldForProduct(@PathVariable("productId") Long productId);
 }
