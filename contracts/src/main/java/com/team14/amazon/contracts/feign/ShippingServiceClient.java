@@ -11,8 +11,8 @@ import java.util.List;
 public interface ShippingServiceClient {
 
     @GetMapping("/api/shipments/order/{orderId}/active")
-    ShipmentDTO getActiveShipmentForOrder(@PathVariable Long orderId);
+    ShipmentDTO getActiveShipmentForOrder(@PathVariable("orderId") Long orderId);
 
     @GetMapping("/api/shipments/order/{orderId}/ids")
-    List<Long> getShipmentIdsForOrder(@PathVariable Long orderId);
+    List<Long> getShipmentIdsForOrder(@PathVariable("orderId") Long orderId);
 }
