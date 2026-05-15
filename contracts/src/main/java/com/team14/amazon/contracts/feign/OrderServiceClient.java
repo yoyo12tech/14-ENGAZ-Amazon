@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 
-@FeignClient(name = "order-service", url = "${feign.order-service.url:http://order-service:8080}")
+@FeignClient(name = "order-service", url = "${feign.order-service.url}")
 public interface OrderServiceClient {
 
     @GetMapping("/api/orders/{orderId}")

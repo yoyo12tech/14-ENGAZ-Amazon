@@ -145,7 +145,7 @@ services:
       start_period: 10s
 
   elasticsearch:
-    image: elasticsearch:8.16.6
+    image: elasticsearch:8.13.4
     container_name: amazon-elasticsearch
     ports:
       - "9200:9200"
@@ -184,7 +184,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-      start_period: 30s
+      start_period: 60s
 
   cassandra:
     image: cassandra:latest
@@ -223,8 +223,11 @@ services:
     healthcheck:
       test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 5
+      start_period: 60s
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
 
   loki:
     image: grafana/loki:2.9.0
@@ -299,7 +302,7 @@ services:
       redis:
         condition: service_started
       elasticsearch:
-        condition: service_healthy
+        condition: service_started
       rabbitmq:
         condition: service_healthy
     networks:
@@ -364,7 +367,7 @@ services:
     ports:
       - "8084:8080"
     environment:
-      FEIGN_ORDER_SERVICE_URL: http://order-service:8080
+#      FEIGN_ORDER_SERVICE_URL: http://order-service:8080
       SPRING_DATASOURCE_URL: jdbc:postgresql://shipping-postgres:5432/amazondb-shipments
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
@@ -443,6 +446,7 @@ volumes:
   es-data:
   neo4j-data:
   cassandra-data:
+  rabbitmq-data:
 networks:
   amazon-network:
     name: amazon-network

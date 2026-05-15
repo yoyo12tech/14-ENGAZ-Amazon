@@ -28,7 +28,7 @@ public class Shipment {
 
     
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "status", nullable = true)
+    @Column(name = "status", nullable = false)
     private Status status = Status.PROCESSING;
 
 
