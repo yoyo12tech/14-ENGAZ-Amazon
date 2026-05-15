@@ -3,7 +3,7 @@ kind: PersistentVolumeClaim
 
 metadata:
   name: rabbitmq-pvc
-
+  namespace: amazon
 spec:
   accessModes:
     - ReadWriteOnce

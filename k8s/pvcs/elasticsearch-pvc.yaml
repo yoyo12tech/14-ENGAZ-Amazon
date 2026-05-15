@@ -3,7 +3,7 @@ kind: PersistentVolumeClaim
 
 metadata:
   name: elasticsearch-pvc
-
+  namespace: amazon
 spec:
   accessModes:
     - ReadWriteOnce
