@@ -1,0 +1,34 @@
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{ISO8601} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Loki only active in k8s profile — silently skipped locally -->
+    <springProfile name="k8s">
+        <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+            <http>
+                <url>http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push</url>
+            </http>
+            <format>
+                <label>
+                    <pattern>app=amazon,service=product-service,level=%level,env=k8s</pattern>
+                </label>
+                <message>
+                    <pattern>{"timestamp":"%d{ISO8601}","level":"%level","service":"product-service","thread":"%thread","logger":"%logger{36}","correlationId":"%X{correlationId:-}","productId":"%X{productId:-}","orderId":"%X{orderId:-}","routingKey":"%X{routingKey:-}","message":"%msg"}</pattern>
+                </message>
+            </format>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!k8s">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+</configuration>

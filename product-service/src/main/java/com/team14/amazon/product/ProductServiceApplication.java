@@ -7,7 +7,7 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
-@EnableFeignClients
+@EnableFeignClients(basePackages = {"com.team14.amazon.product", "com.team14.amazon.contracts.feign"})
 @EntityScan("com.team14.amazon.product.model")
 @EnableCaching
 public class ProductServiceApplication {

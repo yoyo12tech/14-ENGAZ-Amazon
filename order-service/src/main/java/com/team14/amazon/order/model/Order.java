@@ -27,24 +27,25 @@ public class Order {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    // Plain Long — shippingAddressId lives in user-service, nullable until confirmed
+    // Plain Long — shippingAddressId lives in user-service, nullable until
+    // confirmed
     @Column(name = "shipping_address_id")
     private Long shippingAddressId;
 
+    @ColumnDefault("'PENDING'")
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;
-
 
     // Nullable — set when calculated
     @Column
     private Double totalAmount;
 
-    // JSONB: estimated delivery, special instructions, source, gift wrapping, priority
+    // JSONB: estimated delivery, special instructions, source, gift wrapping,
+    // priority
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private Map<String, Object> metadata = new HashMap<>();
-
 
     @CreationTimestamp
     @Column(nullable = false)
@@ -52,13 +53,11 @@ public class Order {
 
     // Nullable — set when delivered
     @Column(nullable = true)
-    private LocalDateTime deliveredAt =null;
+    private LocalDateTime deliveredAt = null;
 
     @ColumnDefault("now()")
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-
 
     // Inverse side — Order does NOT own the FK
     // @JsonIgnore prevents infinite recursion (Lab 4 slide 25)
@@ -66,46 +65,89 @@ public class Order {
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL)
     private List<OrderItem> orderItems = new ArrayList<>();
 
-
     @PrePersist
     protected void onCreate() {
-            this.createdAt = LocalDateTime.now();
-        if(this.status == null) {
+        this.createdAt = LocalDateTime.now();
+        if (this.status == null) {
             this.status = OrderStatus.PENDING;
         }
 
         this.deliveredAt = null;
 
-//        if(this.orderedAt == null) {
-//            this.orderedAt = LocalDateTime.now();
-//        }
+        // if(this.orderedAt == null) {
+        // this.orderedAt = LocalDateTime.now();
+        // }
     }
 
+    public Long getId() {
+        return id;
+    }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+    public Long getUserId() {
+        return userId;
+    }
 
-    public Long getShippingAddressId() { return shippingAddressId; }
-    public void setShippingAddressId(Long shippingAddressId) { this.shippingAddressId = shippingAddressId; }
+    public void setUserId(Long userId) {
+        this.userId = userId;
+    }
 
-    public OrderStatus getStatus() { return status; }
-    public void setStatus(OrderStatus status) { this.status = status; }
+    public Long getShippingAddressId() {
+        return shippingAddressId;
+    }
 
-    public Double getTotalAmount() { return totalAmount; }
-    public void setTotalAmount(Double totalAmount) { this.totalAmount = totalAmount; }
+    public void setShippingAddressId(Long shippingAddressId) {
+        this.shippingAddressId = shippingAddressId;
+    }
 
-    public Map<String, Object> getMetadata() { return metadata; }
-    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+    public OrderStatus getStatus() {
+        return status;
+    }
 
-    public LocalDateTime getOrderedAt() { return orderedAt; }
-    public void setOrderedAt(LocalDateTime orderedAt) { this.orderedAt = orderedAt; }
+    public void setStatus(OrderStatus status) {
+        this.status = status;
+    }
 
-    public LocalDateTime getDeliveredAt() { return deliveredAt; }
-    public void setDeliveredAt(LocalDateTime deliveredAt) { this.deliveredAt = deliveredAt; }
+    public Double getTotalAmount() {
+        return totalAmount;
+    }
 
-    public List<OrderItem> getOrderItems() { return orderItems; }
-    public void setOrderItems(List<OrderItem> orderItems) { this.orderItems = orderItems; }
+    public void setTotalAmount(Double totalAmount) {
+        this.totalAmount = totalAmount;
+    }
+
+    public Map<String, Object> getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata;
+    }
+
+    public LocalDateTime getOrderedAt() {
+        return orderedAt;
+    }
+
+    public void setOrderedAt(LocalDateTime orderedAt) {
+        this.orderedAt = orderedAt;
+    }
+
+    public LocalDateTime getDeliveredAt() {
+        return deliveredAt;
+    }
+
+    public void setDeliveredAt(LocalDateTime deliveredAt) {
+        this.deliveredAt = deliveredAt;
+    }
+
+    public List<OrderItem> getOrderItems() {
+        return orderItems;
+    }
+
+    public void setOrderItems(List<OrderItem> orderItems) {
+        this.orderItems = orderItems;
+    }
 }

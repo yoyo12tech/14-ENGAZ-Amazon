@@ -1,11 +1,13 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.contracts.feign.ProductServiceClient;
 import com.team14.amazon.order.config.CacheEvictionService;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.observer.EntityObserver;
 import com.team14.amazon.order.repository.OrderItemRepository;
 import com.team14.amazon.order.repository.OrderRepository;
+import feign.FeignException;
 import jakarta.annotation.PostConstruct;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
@@ -27,17 +29,20 @@ public class OrderItemService {
     private final OrderRepository      orderRepository;
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver       mongoEventLogger;
+    private final ProductServiceClient productServiceClient;
 
     private final List<EntityObserver> observers = new ArrayList<>();
 
     public OrderItemService(OrderItemRepository orderItemRepository,
                             OrderRepository orderRepository,
                             CacheEvictionService cacheEvictionService,
-                            EntityObserver mongoEventLogger) {
+                            EntityObserver mongoEventLogger,
+                            ProductServiceClient productServiceClient) {
         this.orderItemRepository  = orderItemRepository;
         this.orderRepository      = orderRepository;
         this.cacheEvictionService = cacheEvictionService;
         this.mongoEventLogger     = mongoEventLogger;
+        this.productServiceClient = productServiceClient;
     }
 
     @PostConstruct
@@ -61,13 +66,18 @@ public class OrderItemService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Order not found: " + orderId));
 
-        Map<String, Object> product = orderRepository.findProductById(item.getProductId());
-        if (product == null || product.isEmpty()) {
+        Double price;
+        try {
+            price = productServiceClient.getProductPrice(item.getProductId());
+        } catch (FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Product not found: " + item.getProductId());
+        } catch (FeignException e) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Product service unavailable");
         }
         item.setOrder(order);
-        item.setPriceAtPurchase(((Number) product.get("price")).doubleValue());
+        item.setPriceAtPurchase(price);
         OrderItem saved = orderItemRepository.save(item);
 
         cacheEvictionService.evictOrderFeatureCaches();

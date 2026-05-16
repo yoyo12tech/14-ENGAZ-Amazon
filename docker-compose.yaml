@@ -145,7 +145,7 @@ services:
       start_period: 10s
 
   elasticsearch:
-    image: elasticsearch:8.13.4
+    image: elasticsearch:9.0.3
     container_name: amazon-elasticsearch
     ports:
       - "9200:9200"
@@ -221,13 +221,14 @@ services:
     networks:
       - amazon-network
     healthcheck:
-      test: [ "CMD", "rabbitmq-diagnostics", "check_running" ]
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
       interval: 10s
       timeout: 10s
       retries: 5
       start_period: 60s
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
+    restart: on-failure
 
   loki:
     image: grafana/loki:2.9.0

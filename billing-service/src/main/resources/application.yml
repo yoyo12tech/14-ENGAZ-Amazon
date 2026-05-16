@@ -36,6 +36,7 @@ spring:
     port: 5672
     username: guest
     password: guest
+    # M3 S5-EVENTS: do not requeue rejected deliveries forever; retry then dead-letter per topology.
     listener:
       simple:
         acknowledge-mode: auto
@@ -64,7 +65,13 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: prometheus,health,info
+  metrics:
+    distribution:
+      percentiles-histogram:
+        http:
+          server:
+            requests: true
   endpoint:
     health:
       show-details: always
