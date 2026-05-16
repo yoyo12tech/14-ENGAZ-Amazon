@@ -2,104 +2,224 @@
   "id": null,
   "uid": "billing-service-dashboard",
   "title": "Billing Service Dashboard",
-  "tags": ["billing-service", "microservices"],
   "timezone": "browser",
   "schemaVersion": 36,
   "version": 1,
   "refresh": "30s",
+  "tags": [
+    "amazon",
+    "billing-service",
+    "s5-infra",
+    "microservices"
+  ],
   "panels": [
     {
       "id": 1,
-      "title": "Billing Service Error Logs",
-      "type": "logs",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "type": "timeseries",
+      "title": "LogQL — Error Rate (billing-service, per minute)",
+      "description": "Count of ERROR-level log lines emitted by billing-service per minute. Spike here means failed payment processing or saga compensation errors.",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
-          "expr": "{service=\"billing-service\"} | json | level=~\"ERROR|WARN\"",
-          "datasource": "Loki",
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\", level=\"ERROR\"}[1m]))",
+          "legendFormat": "errors/min",
           "refId": "A"
         }
       ],
-      "datasource": "Loki"
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "red"
+          },
+          "custom": {
+            "lineWidth": 2
+          }
+        }
+      }
     },
     {
       "id": 2,
-      "title": "Transaction Event Logs",
-      "type": "logs",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "type": "timeseries",
+      "title": "LogQL — Payment Event Audit (published vs consumed, per 5 min)",
+      "description": "Tracks payment.initiated, payment.completed, payment.failed, payment.refunded routing key occurrences in billing-service logs. Divergence between published and consumed counts signals saga lag or DLQ buildup.",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
-          "expr": "{service=\"billing-service\"} |= \"TRANSACTION\" | json",
-          "datasource": "Loki",
-          "refId": "A"
-        }
-      ],
-      "datasource": "Loki"
-    },
-    {
-      "id": 3,
-      "title": "Refund Event Logs",
-      "type": "logs",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-      "targets": [
-        {
-          "expr": "{service=\"billing-service\"} |= \"REFUND\" | json",
-          "datasource": "Loki",
-          "refId": "A"
-        }
-      ],
-      "datasource": "Loki"
-    },
-    {
-      "id": 4,
-      "title": "Request Rate",
-      "type": "graph",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-      "targets": [
-        {
-          "expr": "rate(http_server_requests_seconds_count{job=\"billing-service\"}[5m])",
-          "datasource": "Prometheus",
-          "legendFormat": "{{method}} {{uri}}",
-          "refId": "A"
-        }
-      ],
-      "datasource": "Prometheus"
-    },
-    {
-      "id": 5,
-      "title": "JVM Memory Usage",
-      "type": "graph",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-      "targets": [
-        {
-          "expr": "jvm_memory_used_bytes{job=\"billing-service\", area=\"heap\"}",
-          "datasource": "Prometheus",
-          "legendFormat": "Heap Used",
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\"} | json | routingKey=\"payment.initiated\" [5m]))",
+          "legendFormat": "payment.initiated",
           "refId": "A"
         },
         {
-          "expr": "jvm_memory_max_bytes{job=\"billing-service\", area=\"heap\"}",
-          "datasource": "Prometheus",
-          "legendFormat": "Heap Max",
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\"} | json | routingKey=\"payment.completed\" [5m]))",
+          "legendFormat": "payment.completed",
           "refId": "B"
+        },
+        {
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\"} | json | routingKey=\"payment.failed\" [5m]))",
+          "legendFormat": "payment.failed",
+          "refId": "C"
+        },
+        {
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\"} | json | routingKey=\"payment.refunded\" [5m]))",
+          "legendFormat": "payment.refunded",
+          "refId": "D"
         }
-      ],
-      "datasource": "Prometheus"
+      ]
     },
     {
-      "id": 6,
-      "title": "HTTP Error Rate",
-      "type": "graph",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "id": 3,
+      "type": "timeseries",
+      "title": "LogQL — Slow Operation Warnings (billing-service)",
+      "description": "Log lines where a billing operation exceeded the slow-threshold (e.g., S5-F10 category revenue analytics > 1000ms). Use this to detect degradation in analytics endpoints under load.",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
       "targets": [
         {
-          "expr": "rate(http_server_requests_seconds_count{job=\"billing-service\", status=~\"4..|5..\"}[5m])",
-          "datasource": "Prometheus",
-          "legendFormat": "Error Rate {{status}}",
+          "expr": "sum(count_over_time({app=\"amazon\", service=\"billing-service\", level=\"WARN\"} |= \"Slow\" [5m]))",
+          "legendFormat": "slow ops/5m",
           "refId": "A"
         }
       ],
-      "datasource": "Prometheus"
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "PromQL — HTTP Request Rate (billing-service, per endpoint)",
+      "description": "Requests per second broken down by URI. Identifies which transaction endpoints (/api/transactions/order/{id}, /api/transactions/user/{id}/summary) are under the most load.",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "sum by (uri) (rate(http_server_requests_seconds_count{job=\"billing-service\"}[5m]))",
+          "legendFormat": "{{uri}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "PromQL — HTTP Latency Percentiles P50 / P95 / P99 (billing-service)",
+      "description": "Latency percentiles for all billing-service endpoints. P99 spikes on POST /api/transactions/order/{id} indicate slow Feign calls to order-service or contention on the atomic status UPDATE.",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"billing-service\"}[5m])))",
+          "legendFormat": "P50 {{uri}}",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"billing-service\"}[5m])))",
+          "legendFormat": "P95 {{uri}}",
+          "refId": "B"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, uri) (rate(http_server_requests_seconds_bucket{job=\"billing-service\"}[5m])))",
+          "legendFormat": "P99 {{uri}}",
+          "refId": "C"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "PromQL — JVM Heap Usage (billing-service)",
+      "description": "Heap memory used vs committed for billing-service JVM. Billing processes saga events in bursts — watch for heap climbing toward committed limit during high-volume order completion periods.",
+      "gridPos": {
+        "x": 12,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "targets": [
+        {
+          "expr": "jvm_memory_used_bytes{job=\"billing-service\", area=\"heap\"}",
+          "legendFormat": "heap used",
+          "refId": "A"
+        },
+        {
+          "expr": "jvm_memory_committed_bytes{job=\"billing-service\", area=\"heap\"}",
+          "legendFormat": "heap committed",
+          "refId": "B"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        }
+      }
     }
-  ]
+  ],
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "timepicker": {}
 }

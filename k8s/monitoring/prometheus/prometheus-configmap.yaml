@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: prometheus-config
-  namespace: monitoring
+  namespace: monitoring #amazon
 data:
   prometheus.yml: |
     scrape_configs:
