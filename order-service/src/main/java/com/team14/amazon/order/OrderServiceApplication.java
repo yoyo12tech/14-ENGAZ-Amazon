@@ -6,7 +6,7 @@ import org.springframework.boot.persistence.autoconfigure.EntityScan;
 import org.springframework.cloud.openfeign.EnableFeignClients;
 
 @SpringBootApplication
-@EnableFeignClients
+@EnableFeignClients(basePackages = {"com.team14.amazon.order", "com.team14.amazon.contracts.feign"})
 @EntityScan("com.team14.amazon.order.model")
 public class OrderServiceApplication {
 

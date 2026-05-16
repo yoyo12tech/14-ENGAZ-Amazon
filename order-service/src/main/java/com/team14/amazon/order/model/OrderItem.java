@@ -46,24 +46,59 @@ public class OrderItem {
 
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public Long getProductId() { return productId; }
-    public void setProductId(Long productId) { this.productId = productId; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public Integer getQuantity() { return quantity; }
-    public void setQuantity(Integer quantity) { this.quantity = quantity; }
+    public Long getProductId() {
+        return productId;
+    }
 
-    public Double getPriceAtPurchase() { return priceAtPurchase; }
-    public void setPriceAtPurchase(Double priceAtPurchase) { this.priceAtPurchase = priceAtPurchase; }
+    public void setProductId(Long productId) {
+        this.productId = productId;
+    }
 
-    public Integer getItemOrder() { return itemOrder; }
-    public void setItemOrder(Integer itemOrder) { this.itemOrder = itemOrder; }
+    public Integer getQuantity() {
+        return quantity;
+    }
 
-    public Map<String, Object> getMetadata() { return metadata; }
-    public void setMetadata(Map<String, Object> metadata) { this.metadata = metadata; }
+    public void setQuantity(Integer quantity) {
+        this.quantity = quantity;
+    }
 
-    public Order getOrder() { return order; }
-    public void setOrder(Order order) { this.order = order; }
+    public Double getPriceAtPurchase() {
+        return priceAtPurchase;
+    }
+
+    public void setPriceAtPurchase(Double priceAtPurchase) {
+        this.priceAtPurchase = priceAtPurchase;
+    }
+
+    public Integer getItemOrder() {
+        return itemOrder;
+    }
+
+    public void setItemOrder(Integer itemOrder) {
+        this.itemOrder = itemOrder;
+    }
+
+    public Map<String, Object> getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Map<String, Object> metadata) {
+        this.metadata = metadata;
+    }
+
+    public Order getOrder() {
+        return order;
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
+    }
 }

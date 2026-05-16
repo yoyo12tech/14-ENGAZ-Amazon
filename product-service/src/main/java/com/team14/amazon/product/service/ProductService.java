@@ -20,6 +20,10 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.team14.amazon.contracts.feign.OrderServiceClient;
+import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+
 @Service
 public class ProductService {
 
@@ -28,6 +32,8 @@ public class ProductService {
     private final EntityObserver mongoEventLogger;
     private final ElasticsearchIndexService esIndexService;
     private final CacheInvalidationService cacheInvalidationService;
+    private final OrderServiceClient orderServiceClient;
+    private final RabbitTemplate rabbitTemplate;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     private final ObjectArrayProductSalesAdapter salesAdapter = new ObjectArrayProductSalesAdapter();
@@ -37,12 +43,16 @@ public class ProductService {
                           ProductReviewRepository reviewRepository,
                           @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger,
                           ElasticsearchIndexService esIndexService,
-                          CacheInvalidationService cacheInvalidationService) {
+                          CacheInvalidationService cacheInvalidationService,
+                          OrderServiceClient orderServiceClient,
+                          RabbitTemplate rabbitTemplate) {
         this.productRepository = productRepository;
         this.reviewRepository  = reviewRepository;
         this.mongoEventLogger  = mongoEventLogger;
         this.esIndexService    = esIndexService;
         this.cacheInvalidationService = cacheInvalidationService;
+        this.orderServiceClient = orderServiceClient;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @PostConstruct
@@ -74,11 +84,23 @@ public class ProductService {
         return productRepository.findById(id);
     }
 
+    public List<com.team14.amazon.contracts.dto.ProductDTO> getProductsBatch(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) return Collections.emptyList();
+        return productRepository.findAllById(ids).stream()
+                .map(p -> new com.team14.amazon.contracts.dto.ProductDTO(
+                        p.getId(), p.getName(), p.getDescription(), p.getPrice(),
+                        p.getCategory() != null ? p.getCategory().name() : null,
+                        p.getBrand(), p.getStockQuantity(),
+                        p.getStatus() != null ? p.getStatus().name() : null,
+                        p.getRating(), p.getSpecifications()))
+                .toList();
+    }
+
     public Product createProduct(Product product) {
         if (product.getStatus() == null)        product.setStatus(ProductStatus.ACTIVE);
         if (product.getStockQuantity() == null) product.setStockQuantity(0);
-        product.setRating(0.0);
-        product.setTotalRatings(0);
+        if (product.getRating() == null)        product.setRating(0.0);
+        if (product.getTotalRatings() == null)  product.setTotalRatings(0);
 
         Product saved = productRepository.save(product);
 
@@ -101,6 +123,8 @@ public class ProductService {
             e.setPrice(upd.getPrice()); e.setCategory(upd.getCategory());
             e.setBrand(upd.getBrand()); e.setStockQuantity(upd.getStockQuantity());
             e.setStatus(upd.getStatus()); e.setSpecifications(upd.getSpecifications());
+            if (upd.getRating() != null)       e.setRating(upd.getRating());
+            if (upd.getTotalRatings() != null) e.setTotalRatings(upd.getTotalRatings());
             Product saved = productRepository.save(e);
 
             // Observer
@@ -135,17 +159,48 @@ public class ProductService {
         return false;
     }
 
+    public boolean deductStock(Long id, Integer quantity) {
+        return productRepository.findById(id).map(p -> {
+            if (p.getStockQuantity() < quantity) {
+                throw new IllegalArgumentException("Insufficient stock");
+            }
+            p.setStockQuantity(p.getStockQuantity() - quantity);
+            Product saved = productRepository.save(p);
+            notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_DEDUCT")));
+            esIndexService.indexProduct(saved);
+            cacheInvalidationService.invalidateProductCaches(saved.getId());
+            return true;
+        }).orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
+    }
+
+    public void restoreStock(Long id, Integer quantity) {
+        productRepository.findById(id).ifPresentOrElse(p -> {
+            p.setStockQuantity(p.getStockQuantity() + quantity);
+            Product saved = productRepository.save(p);
+            notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_RESTORE")));
+            esIndexService.indexProduct(saved);
+            cacheInvalidationService.invalidateProductCaches(saved.getId());
+        }, () -> {
+            throw new NoSuchElementException("Product not found: " + id);
+        });
+    }
+
     // S2-F4
     public Product discontinueProduct(Long id) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
-        if (productRepository.hasActiveOrders(id))
-            throw new IllegalStateException("Cannot discontinue: active orders exist.");
+        if (orderServiceClient.getPendingOrderCountForProduct(id) > 0)
+            throw new IllegalStateException("Product appears in pending orders");
+        ProductStatus oldStatus = p.getStatus();
         p.setStatus(ProductStatus.INACTIVE);
         Product saved = productRepository.save(p);
 
         notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
                 Map.of("newStatus", "INACTIVE", "source", "CRUD")));
+        
+        rabbitTemplate.convertAndSend("product.events", "product.discontinued", 
+                Map.of("productId", saved.getId(), "oldStatus", oldStatus.name(), "newStatus", "INACTIVE"));
+
         esIndexService.indexProduct(saved); // status changed → re-index
         cacheInvalidationService.invalidateProductCaches(saved.getId());
 
@@ -187,12 +242,21 @@ public class ProductService {
     public ProductSalesDTO getProductSalesSummary(Long id, LocalDate startDate, LocalDate endDate) {
         Product p = productRepository.findById(id)
                 .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
-        List<Object[]> rows = productRepository.getProductSalesSummary(id, startDate, endDate.plusDays(1));
-        if (rows == null || rows.isEmpty()) {
+        
+        ProductSalesAggregateDTO agg = orderServiceClient.getProductSales(id, startDate.toString(), endDate.toString());
+        
+        if (agg == null) {
             return ProductSalesDTO.builder().productId(id).name(p.getName())
                     .totalUnitsSold(0L).totalRevenue(0.0).averageSellingPrice(0.0).build();
         }
-        return salesAdapter.adapt(rows.get(0));
+        
+        return ProductSalesDTO.builder()
+                .productId(id)
+                .name(p.getName())
+                .totalUnitsSold(agg.totalUnitsSold())
+                .totalRevenue(agg.totalRevenue())
+                .averageSellingPrice(agg.averageSellingPrice())
+                .build();
     }
 
     // S2-F5
@@ -207,10 +271,29 @@ public class ProductService {
     @Cacheable(value = "product-service::S2-F6", key = "#limit")
     public List<TopProductDTO> getTopRatedProducts(int limit) {
         int n = limit > 0 ? limit : 10;
-        List<Object[]> rows = productRepository.findTopRatedProducts(
-                org.springframework.data.domain.PageRequest.of(0, n));
+        List<Product> candidates = productRepository.findTopRatedCandidates(
+                org.springframework.data.domain.PageRequest.of(0, n * 2));
+                
         List<TopProductDTO> result = new ArrayList<>();
-        for (Object[] row : rows) result.add(topProductAdapter.adapt(row));
+        for (Product p : candidates) {
+            long sales = orderServiceClient.getUnitsSold(p.getId());
+            result.add(TopProductDTO.builder()
+                    .productId(p.getId())
+                    .name(p.getName())
+                    .rating(p.getRating())
+                    .totalSales(sales)
+                    .build());
+        }
+        
+        result.sort((a, b) -> {
+            int ratingCmp = Double.compare(b.getRating(), a.getRating());
+            if (ratingCmp != 0) return ratingCmp;
+            return Long.compare(b.getTotalSales(), a.getTotalSales());
+        });
+        
+        if (result.size() > n) {
+            result = result.subList(0, n);
+        }
         return result;
     }
 
@@ -218,10 +301,9 @@ public class ProductService {
     @Cacheable(value = "product-service::S2-F9", key = "#threshold")
     public List<LowStockAlertDTO> getLowStockAlerts(int threshold) {
         List<Product> low = productRepository.findActiveProductsWithStockAtOrBelow(threshold);
-        LocalDateTime since = LocalDateTime.now().minusDays(30);
         List<LowStockAlertDTO> result = new ArrayList<>();
         for (Product p : low) {
-            long sales = productRepository.countRecentDeliveredSales(p.getId(), since);
+            long sales = orderServiceClient.getRecentSalesCount(p.getId(), 30);
             boolean neg = reviewRepository.hasNegativeReviews(p.getId());
             result.add(LowStockAlertDTO.builder()
                     .productId(p.getId()).productName(p.getName())
