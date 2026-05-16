@@ -29,6 +29,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 @Service
 public class ProductReviewService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductReviewService.class);
+
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final CacheInvalidationService cacheInvalidationService;
@@ -189,8 +191,10 @@ public class ProductReviewService {
 
         rabbitTemplate.convertAndSend("product.events", "product.review-added",
                 Map.of("productId", productId, "reviewId", savedReview.getId(), "userId", savedReview.getUserId(), "rating", savedReview.getRating()));
+        log.info("Published product.review-added for productId={}", productId);
         rabbitTemplate.convertAndSend("product.events", "product.rated",
                 Map.of("productId", productId, "newAverage", newRating, "totalRatings", newTotalRatings));
+        log.info("Published product.rated for productId={}", productId);
 
         return savedReview;
     }
