@@ -1,5 +1,7 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.contracts.feign.ProductServiceClient;
+import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.team14.amazon.order.repository.OrderGraphRepository;
@@ -52,6 +54,7 @@ public class OrderService {
     private final CacheEvictionService cacheEvictionService;
     private final EntityObserver mongoEventLogger;
     private final OrderGraphRepository orderGraphRepository;
+    private final ProductServiceClient productServiceClient;
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
 
     // DP-2: classical observer list (mirrors UserService exactly)
@@ -62,13 +65,15 @@ public class OrderService {
                         OrderItemRepository orderItemRepository,
                         CacheEvictionService cacheEvictionService,
                         EntityObserver mongoEventLogger,
-                        OrderGraphRepository orderGraphRepository) {
+                        OrderGraphRepository orderGraphRepository,
+                        ProductServiceClient productServiceClient) {
         this.orderRepository = orderRepository;
         this.orderItemService = orderItemService;
         this.orderItemRepository = orderItemRepository;
         this.cacheEvictionService = cacheEvictionService;
         this.mongoEventLogger = mongoEventLogger;
         this.orderGraphRepository = orderGraphRepository;
+        this.productServiceClient = productServiceClient;
     }
 
     @PostConstruct
@@ -390,9 +395,16 @@ public class OrderService {
         int maxItemOrder = orderItemRepository.findMaxItemOrderByOrderId(orderId);
 
         for (OrderItemRequestDTO dto : itemsDto) {
-            Double price = orderRepository.getProductPrice(dto.productId())
-                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                            "Product not found: " + dto.productId()));
+            Double price;
+            try {
+                price = productServiceClient.getProductPrice(dto.productId());
+            } catch (FeignException.NotFound e) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found: " + dto.productId());
+            } catch (FeignException e) {
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Product service unavailable");
+            }
             maxItemOrder++;
             OrderItem newItem = new OrderItem();
             newItem.setProductId(dto.productId());

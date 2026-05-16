@@ -32,6 +32,7 @@ public class Order {
     @Column(name = "shipping_address_id")
     private Long shippingAddressId;
 
+    @ColumnDefault("'PENDING'")
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
     private OrderStatus status = OrderStatus.PENDING;

@@ -99,8 +99,8 @@ public class ProductService {
     public Product createProduct(Product product) {
         if (product.getStatus() == null)        product.setStatus(ProductStatus.ACTIVE);
         if (product.getStockQuantity() == null) product.setStockQuantity(0);
-        product.setRating(0.0);
-        product.setTotalRatings(0);
+        if (product.getRating() == null)        product.setRating(0.0);
+        if (product.getTotalRatings() == null)  product.setTotalRatings(0);
 
         Product saved = productRepository.save(product);
 
@@ -123,6 +123,8 @@ public class ProductService {
             e.setPrice(upd.getPrice()); e.setCategory(upd.getCategory());
             e.setBrand(upd.getBrand()); e.setStockQuantity(upd.getStockQuantity());
             e.setStatus(upd.getStatus()); e.setSpecifications(upd.getSpecifications());
+            if (upd.getRating() != null)       e.setRating(upd.getRating());
+            if (upd.getTotalRatings() != null) e.setTotalRatings(upd.getTotalRatings());
             Product saved = productRepository.save(e);
 
             // Observer
