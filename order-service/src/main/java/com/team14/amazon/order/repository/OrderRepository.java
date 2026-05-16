@@ -188,8 +188,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
     WHERE oi.product_id = :productId
-      AND o.status IN ('DELIVERED','PAID')
-      AND o.delivered_at BETWEEN :startDate AND :endDate
+      AND CAST(o.status AS text) IN ('DELIVERED','PAID')
+      AND o.delivered_at BETWEEN CAST(:startDate AS timestamp) AND CAST(:endDate AS timestamp)
     """, nativeQuery = true)
     Map<String, Object> getProductSalesRaw(@Param("productId") Long productId,
                                            @Param("startDate") String startDate,
@@ -199,7 +199,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = """
     SELECT COUNT(*) FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
-    WHERE oi.product_id = :productId AND o.status = 'PENDING'
+    WHERE oi.product_id = :productId AND CAST(o.status AS text) = 'PENDING'
     """, nativeQuery = true)
     int getPendingOrderCountForProduct(@Param("productId") Long productId);
 
@@ -208,7 +208,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     SELECT COALESCE(SUM(oi.quantity), 0)
     FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
-    WHERE oi.product_id = :productId AND o.status IN ('DELIVERED','PAID')
+    WHERE oi.product_id = :productId AND CAST(o.status AS text) IN ('DELIVERED','PAID')
     """, nativeQuery = true)
     long getUnitsSoldForProduct(@Param("productId") Long productId);
 
@@ -218,7 +218,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     FROM order_items oi
     JOIN orders o ON o.id = oi.order_id
     WHERE oi.product_id = :productId
-      AND o.status IN ('DELIVERED','PAID')
+      AND CAST(o.status AS text) IN ('DELIVERED','PAID')
       AND o.delivered_at >= CURRENT_DATE - CAST(:days AS INT)
     """, nativeQuery = true)
     int getRecentSalesCountForProduct(@Param("productId") Long productId,
@@ -231,7 +231,7 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     JOIN orders o ON o.id = oi.order_id
     WHERE o.user_id = :userId
       AND oi.product_id = :productId
-      AND o.status IN ('DELIVERED','PAID')
+      AND CAST(o.status AS text) IN ('DELIVERED','PAID')
     """, nativeQuery = true)
     boolean hasUserPurchasedProduct(@Param("userId") Long userId,
                                     @Param("productId") Long productId);

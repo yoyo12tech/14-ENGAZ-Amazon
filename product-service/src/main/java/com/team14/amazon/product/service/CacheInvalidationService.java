@@ -73,6 +73,11 @@ public class CacheInvalidationService {
             invalidateProductCaches(productId);
         }
     }
+
+    public void invalidateTopRatedAndDashboardCaches() {
+        evictByPattern("product-service::S2-F6::*");
+        evictByPattern("product-service::S2-F12::*");
+    }
 }
 
 

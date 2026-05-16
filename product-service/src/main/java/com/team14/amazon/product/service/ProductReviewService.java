@@ -21,23 +21,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import com.team14.amazon.contracts.feign.UserServiceClient;
+import com.team14.amazon.contracts.feign.OrderServiceClient;
+import com.team14.amazon.contracts.dto.UserDTO;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+
 @Service
 public class ProductReviewService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductReviewService.class);
 
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
     private final CacheInvalidationService cacheInvalidationService;
     private final EntityObserver mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
+    private final UserServiceClient userServiceClient;
+    private final OrderServiceClient orderServiceClient;
+    private final RabbitTemplate rabbitTemplate;
 
     public ProductReviewService(ProductReviewRepository reviewRepository,
                                 ProductRepository productRepository,
                                 CacheInvalidationService cacheInvalidationService,
-                                @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger) {
+                                @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger,
+                                UserServiceClient userServiceClient,
+                                OrderServiceClient orderServiceClient,
+                                RabbitTemplate rabbitTemplate) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.cacheInvalidationService = cacheInvalidationService;
         this.mongoEventLogger = mongoEventLogger;
+        this.userServiceClient = userServiceClient;
+        this.orderServiceClient = orderServiceClient;
+        this.rabbitTemplate = rabbitTemplate;
     }
 
     @PostConstruct
@@ -132,15 +148,15 @@ public class ProductReviewService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
 
-        // 2. Verify user exists — 400 if not found
-        boolean userExists = reviewRepository.existsUserById(review.getUserId());
-        if (!userExists) {
+        // 2. Verify user exists via Feign
+        try {
+            userServiceClient.getUser(review.getUserId());
+        } catch (Exception e) {
             throw new IllegalArgumentException("User not found with id: " + review.getUserId());
         }
 
-        // 3. Verify user has a DELIVERED order containing this product — 400 if not
-        boolean hasPurchased = reviewRepository.userHasDeliveredOrderForProduct(
-                review.getUserId(), productId);
+        // 3. Verify user has a DELIVERED order containing this product via Feign
+        boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
         if (!hasPurchased) {
             throw new IllegalArgumentException("User must purchase the product before reviewing it.");
         }
@@ -173,6 +189,13 @@ public class ProductReviewService {
                 Map.of("rating", savedReview.getRating())
         ));
 
+        rabbitTemplate.convertAndSend("product.events", "product.review-added",
+                Map.of("productId", productId, "reviewId", savedReview.getId(), "userId", savedReview.getUserId(), "rating", savedReview.getRating()));
+        log.info("Published product.review-added for productId={}", productId);
+        rabbitTemplate.convertAndSend("product.events", "product.rated",
+                Map.of("productId", productId, "newAverage", newRating, "totalRatings", newTotalRatings));
+        log.info("Published product.rated for productId={}", productId);
+
         return savedReview;
     }
 
@@ -197,20 +220,24 @@ public class ProductReviewService {
                     "Review " + reviewId + " does not belong to product " + productId);
         }
 
-        // 4. Verify the reviewer actually purchased this product — 400 if not
-        boolean hasPurchased = reviewRepository.userHasDeliveredOrderForProduct(
-                review.getUserId(), productId);
+        // 4. Verify the reviewer actually purchased this product via Feign
+        boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
         if (!hasPurchased) {
             throw new IllegalArgumentException(
                     "Reviewer (userId=" + review.getUserId() +
                             ") has no delivered order for this product.");
         }
 
-        // 5. Verify the verifiedBy user is an ADMIN — 403 if not
-        boolean isAdmin = reviewRepository.isAdminUser(request.verifiedBy());
-        if (!isAdmin) {
-            throw new SecurityException(
-                    "User " + request.verifiedBy() + " is not an admin.");
+        // 5. Verify the verifiedBy user is an ADMIN via Feign
+        try {
+            UserDTO verifier = userServiceClient.getUser(request.verifiedBy());
+            if (!"ADMIN".equals(verifier.role())) {
+                throw new SecurityException("User " + request.verifiedBy() + " is not an admin.");
+            }
+        } catch (SecurityException se) {
+            throw se;
+        } catch (Exception e) {
+            throw new SecurityException("User " + request.verifiedBy() + " not found or error checking role.");
         }
 
         // 6. Set verified = true
