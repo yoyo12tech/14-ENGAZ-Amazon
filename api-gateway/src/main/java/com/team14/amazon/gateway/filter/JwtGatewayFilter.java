@@ -29,7 +29,6 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         final String finalCorrelationId = correlationId;
-
         // Bypass JWT validation for auth endpoints
         if (path.startsWith("/api/auth/")
              || path.equals("/actuator/prometheus")
