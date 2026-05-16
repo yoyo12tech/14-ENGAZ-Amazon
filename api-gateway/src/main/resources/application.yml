@@ -1,5 +1,5 @@
 server:
-  port: 8085
+  port: 8080
 
 spring:
   application:
@@ -9,11 +9,27 @@ spring:
       server:
         webflux:
           routes:
-            - id: user-service
+            - id: user-service-api
               uri: http://user-service:8080
               predicates:
-                - Path=/api/users/**, /api/auth/**
+                - Path=/api/users/**
+            - id: user-service-auth
+              uri: http://user-service:8080
+              predicates:
+                - Path=/api/auth/**
+            - id: product-service
+              uri: http://product-service:8080
+              predicates:
+                - Path=/api/products/**
             - id: order-service
               uri: http://order-service:8080
               predicates:
                 - Path=/api/orders/**
+            - id: shipping-service
+              uri: http://shipping-service:8080
+              predicates:
+                - Path=/api/shipments/**
+            - id: billing-service
+              uri: http://billing-service:8080
+              predicates:
+                - Path=/api/transactions/**

@@ -437,6 +437,30 @@ services:
       timeout: 5s
       retries: 8
       start_period: 30s
+
+  # API Gateway
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      user-service:
+        condition: service_healthy
+      product-service:
+        condition: service_started
+      order-service:
+        condition: service_healthy
+      shipping-service:
+        condition: service_healthy
+      billing-service:
+        condition: service_healthy
+    networks:
+      - amazon-network
+    restart: on-failure
+
 volumes:
   user-pgdata:
   product-pgdata:

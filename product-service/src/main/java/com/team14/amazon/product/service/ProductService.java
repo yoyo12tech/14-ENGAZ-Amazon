@@ -27,6 +27,8 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 @Service
 public class ProductService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductService.class);
+
     private final ProductRepository productRepository;
     private final ProductReviewRepository reviewRepository;
     private final EntityObserver mongoEventLogger;
@@ -198,8 +200,9 @@ public class ProductService {
         notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
                 Map.of("newStatus", "INACTIVE", "source", "CRUD")));
         
-        rabbitTemplate.convertAndSend("product.events", "product.discontinued", 
+        rabbitTemplate.convertAndSend("product.events", "product.discontinued",
                 Map.of("productId", saved.getId(), "oldStatus", oldStatus.name(), "newStatus", "INACTIVE"));
+        log.info("Published product.discontinued for productId={}", saved.getId());
 
         esIndexService.indexProduct(saved); // status changed → re-index
         cacheInvalidationService.invalidateProductCaches(saved.getId());
