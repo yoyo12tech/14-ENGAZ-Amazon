@@ -1,4 +1,4 @@
-apiVersion: v1
+﻿apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
@@ -188,10 +188,7 @@ data:
         "list": [
           {
             "builtIn": 1,
-            "datasource": {
-              "type": "grafana",
-              "uid": "-- Grafana --"
-            },
+            "datasource": { "type": "grafana", "uid": "-- Grafana --" },
             "enable": true,
             "hide": true,
             "iconColor": "rgba(0, 211, 255, 1)",
@@ -200,421 +197,158 @@ data:
           }
         ]
       },
+      "description": "Product service dashboard â€” Combined Prometheus & Loki panels",
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
-      "id": 1,
+      "id": null,
       "links": [],
       "panels": [
         {
-          "datasource": "Loki",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": "off"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 0
-          },
-          "id": 2,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
+          "id": 1,
+          "title": "Error Rate (LogQL)",
+          "type": "timeseries",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "description": "Count of ERROR-level log lines from product-service per minute.",
           "targets": [
             {
-              "datasource": "Loki",
-              "expr": "sum(rate({app=\"amazon\", service=\"product-service\", level=\"ERROR\"}[1m]))",
+              "datasource": { "type": "loki", "uid": "loki" },
+              "expr": "sum(count_over_time({app=\"amazon\", service=\"product-service\", level=\"ERROR\"}[1m]))",
+              "legendFormat": "errors/min",
               "refId": "A"
             }
           ],
-          "title": "Error Rate",
-          "type": "timeseries"
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
         },
         {
-          "datasource": "Loki",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 0
-          },
-          "id": 3,
+          "id": 2,
+          "title": "RabbitMQ Event Audit (LogQL)",
+          "type": "logs",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "description": "All log lines with a routingKey â€” shows published/consumed events.",
           "options": {
             "showLabels": false,
             "showTime": true,
             "sortOrder": "Descending",
-            "wrapLogMessage": true
+            "wrapLogMessage": true,
+            "enableLogDetails": true
           },
           "targets": [
             {
-              "datasource": "Loki",
+              "datasource": { "type": "loki", "uid": "loki" },
               "expr": "{app=\"amazon\", service=\"product-service\"} | json | routingKey != \"\"",
               "refId": "A"
             }
           ],
-          "title": "RabbitMQ Event Audit",
-          "type": "logs"
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
         },
         {
-          "datasource": "Loki",
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 8
-          },
-          "id": 4,
+          "id": 3,
+          "title": "Feign Call Outcomes (LogQL)",
+          "type": "logs",
+          "datasource": { "type": "loki", "uid": "loki" },
+          "description": "Successful Feign responses vs FeignException catches.",
           "options": {
             "showLabels": false,
             "showTime": true,
             "sortOrder": "Descending",
-            "wrapLogMessage": true
+            "wrapLogMessage": true,
+            "enableLogDetails": true
           },
           "targets": [
             {
-              "datasource": "Loki",
+              "datasource": { "type": "loki", "uid": "loki" },
               "expr": "{app=\"amazon\", service=\"product-service\"} |= \"Feign call\"",
               "refId": "A"
             }
           ],
-          "title": "Feign Call Outcomes",
-          "type": "logs"
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
         },
         {
-          "datasource": "Prometheus",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": "off"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 8
-          },
-          "id": 5,
+          "id": 4,
+          "title": "HTTP Request Rate (PromQL)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "Requests per second per endpoint on product-service.",
           "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
+            "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "single", "sort": "none" }
           },
           "targets": [
             {
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "sum(rate(http_server_requests_seconds_count{job=\"product-service\"}[1m])) by (uri)",
+              "legendFormat": "{{uri}}",
               "refId": "A"
             }
           ],
-          "title": "HTTP Request Rate",
-          "type": "timeseries"
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
         },
         {
-          "datasource": "Prometheus",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": "off"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
+          "id": 5,
+          "title": "HTTP Latency Percentiles (PromQL)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "P95/P99 latency per endpoint.",
+          "options": {
+            "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "single", "sort": "none" }
+          },
+          "targets": [
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.99, sum(rate(http_server_requests_seconds_bucket{job=\"product-service\"}[5m])) by (le, uri))",
+              "legendFormat": "P99 {{uri}}",
+              "refId": "A"
             },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 16
-          },
+            {
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
+              "expr": "histogram_quantile(0.95, sum(rate(http_server_requests_seconds_bucket{job=\"product-service\"}[5m])) by (le, uri))",
+              "legendFormat": "P95 {{uri}}",
+              "refId": "B"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+        },
+        {
           "id": 6,
+          "title": "JVM Health (PromQL)",
+          "type": "timeseries",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "description": "JVM heap usage for product-service.",
           "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
+            "legend": { "calcs": [], "displayMode": "list", "placement": "bottom", "showLegend": true },
+            "tooltip": { "mode": "single", "sort": "none" }
           },
           "targets": [
             {
-              "datasource": "Prometheus",
+              "datasource": { "type": "prometheus", "uid": "prometheus" },
               "expr": "jvm_memory_used_bytes{job=\"product-service\", area=\"heap\"}",
+              "legendFormat": "heap used",
               "refId": "A"
             }
           ],
-          "title": "JVM Health (Heap Used)",
-          "type": "timeseries"
-        },
-        {
-          "datasource": "Prometheus",
-          "fieldConfig": {
-            "defaults": {
-              "color": {
-                "mode": "palette-classic"
-              },
-              "custom": {
-                "axisBorderShow": false,
-                "axisCenteredZero": false,
-                "axisColorMode": "text",
-                "axisLabel": "",
-                "axisPlacement": "auto",
-                "barAlignment": 0,
-                "barWidthFactor": 0.6,
-                "drawStyle": "line",
-                "fillOpacity": 0,
-                "gradientMode": "none",
-                "hideFrom": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": false
-                },
-                "insertNulls": false,
-                "lineInterpolation": "linear",
-                "lineWidth": 1,
-                "pointSize": 5,
-                "scaleDistribution": {
-                  "type": "linear"
-                },
-                "showPoints": "auto",
-                "spanNulls": false,
-                "stacking": {
-                  "group": "A",
-                  "mode": "none"
-                },
-                "thresholdsStyle": "off"
-              },
-              "mappings": [],
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 16
-          },
-          "id": 7,
-          "options": {
-            "legend": {
-              "calcs": [],
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true
-            },
-            "tooltip": {
-              "mode": "single",
-              "sort": "none"
-            }
-          },
-          "targets": [
-            {
-              "datasource": "Prometheus",
-              "expr": "hikaricp_connections_active{job=\"product-service\"}",
-              "refId": "A"
-            }
-          ],
-          "title": "DB Connections",
-          "type": "timeseries"
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
         }
       ],
       "refresh": "10s",
       "schemaVersion": 39,
-      "tags": [],
-      "templating": {
-        "list": []
-      },
-      "time": {
-        "from": "now-1h",
-        "to": "now"
-      },
+      "tags": ["amazon", "product-service", "m3"],
+      "templating": { "list": [] },
+      "time": { "from": "now-1h", "to": "now" },
       "timepicker": {},
-      "timezone": "",
+      "timezone": "browser",
       "title": "Product Service Dashboard",
-      "uid": "product-service-dash",
+      "uid": "product-service-dashboard",
       "version": 1
+    }
     }
   order-dashboard.json: |
     {
       "__inputs": [],
       "__requires": [],
       "annotations": { "list": [] },
-      "description": "Order service dashboard — Combined Prometheus & Loki panels",
+      "description": "Order service dashboard â€” Combined Prometheus & Loki panels",
       "editable": true,
       "fiscalYearStartMonth": 0,
       "graphTooltip": 0,
@@ -677,8 +411,8 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Order service — ERROR log lines",
-          "description": "All ERROR-level log lines from order-service. Used for spike detection — correlate with orderId and correlationId to trace failures.",
+          "title": "Order service â€” ERROR log lines",
+          "description": "All ERROR-level log lines from order-service. Used for spike detection â€” correlate with orderId and correlationId to trace failures.",
           "type": "logs"
         },
         {
@@ -698,7 +432,7 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Order service — log volume by level (per minute)",
+          "title": "Order service â€” log volume by level (per minute)",
           "description": "Count of log lines per level per minute. Spike in ERROR means something is failing; spike in INFO without WARN/ERROR is healthy load.",
           "type": "timeseries"
         },
@@ -723,8 +457,8 @@ data:
               "refId": "A"
             }
           ],
-          "title": "Order service — per-order trace (filter by orderId in Loki explorer)",
-          "description": "All log lines that carry an orderId. In Loki Explore, add a label filter `orderId=<id>` to trace a single order across all saga steps. Correlates with saga state transitions (DELIVERED → PAYMENT_PENDING → PAID).",
+          "title": "Order service â€” per-order trace (filter by orderId in Loki explorer)",
+          "description": "All log lines that carry an orderId. In Loki Explore, add a label filter `orderId=<id>` to trace a single order across all saga steps. Correlates with saga state transitions (DELIVERED â†’ PAYMENT_PENDING â†’ PAID).",
           "type": "logs"
         }
       ],
@@ -841,7 +575,7 @@ data:
         {
           "id": 1,
           "type": "timeseries",
-          "title": "LogQL — Error Rate (billing-service, per minute)",
+          "title": "LogQL â€” Error Rate (billing-service, per minute)",
           "description": "Count of ERROR-level log lines emitted by billing-service per minute. Spike here means failed payment processing or saga compensation errors.",
           "gridPos": {
             "x": 0,
@@ -875,7 +609,7 @@ data:
         {
           "id": 2,
           "type": "timeseries",
-          "title": "LogQL — Payment Event Audit (published vs consumed, per 5 min)",
+          "title": "LogQL â€” Payment Event Audit (published vs consumed, per 5 min)",
           "description": "Tracks payment.initiated, payment.completed, payment.failed, payment.refunded routing key occurrences in billing-service logs. Divergence between published and consumed counts signals saga lag or DLQ buildup.",
           "gridPos": {
             "x": 12,
@@ -913,7 +647,7 @@ data:
         {
           "id": 3,
           "type": "timeseries",
-          "title": "LogQL — Slow Operation Warnings (billing-service)",
+          "title": "LogQL â€” Slow Operation Warnings (billing-service)",
           "description": "Log lines where a billing operation exceeded the slow-threshold (e.g., S5-F10 category revenue analytics > 1000ms). Use this to detect degradation in analytics endpoints under load.",
           "gridPos": {
             "x": 0,
@@ -944,7 +678,7 @@ data:
         {
           "id": 4,
           "type": "timeseries",
-          "title": "PromQL — HTTP Request Rate (billing-service, per endpoint)",
+          "title": "PromQL â€” HTTP Request Rate (billing-service, per endpoint)",
           "description": "Requests per second broken down by URI. Identifies which transaction endpoints (/api/transactions/order/{id}, /api/transactions/user/{id}/summary) are under the most load.",
           "gridPos": {
             "x": 12,
@@ -967,7 +701,7 @@ data:
         {
           "id": 5,
           "type": "timeseries",
-          "title": "PromQL — HTTP Latency Percentiles P50 / P95 / P99 (billing-service)",
+          "title": "PromQL â€” HTTP Latency Percentiles P50 / P95 / P99 (billing-service)",
           "description": "Latency percentiles for all billing-service endpoints. P99 spikes on POST /api/transactions/order/{id} indicate slow Feign calls to order-service or contention on the atomic status UPDATE.",
           "gridPos": {
             "x": 0,
@@ -1005,8 +739,8 @@ data:
         {
           "id": 6,
           "type": "timeseries",
-          "title": "PromQL — JVM Heap Usage (billing-service)",
-          "description": "Heap memory used vs committed for billing-service JVM. Billing processes saga events in bursts — watch for heap climbing toward committed limit during high-volume order completion periods.",
+          "title": "PromQL â€” JVM Heap Usage (billing-service)",
+          "description": "Heap memory used vs committed for billing-service JVM. Billing processes saga events in bursts â€” watch for heap climbing toward committed limit during high-volume order completion periods.",
           "gridPos": {
             "x": 12,
             "y": 16,
