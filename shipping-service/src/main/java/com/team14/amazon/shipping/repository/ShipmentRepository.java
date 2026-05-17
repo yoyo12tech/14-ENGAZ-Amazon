@@ -12,6 +12,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Repository
 public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
@@ -19,13 +20,15 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
     List<Shipment> findByOrderId(Long orderId);
 
+    Optional<Shipment> findFirstByOrderIdAndStatusIn(Long orderId, Set<Shipment.Status> statuses);
+
     // @Query(value = "SELECT * FROM shipments WHERE CAST(status AS TEXT) =
     // :status", nativeQuery = true)
     @Query(value = "SELECT * FROM shipments WHERE status::text = :status", nativeQuery = true)
     List<Shipment> findByStatusNative(@Param("status") String status);
 
-    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId", nativeQuery = true)
-    boolean existsOrderById(@Param("orderId") Long orderId);
+//    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId", nativeQuery = true)
+//    boolean existsOrderById(@Param("orderId") Long orderId);
 
     Boolean existsByOrderId(Long orderId);
 
