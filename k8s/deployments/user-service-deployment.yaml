@@ -42,7 +42,10 @@ spec:
             - name: SPRING_RABBITMQ_PASSWORD
               value: guest
             - name: JWT_SECRET
-              value: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: jwt-secret
           readinessProbe:
             httpGet:
               path: /actuator/health
