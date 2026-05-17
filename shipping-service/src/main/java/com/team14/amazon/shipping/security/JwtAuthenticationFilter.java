@@ -26,11 +26,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        if (HttpMethod.GET.matches(request.getMethod()) && "/api/shipments/health".equals(request.getServletPath())) {
-            filterChain.doFilter(request, response);
-            return;
-        }
+                String path = request.getServletPath();
 
+                if (HttpMethod.OPTIONS.matches(request.getMethod())
+                        || path.contains("/health")
+                        || "/error".equals(path)
+                        || path.contains("/actuator")) {
+                
+                    filterChain.doFilter(request, response);
+                    return;
+                }
         AuthContext ctx = new AuthContext(request);
 
         AuthHandler tokenExtraction = new TokenExtractionHandler();
