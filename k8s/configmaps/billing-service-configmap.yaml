@@ -4,7 +4,14 @@ metadata:
   name: billing-service-configmap
   namespace: amazon
 data:
-  SPRING_PROFILES_ACTIVE: "prod"
-  # Add other environment variables here
-
-
+  SPRING_DATASOURCE_URL: jdbc:postgresql://billing-postgres:5432/amazondb-billing
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_PASSWORD: redispass
+  SPRING_RABBITMQ_HOST: rabbitmq
+  FEIGN_USER_SERVICE_URL: http://user-service:8080
+  FEIGN_ORDER_SERVICE_URL: http://order-service:8080
+  FEIGN_PRODUCT_SERVICE_URL: http://product-service:8080
+  FEIGN_SHIPPING_SERVICE_URL: http://shipping-service:8080

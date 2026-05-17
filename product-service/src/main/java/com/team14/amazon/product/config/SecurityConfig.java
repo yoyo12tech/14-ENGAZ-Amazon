@@ -1,5 +1,7 @@
 package com.team14.amazon.product.config;
 
+import com.team14.amazon.product.filter.CorrelationIdFilter;
+import com.team14.amazon.product.filter.LoggingFilter;
 import com.team14.amazon.product.security.JwtAuthenticationFilter;
 import com.team14.amazon.product.security.JwtService;
 import org.springframework.context.annotation.Bean;
@@ -16,9 +18,13 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 public class SecurityConfig {
 
     private final JwtService jwtService;
+    private final CorrelationIdFilter correlationIdFilter;
+    private final LoggingFilter loggingFilter;
 
-    public SecurityConfig(JwtService jwtService) {
+    public SecurityConfig(JwtService jwtService, CorrelationIdFilter correlationIdFilter, LoggingFilter loggingFilter) {
         this.jwtService = jwtService;
+        this.correlationIdFilter = correlationIdFilter;
+        this.loggingFilter = loggingFilter;
     }
 
     @Bean
@@ -31,7 +37,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/products/health", "/error", "/actuator/**").permitAll()
                         .anyRequest().authenticated()
                 )
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(correlationIdFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterBefore(loggingFilter, CorrelationIdFilter.class)
+                .addFilterAfter(jwtAuthenticationFilter, CorrelationIdFilter.class);
         return http.build();
     }
 }

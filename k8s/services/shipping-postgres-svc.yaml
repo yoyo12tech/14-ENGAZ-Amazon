@@ -4,7 +4,7 @@ metadata:
   name: shipping-postgres
   namespace: amazon
 spec:
-  type: ClusterIP
+  clusterIP: None
   selector:
     app: shipping-postgres
   ports:
