@@ -35,12 +35,11 @@ import java.util.stream.Collectors;
 import com.team14.amazon.contracts.feign.*;
 import com.team14.amazon.contracts.dto.*;
 import com.team14.amazon.contracts.events.*;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import com.team14.amazon.contracts.events.UserRegisteredEvent;
-
+import com.team14.amazon.contracts.events.UserDeactivatedEvent;
+import com.team14.amazon.user.messaging.publishers.UserEventPublisher;
 
 import java.math.BigDecimal;
-import com.team14.amazon.contracts.events.UserDeactivatedEvent;
 
 @Service
 public class UserService {
@@ -56,7 +55,7 @@ public class UserService {
     private final StringRedisTemplate redisTemplate;
     private final OrderServiceClient orderServiceClient;
     private final BillingServiceClient billingServiceClient;
-    private final RabbitTemplate rabbitTemplate;
+    private final UserEventPublisher userEventPublisher;
 
     public UserService(UserRepository userRepository,
                        ShippingAddressRepository shippingAddressRepository,
@@ -68,7 +67,7 @@ public class UserService {
                        StringRedisTemplate redisTemplate,
                        OrderServiceClient orderServiceClient,
                        BillingServiceClient billingServiceClient,
-                       RabbitTemplate rabbitTemplate) {
+                       UserEventPublisher userEventPublisher) {
         this.userRepository = userRepository;
         this.shippingAddressRepository = shippingAddressRepository;
         this.passwordEncoder = passwordEncoder;
@@ -79,7 +78,7 @@ public class UserService {
         this.redisTemplate = redisTemplate;
         this.orderServiceClient = orderServiceClient;
         this.billingServiceClient = billingServiceClient;
-        this.rabbitTemplate = rabbitTemplate;
+        this.userEventPublisher = userEventPublisher;
     }
 
     @PostConstruct
@@ -138,7 +137,7 @@ public class UserService {
         notifyObservers("REGISTERED", eventPayload);
 
         // M3: Publish to RabbitMQ
-        rabbitTemplate.convertAndSend("user.events", "user.registered",
+        userEventPublisher.publishUserRegistered(
                 new UserRegisteredEvent(user.getId(), user.getEmail(), user.getRole().name()));
 
         // f) Generate token
@@ -381,7 +380,7 @@ public class UserService {
         notifyObservers("USER_DEACTIVATED", eventPayload);
 
         // M3: Publish to RabbitMQ
-        rabbitTemplate.convertAndSend("user.events", "user.deactivated", new UserDeactivatedEvent(id));
+        userEventPublisher.publishUserDeactivated(new UserDeactivatedEvent(id));
     }
 
     public UserProfileDTO getUserProfile(Long userId) {

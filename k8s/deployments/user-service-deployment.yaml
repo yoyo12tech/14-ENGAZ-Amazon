@@ -29,7 +29,7 @@ spec:
               name: http
           envFrom:
             - configMapRef:
-                name: user-service-config
+                name: user-service-configmap
           env:
             - name: SPRING_DATASOURCE_USERNAME
               value: postgres
