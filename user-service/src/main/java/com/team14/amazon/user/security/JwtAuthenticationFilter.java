@@ -13,6 +13,7 @@
    import org.springframework.stereotype.Component;
    import org.springframework.web.filter.OncePerRequestFilter;
 
+   import org.slf4j.MDC;
    import java.io.IOException;
    import java.util.Collections;
 
@@ -64,14 +65,21 @@
            }
 
            if (ctx.getUser() != null) {
-               UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                       ctx.getUser(), null, 
-                       Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + ctx.getUser().getRole().name()))
-               );
-               authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-               SecurityContextHolder.getContext().setAuthentication(authentication);
-           }
+               MDC.put("userId", ctx.getUser().getId().toString());
+               try {
+                   UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                           ctx.getUser(), null, 
+                           Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + ctx.getUser().getRole().name()))
+                   );
+                   authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                   SecurityContextHolder.getContext().setAuthentication(authentication);
 
-           filterChain.doFilter(request, response);
+                   filterChain.doFilter(request, response);
+               } finally {
+                   MDC.remove("userId");
+               }
+           } else {
+               filterChain.doFilter(request, response);
+           }
        }
    }

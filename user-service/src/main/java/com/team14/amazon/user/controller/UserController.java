@@ -3,7 +3,6 @@ package com.team14.amazon.user.controller;
 import com.team14.amazon.user.dto.UserProfileDTO;
 import com.team14.amazon.user.model.User;
 import com.team14.amazon.user.model.UserRole;
-import com.team14.amazon.user.model.UserStatus;
 import com.team14.amazon.user.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
