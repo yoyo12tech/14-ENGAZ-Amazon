@@ -22,15 +22,8 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
 
     Optional<Shipment> findFirstByOrderIdAndStatusIn(Long orderId, Set<Shipment.Status> statuses);
 
-    // @Query(value = "SELECT * FROM shipments WHERE CAST(status AS TEXT) =
-    // :status", nativeQuery = true)
-    @Query(value = "SELECT * FROM shipments WHERE status::text = :status", nativeQuery = true)
+    // @Query(value = "SELECT * FROM shipments WHERE status::text = :status", nativeQuery = true)
     List<Shipment> findByStatusNative(@Param("status") String status);
-
-//    @Query(value = "SELECT CASE WHEN COUNT(*) > 0 THEN true ELSE false END FROM orders WHERE id = :orderId", nativeQuery = true)
-//    boolean existsOrderById(@Param("orderId") Long orderId);
-
-    Boolean existsByOrderId(Long orderId);
 
     @Query("SELECT s FROM Shipment s WHERE s.orderId = :orderId ORDER BY s.lastUpdate DESC LIMIT 1")
     Optional<Shipment> findLatestShipmentByOrderId(@Param("orderId") Long orderId);
@@ -111,17 +104,6 @@ public interface ShipmentRepository extends JpaRepository<Shipment, Long> {
         """, nativeQuery = true
     )
     Shipment getActiveShipment(@Param("orderId") Long orderId);
-
-    @Query(
-            value = """
-            SELECT s FROM Shipment s
-            WHERE s.orderId = :orderId
-            AND s.status IN ('PROCESSING','SHIPPED','IN_TRANSIT','OUT_FOR_DELIVERY')
-            ORDER BY s.lastUpdate DESC
-            LIMIT 1
-        """
-    )
-    Optional<Shipment> findActiveShipmentByOrderId(@Param("orderId") Long orderId);
 
     // Returns all shipment IDs for a given orderId — used by /ids endpoint (S5-F11)
     @Query(

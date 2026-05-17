@@ -15,7 +15,6 @@ import com.team14.amazon.shipping.repository.ShipmentRepository;
 import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import feign.FeignException;
-import lombok.extern.slf4j.Slf4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,9 +42,9 @@ import java.util.ArrayList;
 import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
-@Slf4j
 @Service
 public class ShipmentService {
+    private static final Logger log = LoggerFactory.getLogger(ShipmentService.class);
     private final ShipmentRepository shipmentRepository;
     private final MongoEventLogger mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
@@ -186,15 +185,7 @@ public class ShipmentService {
                     Double distance = Math.sqrt(
                             Math.pow(s.getLatitude() - lat, 2) + Math.pow(s.getLongitude() - lon, 2)
                     ) * 111;
-//                    return new NearbyShipmentDTO(
-//                            s.getId(),
-//                            s.getOrderId(),
-//                            s.getCarrier(),
-//                            s.getTrackingNumber(),
-//                            s.getLatitude(),
-//                            s.getLongitude(),
-//                            distance
-//                    );
+
                     return NearbyShipmentDTO
                             .builder()
                             .shipmentId(s.getId())
@@ -587,5 +578,4 @@ return savedEvent;
     public List<Long> getShipmentIdsByOrderId(Long orderId) {
         return shipmentRepository.findShipmentIdsByOrderId(orderId);
     }
-
 }
