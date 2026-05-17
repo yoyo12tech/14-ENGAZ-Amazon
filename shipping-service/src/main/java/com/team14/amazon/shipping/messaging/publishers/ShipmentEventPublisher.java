@@ -3,6 +3,7 @@ package com.team14.amazon.shipping.messaging.publishers;
 import com.team14.amazon.contracts.events.ShipmentCancelledEvent;
 import com.team14.amazon.contracts.events.ShipmentCreatedEvent;
 import com.team14.amazon.contracts.events.ShipmentStatusChangedEvent;
+import com.team14.amazon.shipping.model.Shipment;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -26,8 +27,7 @@ public class ShipmentEventPublisher {
     }
 
     public void publishShipmentCreated(ShipmentCreatedEvent event) {
-        log.info("Publishing shipment.created: shipmentId={} orderId={}",
-                event.shipmentId(), event.orderId());
+        log.info("Publishing shipment.created: shipmentId={} orderId={}", event.shipmentId(), event.orderId());
         rabbitTemplate.convertAndSend("shipment.events", "shipment.created", event);
     }
 
