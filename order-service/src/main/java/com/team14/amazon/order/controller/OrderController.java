@@ -142,14 +142,6 @@ public class OrderController {
         return ResponseEntity.noContent().build();
     }
 
-    // @PutMapping("/{id}/deliver")
-    // public ResponseEntity<Order> markAsDelivered(
-    // @PathVariable Long id,
-    // @RequestBody DeliverRequest request) {
-    // return ResponseEntity.ok(orderService.markAsDelivered(id,
-    // request.getMethod()));
-    // }
-
     @PostMapping("/{orderId}/record-co-purchase")
     public ResponseEntity<?> recordCoPurchase(@PathVariable Long orderId) {
 

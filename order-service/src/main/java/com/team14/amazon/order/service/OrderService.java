@@ -346,44 +346,6 @@ public class OrderService {
                 .discountApplied(discountApplied)
                 .build();
     }
-    // ─── S3-F4: Mark as Delivered ────────────────────────────────────────────
-
-//    @Transactional
-//    public Order markAsDelivered(Long id, String method) {
-//        Order order = orderRepository.findById(id)
-//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-//                        "Order not found: " + id));
-//        if (order.getStatus() == OrderStatus.DELIVERED) {
-//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order already delivered");
-//        }
-//        if (order.getStatus() != OrderStatus.SHIPPED) {
-//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-//                    "Order must be SHIPPED before delivery");
-//        }
-//
-//        LocalDateTime now = LocalDateTime.now();
-//        order.setStatus(OrderStatus.DELIVERED);
-//        order.setDeliveredAt(now);
-//        try {
-//            orderRepository.markShipmentDelivered(id, now);
-//        } catch (Exception e) {
-//            log.warn("[S3-F4] No shipment to update for orderId={}: {}", id, e.getMessage());
-//            // do not rethrow — delivery must still succeed
-//        }
-//
-//        BigDecimal amount = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
-//        orderRepository.createTransaction(id, order.getUserId(), amount,
-//                "PENDING", now, method != null ? method : "CASH_ON_DELIVERY");
-//
-//        Order saved = orderRepository.save(order);
-//        cacheEvictionService.evictOrderDetail(id);
-//        cacheEvictionService.evictOrderFeatureCaches();
-//
-//        Map<String, Object> payload = new HashMap<>();
-//        payload.put("orderId", id);
-//        notifyObservers("ORDER_DELIVERED", payload);
-//        return saved;
-//    }
 
     // ─── S3-F5: Search by Metadata ───────────────────────────────────────────
 
