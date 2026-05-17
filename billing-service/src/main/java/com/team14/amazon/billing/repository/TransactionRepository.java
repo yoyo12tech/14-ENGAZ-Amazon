@@ -40,7 +40,6 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
                                                       @Param("end") LocalDateTime end,
                                                       @Param("statuses") Collection<TransactionStatus> statuses);
 
-    boolean existsByUserId(Long userId);
 
     @Query("SELECT COALESCE(SUM(t.amount), 0) FROM Transaction t WHERE t.userId = :userId AND t.createdAt BETWEEN :start AND :end AND t.status = com.team14.amazon.billing.model.TransactionStatus.COMPLETED")
     BigDecimal getUserTransactionTotal(@Param("userId") Long userId,
@@ -51,19 +50,4 @@ public interface TransactionRepository extends JpaRepository<Transaction, Long> 
     long getUserOrderCount(@Param("userId") Long userId,
                            @Param("start") LocalDateTime start,
                            @Param("end") LocalDateTime end);
-
-    @Query("SELECT t.method, COUNT(t), SUM(t.amount) FROM Transaction t WHERE t.userId = :userId AND t.status = :status GROUP BY t.method")
-    List<Object[]> getCompletedTransactionSummaryByUser(@Param("userId") Long userId,
-                                                        @Param("status") TransactionStatus status);
-
-    @Query("SELECT t FROM Transaction t WHERE "
-            + "(:status IS NULL OR t.status = :status) AND "
-            + "(:startDate IS NULL OR t.createdAt >= :startDate) AND "
-            + "(:endDate IS NULL OR t.createdAt <= :endDate) "
-            + "ORDER BY t.createdAt DESC")
-    List<Transaction> findTransactionsByFilters(
-            @Param("status") TransactionStatus status,
-            @Param("startDate") LocalDateTime startDate,
-            @Param("endDate") LocalDateTime endDate
-    );
 }
