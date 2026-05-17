@@ -22,6 +22,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import com.team14.amazon.order.saga.SagaTriggerService;
+
 
 @RestController
 @RequestMapping("/api/orders")
@@ -31,15 +33,18 @@ public class OrderController {
     private final OrderItemService orderItemService;
     private final RecommendationService recommendationService;
     private final OrderReadService orderReadService;
+    private final SagaTriggerService    sagaTriggerService;
     private static final Logger log = LoggerFactory.getLogger(OrderController.class);
 
     public OrderController(OrderService orderService, OrderItemService orderItemService,
                            RecommendationService recommendationService,
-                           OrderReadService orderReadService) {
+                           OrderReadService orderReadService,
+                           SagaTriggerService sagaTriggerService) {
         this.orderService = orderService;
         this.orderItemService = orderItemService;
         this.recommendationService = recommendationService;
         this.orderReadService = orderReadService;
+        this.sagaTriggerService = sagaTriggerService;
 
     }
 
@@ -158,13 +163,11 @@ public class OrderController {
 
     // claude code
     @PutMapping("/{id}/deliver")
-    public ResponseEntity<Order> markAsDelivered(
-            @PathVariable Long id,
-            @RequestBody(required = false) DeliverRequest request) {
-        String method = (request != null && request.getMethod() != null)
-                ? request.getMethod()
-                : "CASH_ON_DELIVERY";
-        return ResponseEntity.ok(orderService.markAsDelivered(id, method));
+    public ResponseEntity<Order> markAsDelivered(@PathVariable Long id) {
+        log.info("Received PUT /api/orders/{}/deliver", id);
+        Order delivered = sagaTriggerService.markAsDelivered(id);
+        log.info("Returning 200 for PUT /api/orders/{}/deliver", id);
+        return ResponseEntity.ok(delivered);
     }
 
     @PutMapping("/{orderId}/confirm")

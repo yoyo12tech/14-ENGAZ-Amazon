@@ -1,20 +1,30 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.contracts.dto.ProductDTO;
+import com.team14.amazon.contracts.dto.ShippingAddressDTO;
+import com.team14.amazon.contracts.dto.UserDTO;
+import com.team14.amazon.contracts.events.OrderCancelledEvent;
+import com.team14.amazon.contracts.events.OrderCompletedEvent;
+import com.team14.amazon.contracts.events.OrderItemPayload;
+import com.team14.amazon.contracts.events.OrderPlacedEvent;
 import com.team14.amazon.contracts.feign.ProductServiceClient;
-import feign.FeignException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import com.team14.amazon.order.repository.OrderGraphRepository;
-import com.team14.amazon.order.dto.OrderAnalyticsDashboardDTO;
+import com.team14.amazon.contracts.feign.ShippingServiceClient;
+import com.team14.amazon.contracts.feign.UserServiceClient;
 import com.team14.amazon.order.config.CacheEvictionService;
 import com.team14.amazon.order.dto.*;
+import com.team14.amazon.order.messaging.OrderEventPublisher;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
 import com.team14.amazon.order.observer.EntityObserver;
+import com.team14.amazon.order.repository.OrderGraphRepository;
 import com.team14.amazon.order.repository.OrderItemRepository;
 import com.team14.amazon.order.repository.OrderRepository;
+import feign.FeignException;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -55,7 +65,11 @@ public class OrderService {
     private final EntityObserver mongoEventLogger;
     private final OrderGraphRepository orderGraphRepository;
     private final ProductServiceClient productServiceClient;
+    private final UserServiceClient userServiceClient;
+    private final ShippingServiceClient shippingServiceClient;
+    private final OrderEventPublisher   eventPublisher;
     private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
 
     // DP-2: classical observer list (mirrors UserService exactly)
     private final List<EntityObserver> observers = new ArrayList<>();
@@ -66,7 +80,11 @@ public class OrderService {
                         CacheEvictionService cacheEvictionService,
                         EntityObserver mongoEventLogger,
                         OrderGraphRepository orderGraphRepository,
-                        ProductServiceClient productServiceClient) {
+                        ProductServiceClient productServiceClient,
+                        UserServiceClient userServiceClient,
+                        ShippingServiceClient shippingServiceClient,
+                        OrderEventPublisher eventPublisher
+                        ) {
         this.orderRepository = orderRepository;
         this.orderItemService = orderItemService;
         this.orderItemRepository = orderItemRepository;
@@ -74,6 +92,9 @@ public class OrderService {
         this.mongoEventLogger = mongoEventLogger;
         this.orderGraphRepository = orderGraphRepository;
         this.productServiceClient = productServiceClient;
+        this.userServiceClient = userServiceClient;
+        this.shippingServiceClient = shippingServiceClient;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostConstruct
@@ -182,51 +203,87 @@ public class OrderService {
 
     @Transactional
     public Order confirmOrder(Long orderId, Long shippingAddressId) {
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (order.getStatus() != OrderStatus.PENDING) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not PENDING");
-        }
-        if (!orderRepository.existsShippingAddressById(shippingAddressId)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipping address not found");
-        }
-        List<OrderItem> items = order.getOrderItems();
-        if (items == null || items.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order has no items");
-        }
+        MDC.put("orderId", orderId.toString());
+        try {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Order not found"));
+            if (order.getStatus() != OrderStatus.PENDING) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order is not PENDING");
+            }
 
-        double totalAmount = 0.0;
-        for (OrderItem item : items) {
-            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
-            if (product == null || product.isEmpty()) {
+            // ── Feign: verify address exists and belongs to this user ─────────
+            log.info("Calling UserServiceClient.getShippingAddress with args=[{}, {}]",
+                    order.getUserId(), shippingAddressId);
+            try {
+                userServiceClient.getShippingAddress(order.getUserId(), shippingAddressId);
+                log.info("UserServiceClient.getShippingAddress returned successfully");
+            } catch (FeignException.NotFound e) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Product not found: " + item.getProductId());
+                        "Shipping address not found or does not belong to this user");
+            } catch (FeignException e) {
+                log.warn("Feign call to user-service failed: {}", e.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "User service temporarily unavailable");
             }
-            Integer stock = (Integer) product.get("stock_quantity");
-            if (stock == null || stock < item.getQuantity()) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Insufficient stock for product: " + item.getProductId());
+
+            List<OrderItem> items = order.getOrderItems();
+            if (items == null || items.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order has no items");
             }
-            int updated = orderRepository.updateProductStock(item.getProductId(), item.getQuantity());
-            if (updated == 0) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Failed to deduct stock for product: " + item.getProductId());
+
+            // ── Feign: verify each product exists and has sufficient stock ────
+            double totalAmount = 0.0;
+            for (OrderItem item : items) {
+                log.info("Calling ProductServiceClient.getProduct with args=[{}]",
+                        item.getProductId());
+                ProductDTO product;
+                try {
+                    product = productServiceClient.getProduct(item.getProductId());
+                    log.info("ProductServiceClient.getProduct returned successfully");
+                } catch (FeignException.NotFound e) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Product not found: " + item.getProductId());
+                } catch (FeignException e) {
+                    log.warn("Feign call to product-service failed: {}", e.getMessage());
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Product service temporarily unavailable");
+                }
+
+                if (product.stockQuantity() == null || product.stockQuantity() < item.getQuantity()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Insufficient stock for product: " + item.getProductId());
+                }
+                totalAmount += item.getQuantity() * item.getPriceAtPurchase();
             }
-            totalAmount += item.getQuantity() * item.getPriceAtPurchase();
+
+            // ── Local write ───────────────────────────────────────────────────
+            order.setShippingAddressId(shippingAddressId);
+            order.setStatus(OrderStatus.CONFIRMED);
+            order.setTotalAmount(totalAmount);
+            Order saved = orderRepository.save(order);
+
+            cacheEvictionService.evictOrderDetail(orderId);
+            cacheEvictionService.evictOrderFeatureCaches();
+
+            // ── Publish order.placed (stock deduction via product-service consumer) ─
+            List<OrderItemPayload> itemPayloads = items.stream()
+                    .map(i -> new OrderItemPayload(
+                            i.getProductId(), i.getQuantity(), i.getPriceAtPurchase()))
+                    .collect(Collectors.toList());
+
+            eventPublisher.publishOrderPlaced(new OrderPlacedEvent(
+                    orderId, order.getUserId(), shippingAddressId, itemPayloads));
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderId", orderId);
+            notifyObservers("ORDER_CONFIRMED", payload);
+
+            log.info("Order {} saved with status=CONFIRMED", orderId);
+            return saved;
+        } finally {
+            MDC.remove("orderId");
         }
-
-        order.setShippingAddressId(shippingAddressId);
-        order.setStatus(OrderStatus.CONFIRMED);
-        order.setTotalAmount(totalAmount);
-        Order saved = orderRepository.save(order);
-
-        cacheEvictionService.evictOrderDetail(orderId);
-        cacheEvictionService.evictOrderFeatureCaches();
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", orderId);
-        notifyObservers("ORDER_CONFIRMED", payload);
-        return saved;
     }
 
     // ─── S3-F3: Estimate ─────────────────────────────────────────────────────
@@ -237,31 +294,50 @@ public class OrderService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "Request must contain at least one item");
         }
+
+        // Collect all productIds for a single batch Feign call
+        List<Long> productIds = items.stream()
+                .map(item -> ((Number) item.get("productId")).longValue())
+                .collect(Collectors.toList());
+
+        log.info("Calling ProductServiceClient.getProductsBatch with args=[{}]", productIds);
+        List<ProductDTO> products;
+        try {
+            products = productServiceClient.getProductsBatch(productIds);
+            log.info("ProductServiceClient.getProductsBatch returned successfully");
+        } catch (FeignException e) {
+            log.warn("Feign call to product-service failed: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Product service temporarily unavailable");
+        }
+
+        // Index by productId for O(1) lookup
+        Map<Long, ProductDTO> productMap = products.stream()
+                .collect(Collectors.toMap(ProductDTO::id, p -> p));
+
         int totalItemCount = 0;
-        double subtotal = 0.0;
+        double subtotal    = 0.0;
 
         for (Map<String, Object> item : items) {
-            Long productId = ((Number) item.get("productId")).longValue();
-            Integer quantity = ((Number) item.get("quantity")).intValue();
-            Double price = orderRepository.findProductPriceById(productId);
-            if (price == null) {
+            Long    productId = ((Number) item.get("productId")).longValue();
+            Integer quantity  = ((Number) item.get("quantity")).intValue();
+
+            ProductDTO product = productMap.get(productId);
+            if (product == null) {
                 throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                         "Product not found: " + productId);
             }
             totalItemCount += quantity;
-            subtotal += price * quantity;
+            subtotal       += product.price() * quantity;
         }
 
         double discountApplied = 0.0;
-        if (totalItemCount >= 6 && totalItemCount <= 15)
-            discountApplied = 5.0;
-        else if (totalItemCount > 15)
-            discountApplied = 10.0;
+        if      (totalItemCount >= 6  && totalItemCount <= 15) discountApplied = 5.0;
+        else if (totalItemCount > 15)                          discountApplied = 10.0;
 
-        double shippingCost = subtotal < 500 ? 50.0 : 0.0;
-        double estimatedTotal = subtotal * (1 - discountApplied / 100) + shippingCost;
+        double shippingCost    = subtotal < 500 ? 50.0 : 0.0;
+        double estimatedTotal  = subtotal * (1 - discountApplied / 100) + shippingCost;
 
-        // DP-4: Builder
         return OrderEstimateDTO.builder()
                 .itemCount(totalItemCount)
                 .subtotal(subtotal)
@@ -270,45 +346,44 @@ public class OrderService {
                 .discountApplied(discountApplied)
                 .build();
     }
-
     // ─── S3-F4: Mark as Delivered ────────────────────────────────────────────
 
-    @Transactional
-    public Order markAsDelivered(Long id, String method) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Order not found: " + id));
-        if (order.getStatus() == OrderStatus.DELIVERED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order already delivered");
-        }
-        if (order.getStatus() != OrderStatus.SHIPPED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Order must be SHIPPED before delivery");
-        }
-
-        LocalDateTime now = LocalDateTime.now();
-        order.setStatus(OrderStatus.DELIVERED);
-        order.setDeliveredAt(now);
-        try {
-            orderRepository.markShipmentDelivered(id, now);
-        } catch (Exception e) {
-            log.warn("[S3-F4] No shipment to update for orderId={}: {}", id, e.getMessage());
-            // do not rethrow — delivery must still succeed
-        }
-
-        BigDecimal amount = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
-        orderRepository.createTransaction(id, order.getUserId(), amount,
-                "PENDING", now, method != null ? method : "CASH_ON_DELIVERY");
-
-        Order saved = orderRepository.save(order);
-        cacheEvictionService.evictOrderDetail(id);
-        cacheEvictionService.evictOrderFeatureCaches();
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", id);
-        notifyObservers("ORDER_DELIVERED", payload);
-        return saved;
-    }
+//    @Transactional
+//    public Order markAsDelivered(Long id, String method) {
+//        Order order = orderRepository.findById(id)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
+//                        "Order not found: " + id));
+//        if (order.getStatus() == OrderStatus.DELIVERED) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Order already delivered");
+//        }
+//        if (order.getStatus() != OrderStatus.SHIPPED) {
+//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+//                    "Order must be SHIPPED before delivery");
+//        }
+//
+//        LocalDateTime now = LocalDateTime.now();
+//        order.setStatus(OrderStatus.DELIVERED);
+//        order.setDeliveredAt(now);
+//        try {
+//            orderRepository.markShipmentDelivered(id, now);
+//        } catch (Exception e) {
+//            log.warn("[S3-F4] No shipment to update for orderId={}: {}", id, e.getMessage());
+//            // do not rethrow — delivery must still succeed
+//        }
+//
+//        BigDecimal amount = order.getTotalAmount() != null ? BigDecimal.valueOf(order.getTotalAmount()) : BigDecimal.ZERO;
+//        orderRepository.createTransaction(id, order.getUserId(), amount,
+//                "PENDING", now, method != null ? method : "CASH_ON_DELIVERY");
+//
+//        Order saved = orderRepository.save(order);
+//        cacheEvictionService.evictOrderDetail(id);
+//        cacheEvictionService.evictOrderFeatureCaches();
+//
+//        Map<String, Object> payload = new HashMap<>();
+//        payload.put("orderId", id);
+//        notifyObservers("ORDER_DELIVERED", payload);
+//        return saved;
+//    }
 
     // ─── S3-F5: Search by Metadata ───────────────────────────────────────────
 
@@ -356,74 +431,102 @@ public class OrderService {
 
     @Transactional
     public void cancelOrder(Long id) {
-        Order order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (order.getStatus() != OrderStatus.PENDING
-                && order.getStatus() != OrderStatus.CONFIRMED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Only PENDING or CONFIRMED orders can be cancelled");
-        }
-        if (order.getStatus() == OrderStatus.CONFIRMED) {
-            for (OrderItem item : order.getOrderItems()) {
-                orderRepository.restoreProductStock(item.getProductId(), item.getQuantity());
+        MDC.put("orderId", id.toString());
+        try {
+            Order order = orderRepository.findById(id)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Order not found"));
+
+            if (order.getStatus() != OrderStatus.PENDING
+                    && order.getStatus() != OrderStatus.CONFIRMED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Only PENDING or CONFIRMED orders can be cancelled");
             }
+
+            // Build restoredItems only when CONFIRMED (stock was deducted via order.placed)
+            List<OrderItemPayload> restoredItems = Collections.emptyList();
+            if (order.getStatus() == OrderStatus.CONFIRMED) {
+                restoredItems = order.getOrderItems().stream()
+                        .map(item -> new OrderItemPayload(
+                                item.getProductId(),
+                                item.getQuantity(),
+                                item.getPriceAtPurchase()))
+                        .collect(Collectors.toList());
+            }
+
+            order.setStatus(OrderStatus.CANCELLED);
+            orderRepository.save(order);
+            log.info("Order {} saved with status=CANCELLED", id);
+
+            cacheEvictionService.evictOrderDetail(id);
+            cacheEvictionService.evictOrderFeatureCaches();
+
+            // Publish order.cancelled — product-service restores stock,
+            // shipping-service cancels shipment, billing-service refunds if needed
+            eventPublisher.publishOrderCancelled(new OrderCancelledEvent(
+                    id, order.getUserId(), restoredItems, "user_requested"));
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderId", id);
+            notifyObservers("ORDER_CANCELLED", payload);
+        } finally {
+            MDC.remove("orderId");
         }
-        order.setStatus(OrderStatus.CANCELLED);
-        orderRepository.save(order);
-
-        cacheEvictionService.evictOrderDetail(id);
-        cacheEvictionService.evictOrderFeatureCaches();
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", id);
-        notifyObservers("ORDER_CANCELLED", payload);
     }
 
     // ─── S3-F8: Add Items to Order ───────────────────────────────────────────
 
     @Transactional
     public Order addItemsToOrder(Long orderId, List<OrderItemRequestDTO> itemsDto) {
-        System.out.println("He did enter");
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Order not found"));
-        if (order.getStatus() != OrderStatus.PENDING) {
-            System.out.println("He did enter");
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Cannot add items to non-PENDING orders");
-        }
-
-        int maxItemOrder = orderItemRepository.findMaxItemOrderByOrderId(orderId);
-
-        for (OrderItemRequestDTO dto : itemsDto) {
-            Double price;
-            try {
-                price = productServiceClient.getProductPrice(dto.productId());
-            } catch (FeignException.NotFound e) {
-                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Product not found: " + dto.productId());
-            } catch (FeignException e) {
-                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                        "Product service unavailable");
+        MDC.put("orderId", orderId.toString());
+        try {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Order not found"));
+            if (order.getStatus() != OrderStatus.PENDING) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Cannot add items to non-PENDING orders");
             }
-            maxItemOrder++;
-            OrderItem newItem = new OrderItem();
-            newItem.setProductId(dto.productId());
-            newItem.setQuantity(dto.quantity());
-            newItem.setPriceAtPurchase(price);
-            newItem.setItemOrder(maxItemOrder);
-            newItem.setMetadata(dto.metadata());
-            newItem.setOrder(order);
-            order.getOrderItems().add(newItem);
-            orderItemService.create(orderId, newItem);
-        }
-        Order saved = orderRepository.save(order);
-        cacheEvictionService.evictOrderDetail(orderId);
-        cacheEvictionService.evictOrderFeatureCaches();
 
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", orderId);
-        notifyObservers("ITEMS_ADDED", payload);
-        return saved;
+            int maxItemOrder = orderItemRepository.findMaxItemOrderByOrderId(orderId);
+
+            for (OrderItemRequestDTO dto : itemsDto) {
+                log.info("Calling ProductServiceClient.getProduct with args=[{}]", dto.productId());
+                ProductDTO product;
+                try {
+                    product = productServiceClient.getProduct(dto.productId());
+                    log.info("ProductServiceClient.getProduct returned successfully");
+                } catch (FeignException.NotFound e) {
+                    throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                            "Product not found: " + dto.productId());
+                } catch (FeignException e) {
+                    log.warn("Feign call to product-service failed: {}", e.getMessage());
+                    throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                            "Product service temporarily unavailable");
+                }
+
+                maxItemOrder++;
+                OrderItem newItem = new OrderItem();
+                newItem.setProductId(dto.productId());
+                newItem.setQuantity(dto.quantity());
+                newItem.setPriceAtPurchase(product.price());
+                newItem.setItemOrder(maxItemOrder);
+                newItem.setMetadata(dto.metadata());
+                newItem.setOrder(order);
+                order.getOrderItems().add(newItem);
+                orderItemService.create(orderId, newItem);
+            }
+            Order saved = orderRepository.save(order);
+            cacheEvictionService.evictOrderDetail(orderId);
+            cacheEvictionService.evictOrderFeatureCaches();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderId", orderId);
+            notifyObservers("ITEMS_ADDED", payload);
+            return saved;
+        } finally {
+            MDC.remove("orderId");
+        }
     }
 
     // ─── S3-F9: Order Details ────────────────────────────────────────────────
@@ -459,55 +562,59 @@ public class OrderService {
 
     @Transactional
     public void recordCoPurchase(Long orderId) {
-        // 1. Load order from PG
-        Order order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND,
-                        "Order not found: " + orderId));
+        MDC.put("orderId", orderId.toString());
+        try {
+            Order order = orderRepository.findById(orderId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND, "Order not found: " + orderId));
 
-        // 2. Validate status = DELIVERED
-        if (order.getStatus() != OrderStatus.DELIVERED) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Order must be DELIVERED to record co-purchase");
-        }
-
-        // 3. Short‑circuit if fewer than 2 items
-        List<OrderItem> items = order.getOrderItems();
-        if (items == null || items.size() < 2) {
-            return; // nothing to record
-        }
-
-        // 4. Idempotency check in Neo4j
-        if (orderGraphRepository.isOrderRecorded(orderId)) {
-            return; // already recorded, no mutation
-        }
-
-        // 5. Ensure ProductNodes exist in Neo4j
-        for (OrderItem item : items) {
-            Map<String, Object> product = orderRepository.findProductById(item.getProductId());
-            if (product == null || product.isEmpty()) {
-                continue;
+            if (order.getStatus() != OrderStatus.DELIVERED) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Order must be DELIVERED to record co-purchase");
             }
 
-            orderGraphRepository.ensureProductNode(product);
+            List<OrderItem> items = order.getOrderItems();
+            if (items == null || items.size() < 2) return;
+
+            if (orderGraphRepository.isOrderRecorded(orderId)) return;
+
+            // ── Feign: batch fetch product details for Neo4j node enrichment ──
+            List<Long> productIds = items.stream()
+                    .map(OrderItem::getProductId).distinct().collect(Collectors.toList());
+
+            log.info("Calling ProductServiceClient.getProductsBatch with args=[{}]", productIds);
+            List<ProductDTO> products;
+            try {
+                products = productServiceClient.getProductsBatch(productIds);
+                log.info("ProductServiceClient.getProductsBatch returned successfully");
+            } catch (FeignException e) {
+                log.warn("Feign call to product-service failed: {}", e.getMessage());
+                throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                        "Product service temporarily unavailable");
+            }
+
+            // Enrich Neo4j ProductNodes using Feign data (not cross-service SQL)
+            for (ProductDTO product : products) {
+                Map<String, Object> productMap = new HashMap<>();
+                productMap.put("id",       product.id());
+                productMap.put("name",     product.name());
+                productMap.put("category", product.category());
+                productMap.put("brand",    product.brand());
+                productMap.put("price",    product.price());
+                productMap.put("status",   product.status());
+                orderGraphRepository.ensureProductNode(productMap);
+            }
+
+            orderGraphRepository.recordCoPurchasePairs(orderId, items);
+            cacheEvictionService.evictRecommendationCache();
+
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("orderId",    orderId);
+            payload.put("productIds", productIds);
+            notifyObservers("INTERACTION_RECORDED", payload);
+        } finally {
+            MDC.remove("orderId");
         }
-
-        // 6. Record BOUGHT_TOGETHER pairs
-        orderGraphRepository.recordCoPurchasePairs(orderId, items);
-
-        // ← ADD THIS — §4.4.4 NoSQL-writer rule
-        cacheEvictionService.evictRecommendationCache();
-
-        // 7. Log INTERACTION_RECORDED event via Observer
-        List<Long> productIds = items.stream()
-                .map(OrderItem::getProductId)
-                .distinct()
-                .toList();
-
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("orderId", orderId);
-        payload.put("productIds", productIds);
-
-        notifyObservers("INTERACTION_RECORDED", payload);
     }
 
     // MS2
