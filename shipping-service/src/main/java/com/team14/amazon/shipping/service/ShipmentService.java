@@ -5,38 +5,31 @@ import com.team14.amazon.contracts.feign.OrderServiceClient;
 import com.team14.amazon.shipping.adapter.CassandraRowAdapter;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
 import com.team14.amazon.shipping.dto.*;
+import com.team14.amazon.shipping.messaging.publishers.ShipmentEventPublisher;
 import com.team14.amazon.shipping.model.Shipment;
 import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.model.mongo.ShipmentEvent;
+import com.team14.amazon.shipping.observer.EntityObserver;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
-import com.team14.amazon.shipping.model.cassandra.ShipmentTrackingEvent;
 import com.team14.amazon.shipping.repository.ShipmentRepository;
 import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.cache.annotation.Caching;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.shipping.observer.EntityObserver;
-import com.team14.amazon.shipping.observer.MongoEventLogger;
-import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
 
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
-
-import java.util.ArrayList;
-import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -55,7 +48,15 @@ public class ShipmentService {
     private final ShipmentEventPublisher publisher;
 
 
-    public ShipmentService(ShipmentRepository shipmentRepository, ShipmentTrackingEventRepository trackingRepository, MongoEventLogger mongoEventLogger, CachedServices cachedServices, ShipmentEventRepository shipmentEventRepository, CassandraRowAdapter cassandraRowAdapter, StringRedisTemplate redisTemplate, OrderServiceClient orderServiceClient, ShipmentEventPublisher publisher) {
+    public ShipmentService(ShipmentRepository shipmentRepository,
+                           ShipmentTrackingEventRepository trackingRepository,
+                           MongoEventLogger mongoEventLogger,
+                           CachedServices cachedServices,
+                           ShipmentEventRepository shipmentEventRepository,
+                           CassandraRowAdapter cassandraRowAdapter,
+                           StringRedisTemplate redisTemplate,
+                           OrderServiceClient orderServiceClient,
+                           ShipmentEventPublisher publisher) {
         this.shipmentRepository = shipmentRepository;
         this.mongoEventLogger = mongoEventLogger;
         this.cachedServices = cachedServices;
@@ -84,16 +85,16 @@ public class ShipmentService {
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
     public Shipment createShipment(Shipment shipment) {
-            if (shipment.getTrackingNumber() != null &&
+        if (shipment.getTrackingNumber() != null &&
                 shipmentRepository.findByTrackingNumber(shipment.getTrackingNumber()).isPresent()) {
-                throw new IllegalArgumentException("Tracking number already exists.");
-            }
+            throw new IllegalArgumentException("Tracking number already exists.");
+        }
 
-            shipment.setLastUpdate(LocalDateTime.now());
+        shipment.setLastUpdate(LocalDateTime.now());
 
-            if (shipment.getStatus() == null) {
-                shipment.setStatus(Shipment.Status.PROCESSING);
-            }
+        if (shipment.getStatus() == null) {
+            shipment.setStatus(Shipment.Status.PROCESSING);
+        }
 
         Shipment saved = shipmentRepository.save(shipment);
         notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
@@ -103,6 +104,7 @@ public class ShipmentService {
         ));
         return saved;
     }
+
     @Caching(evict = {
             @CacheEvict(value = "shipping-service::shipment", key = "#id"),
             @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
@@ -149,6 +151,7 @@ public class ShipmentService {
             observer.onEvent(action, payload);
         }
     }
+
     @Transactional
     @Caching(evict = {
             @CacheEvict(value = "shipping-service::S4-F6", allEntries = true),
@@ -175,23 +178,14 @@ public class ShipmentService {
     }
 
     @Cacheable(value = "shipping-service::S4-F3", key = "#lat + '::' + #lon + '::' + #radiusKm")
-    public List<NearbyShipmentDTO> findNearbyShipments(Double lat, Double lon, Double radiusKm ){
+    public List<NearbyShipmentDTO> findNearbyShipments(Double lat, Double lon, Double radiusKm) {
         return shipmentRepository.findByStatusNative(Shipment.Status.OUT_FOR_DELIVERY.name())
                 .stream()
-                .filter( s -> s.getLatitude() != null && s.getLongitude() != null)
+                .filter(s -> s.getLatitude() != null && s.getLongitude() != null)
                 .map(s -> {
                     Double distance = Math.sqrt(
                             Math.pow(s.getLatitude() - lat, 2) + Math.pow(s.getLongitude() - lon, 2)
                     ) * 111;
-//                    return new NearbyShipmentDTO(
-//                            s.getId(),
-//                            s.getOrderId(),
-//                            s.getCarrier(),
-//                            s.getTrackingNumber(),
-//                            s.getLatitude(),
-//                            s.getLongitude(),
-//                            distance
-//                    );
                     return NearbyShipmentDTO
                             .builder()
                             .shipmentId(s.getId())
@@ -208,12 +202,13 @@ public class ShipmentService {
                 .sorted(Comparator.comparingDouble(NearbyShipmentDTO::getDistanceKm))
                 .collect(Collectors.toList());
     }
+
     @Caching(evict = {
             @CacheEvict(value = "shipping-service::S4-F1", allEntries = true),
             @CacheEvict(value = "shipping-service::S4-F3", allEntries = true),
             @CacheEvict(value = "shipping-service::S4-F9", allEntries = true)
     })
-    public Shipment createShipment(Long orderId, Shipment shipment){
+    public Shipment createShipment(Long orderId, Shipment shipment) {
         // S4-F2: Replace direct order-existence check with Feign call to order-service
         try {
             orderServiceClient.getOrder(orderId);
@@ -239,9 +234,10 @@ public class ShipmentService {
                 "status", saved.getStatus().name()
         ));
         return saved;
-     }
+    }
+
     @Cacheable(value = "shipping-service::S4-F1", key = "#orderId")
-    public Shipment getLatestShipmentForOrder(Long orderId){
+    public Shipment getLatestShipmentForOrder(Long orderId) {
         // S4-F1: Replace direct order-existence check with Feign call to order-service
         try {
             orderServiceClient.getOrder(orderId);
@@ -253,10 +249,10 @@ public class ShipmentService {
         }
 
         return shipmentRepository.findLatestShipmentByOrderId(orderId)
-        .orElseThrow(()-> new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "No shipment for this order"));
-        }
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No shipment for this order"));
+    }
 
 
     @Transactional
@@ -299,6 +295,7 @@ public class ShipmentService {
         ));
         return toSave.size();
     }
+
     public List<Shipment> filterByMetadata(String key, String operator, String value) {
         return switch (operator) {
             case "eq" -> shipmentRepository.findByMetadataEq(key, value);
@@ -322,6 +319,7 @@ public class ShipmentService {
                     "Invalid operator. Must be one of: eq, gt, lt");
         };
     }
+
     @Cacheable(value = "shipping-service::S4-F6", key = "#startDate + '::' + #endDate + '::' + #status")
     public List<Shipment> getShipmentsInDateRange(LocalDateTime startDate, LocalDateTime endDate, String status) {
         String resolvedStatus = (status == null || status.isBlank()) ? null : status;
@@ -335,7 +333,6 @@ public class ShipmentService {
 
         // If list is empty, the carrier had no shipments in this range
         if (results == null || results.isEmpty()) {
-            //return new CarrierSummaryDTO(carrier, 0L, 0L, 0.0, 0.0);
             return CarrierSummaryDTO.builder()
                     .carrier(carrier)
                     .totalShipments(0L)
@@ -349,52 +346,16 @@ public class ShipmentService {
         // Since we grouped by carrier, there is only one row in the list
         Object[] row = results.get(0);
 
-//        return new CarrierSummaryDTO(
-//                row[0] != null ? row[0].toString() : carrier, // carrier name
-//                row[1] != null ? ((Number) row[1]).longValue() : 0L, // totalShipments
-//                row[2] != null ? ((Number) row[2]).longValue() : 0L, // deliveredCount
-//                row[3] != null ? ((Number) row[3]).doubleValue() : 0.0, // averageDeliveryDays
-//                row[4] != null ? ((Number) row[4]).doubleValue() : 0.0  // onTimeRate
-//        );
-//        return CarrierSummaryDTO.builder()
-//                .carrier(row[0] != null ? row[0].toString() : carrier)
-//                .totalShipments(row[1] != null ? ((Number) row[1]).longValue() : 0L)
-//                .deliveredCount(row[2] != null ? ((Number) row[2]).longValue() : 0L)
-//                .averageDeliveryDays(row[3] != null ? ((Number) row[3]).doubleValue() : 0.0)
-//                .onTimeRate(row[4] != null ? ((Number) row[4]).doubleValue() : 0.0)
-//                .build();
         return ObjectArrayDtoAdapter.adaptToCarrierSummaryDTO(row, carrier);
     }
+
     @Cacheable(value = "shipping-service::S4-F9", key = "#maxAttempts")
     public List<DelayedShipmentDTO> getDelayedShipments(Integer maxAttempts) {
-//        return shipmentRepository.findDelayedShipments(maxAttempts).stream()
-//                .map(row -> DelayedShipmentDTO.builder()
-//                        .shipmentId(((Number) row[0]).longValue())
-//                        .orderId(((Number) row[1]).longValue())
-//                        .carrier((String) row[2])
-//                        .trackingNumber((String) row[3])
-//                        .estimatedDelivery((LocalDateTime) row[4])
-//                        .daysOverdue(((Number) row[5]).longValue())
-//                        .deliveryAttempts((Integer) row[6])
-//                        .build()
-//                ).toList();
         return shipmentRepository.findDelayedShipments(maxAttempts).stream()
                 .map(ObjectArrayDtoAdapter::adaptToDelayedShipmentDTO)
                 .toList();
     }
 
-//    public ShippingAnalyticsDTO getShippingAnalytics(LocalDate start, LocalDate end) {
-//        if (start.isAfter(end)) {
-//            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
-//        }
-//        mongoEventLogger.onEvent("ANALYTICS_VIEWED", null, Map.of(
-//                "startDate", start.toString(),
-//                "endDate", end.toString()
-//        ));
-//        return cachedServices.getShippingAnalyticsCached(start, end);
-//    }
-
-// Old implementation removed
     public ShippingAnalyticsDTO getShippingAnalytics(LocalDate startDate, LocalDate endDate) {
         if (startDate.isAfter(endDate)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "startDate cannot be after endDate");
@@ -409,126 +370,80 @@ public class ShipmentService {
         return cachedServices.getShippingAnalyticsCached(startDate, endDate);
     }
 
+    @Caching(evict = {
+            @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
+            @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
+    })
+    public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
 
+        Shipment shipment = shipmentRepository.findById(shipmentId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Shipment not found"
+                ));
 
+        Shipment.Status status;
 
-//    @Cacheable(value="shipping-service::S4-F10", key = "#start + '::' + #end")
-//    public ShippingAnalyticsDTO getShippingAnalyticsCached(LocalDate start, LocalDate end){
-//        //cache hit would ignore this section
-////        if(start.isAfter(end)){
-////            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Start Date Cannot be After End Date");
-////        }
-//        Object[] result = shipmentRepository.getShippingAnalytics(start, end);
-//
-//        // a null result means no shipping analytics within this time frame (start->end)
-//        if (result == null) {
-//            return ShippingAnalyticsDTO.builder()
-//                    .totalShipments(0L)
-//                    .averageDeliveryDays(0.0)
-//                    .onTimeRate(0.0)
-//                    .shipmentsByStatus(Map.of())
-//                    .averageAttempts(0.0)
-//                    .build();
-//        }
-//
-//        Map<String, Long> shipmentsByStatus = Map.of(
-//                "PROCESSING",       ((Number) result[3]).longValue(),
-//                "SHIPPED",          ((Number) result[4]).longValue(),
-//                "IN_TRANSIT",       ((Number) result[5]).longValue(),
-//                "OUT_FOR_DELIVERY", ((Number) result[6]).longValue(),
-//                "DELIVERED",        ((Number) result[7]).longValue(),
-//                "RETURNED",         ((Number) result[8]).longValue()
-//        );
-//
-//        return ShippingAnalyticsDTO.builder()
-//                .totalShipments(((Number) result[0]).longValue())
-//                .averageDeliveryDays(((Number) result[1]).doubleValue())
-//                .onTimeRate(((Number) result[2]).doubleValue())
-//                .shipmentsByStatus(shipmentsByStatus)
-//                .averageAttempts(((Number) result[9]).doubleValue())
-//                .build();
-//    }
+        try {
+            status = Shipment.Status.valueOf(request.getStatus());
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid shipment status"
+            );
+        }
 
-@Caching(evict = {
-        @CacheEvict(value = "shipping-service::S4-F12", key = "#shipmentId"),
-        @CacheEvict(value = "shipping-service::S4-F10", allEntries = true)
-})
+        shipment.setStatus(status);
 
+        if (request.getLatitude() != null) {
+            shipment.setLatitude(request.getLatitude());
+        }
 
+        if (request.getLongitude() != null) {
+            shipment.setLongitude(request.getLongitude());
+        }
 
+        shipment.setLastUpdate(LocalDateTime.now());
 
+        shipmentRepository.save(shipment);
 
+        ShipmentTrackingEvent event = new ShipmentTrackingEvent(
+                shipment.getId(),
+                Instant.now(),
+                status,
+                shipment.getCarrier(),
+                shipment.getTrackingNumber(),
+                request.getLatitude(),
+                request.getLongitude(),
+                request.getNotes()
+        );
 
-public ShipmentTrackingEvent recordTrackingEvent(Long shipmentId, ShipmentTrackingRequestDTO request) {
+        ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
+        Set<String> keys = redisTemplate.keys("shipping-service::S4-F12::*");
+        if (keys != null) redisTemplate.delete(keys);
+        notifyObservers(
+                "TRACKING_RECORDED",
+                shipment.getId(),
+                Map.of(
+                        "trackingNumber", shipment.getTrackingNumber(),
+                        "status", status.name(),
+                        "carrier", shipment.getCarrier(),
+                        "notes", request.getNotes() != null ? request.getNotes() : ""
+                )
+        );
 
-Shipment shipment = shipmentRepository.findById(shipmentId)
-        .orElseThrow(() -> new ResponseStatusException(
-                HttpStatus.NOT_FOUND,
-                "Shipment not found"
-        ));
-
-Shipment.Status status;
-
-try {
-    status = Shipment.Status.valueOf(request.getStatus());
-} catch (Exception e) {
-    throw new ResponseStatusException(
-            HttpStatus.BAD_REQUEST,
-            "Invalid shipment status"
-    );
-}
-
-shipment.setStatus(status);
-
-if (request.getLatitude() != null) {
-    shipment.setLatitude(request.getLatitude());
-}
-
-if (request.getLongitude() != null) {
-    shipment.setLongitude(request.getLongitude());
-}
-
-shipment.setLastUpdate(LocalDateTime.now());
-
-shipmentRepository.save(shipment);
-
-ShipmentTrackingEvent event = new ShipmentTrackingEvent(
-    shipment.getId(),
-    Instant.now(),
-    status,
-    shipment.getCarrier(),
-    shipment.getTrackingNumber(),
-    request.getLatitude(),
-    request.getLongitude(),
-    request.getNotes()
-);
-
-ShipmentTrackingEvent savedEvent = trackingRepository.save(event);
-    Set<String> keys = redisTemplate.keys("shipping-service::S4-F12::*");
-    if (keys != null) redisTemplate.delete(keys);
-    notifyObservers(
-            "TRACKING_RECORDED",
-            shipment.getId(),
-            Map.of(
-                    "trackingNumber", shipment.getTrackingNumber(),
-                    "status", status.name(),
-                    "carrier", shipment.getCarrier(),
-                    "notes", request.getNotes() != null ? request.getNotes() : ""
-            )
-    );
-
-return savedEvent;
-}
+        return savedEvent;
+    }
 
     @Cacheable(value = "shipping-service::S4-F12",
             key = "#id + (#start == null ? 'none' : #start.toString()) + (#end == null ? 'none' : #end.toString())")
     public List<ShipmentTrackingDTO> getTrackingTimeline(Long id, LocalDateTime start, LocalDateTime end) {
 
-        // 1. PostgreSQL check: Throw 404 if shipment doesn't exist[cite: 1]
+        // 1. PostgreSQL check: Throw 404 if shipment doesn't exist
         if (!shipmentRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Shipment not found");
         }
-        // 2. Query Cassandra[cite: 1]
+        // 2. Query Cassandra
         List<ShipmentTrackingEvent> events;
 
         if (start != null && end != null) {
@@ -539,9 +454,10 @@ return savedEvent;
             events = trackingRepository.findByShipmentId(id);
         }
 
-        // 3. Adapt and return[cite: 1]
+        // 3. Adapt and return
         return events.stream().map(cassandraRowAdapter::adapt).toList();
     }
+
     public void unregisterObserver(EntityObserver observer) {
         this.observers.remove(observer);
     }

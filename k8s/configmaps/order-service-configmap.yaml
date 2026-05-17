@@ -4,23 +4,17 @@ metadata:
   name: order-service-configmap
   namespace: amazon
 data:
-  application.properties: |
-    # Postgres
-    spring.datasource.url=jdbc:postgresql://order-postgres-svc:5432/orders
-    spring.datasource.username=postgres
-    spring.datasource.password=postgres
-    spring.jpa.hibernate.ddl-auto=update
-    spring.jpa.show-sql=true
-
-    # MongoDB
-    spring.data.mongodb.uri=mongodb://mongo:27017/amazonmongo
-
-    # Neo4j
-    spring.neo4j.uri=bolt://neo4j-svc:7687
-    spring.neo4j.authentication.username=neo4j
-    spring.neo4j.authentication.password=neo4jpass
-
-    # Redis
-    spring.redis.host=redis-svc
-    spring.redis.port=6379
-    spring.redis.password=redispass
+  SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/amazondb-orders
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+  SPRING_NEO4J_URI: bolt://neo4j:7687
+  SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
+  SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpass
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_DATA_REDIS_PASSWORD: redispass
+  SPRING_RABBITMQ_HOST: rabbitmq
+  FEIGN_USER_SERVICE_URL: http://user-service:8080
+  FEIGN_PRODUCT_SERVICE_URL: http://product-service:8080
+  FEIGN_SHIPPING_SERVICE_URL: http://shipping-service:8080
+  FEIGN_BILLING_SERVICE_URL: http://billing-service:8080
