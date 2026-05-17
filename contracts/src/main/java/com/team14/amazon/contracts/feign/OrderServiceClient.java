@@ -15,13 +15,19 @@ import java.util.List;
 @FeignClient(name = "order-service", url = "${feign.order-service.url}")
 public interface OrderServiceClient {
 
+
+    //Checked and tested
     @GetMapping("/api/orders/{orderId}")
     OrderDTO getOrder(@PathVariable("orderId") Long orderId);
 
+
+    //The below is likely an extra feign endPoint
     @GetMapping("/api/orders/{orderId}/details")
     OrderDetailsDTO getOrderDetails(@PathVariable("orderId") Long orderId);
 
 
+
+    //checked and tested
     @GetMapping("/api/orders/user/{userId}/summary")
     OrderSummaryDTO getUserOrderSummary(@PathVariable("userId") Long userId);
 
@@ -52,9 +58,7 @@ public interface OrderServiceClient {
     int getRecentSalesCount(@PathVariable("productId") Long productId,
                             @RequestParam("days") int days);
 
-//    @GetMapping("/api/orders/product/{productId}/units-sold")
-//    long getUnitsSoldForProduct(@PathVariable("productId") Long productId);
-    // Used by S5-F12 to validate orderItemIds belong to an order
+
     @GetMapping("/api/orders/{orderId}/items")
     List<OrderItemDTO> getOrderItems(@PathVariable("orderId") Long orderId);
 }
