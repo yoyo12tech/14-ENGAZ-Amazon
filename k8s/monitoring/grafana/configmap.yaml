@@ -42,19 +42,6 @@ data:
           "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 }
         },
         {
-          "id": 3,
-          "title": "Average Response Latency",
-          "type": "timeseries",
-          "datasource": "Prometheus",
-          "targets": [
-            {
-              "expr": "rate(http_server_requests_seconds_sum{job=\"user-service\"}[1m]) / rate(http_server_requests_seconds_count{job=\"user-service\"}[1m])",
-              "legendFormat": "avg latency (s)"
-            }
-          ],
-          "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 }
-        },
-        {
           "id": 4,
           "title": "Error Logs",
           "type": "logs",
@@ -66,32 +53,95 @@ data:
             }
           ],
           "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
-        },
+        }
+      ]
+    }
+  product-dashboard.json: |
+    {
+      "id": null,
+      "title": "Product Service Dashboard",
+      "tags": ["product-service"],
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "panels": [
         {
-          "id": 5,
-          "title": "Auth Logs",
-          "type": "logs",
-          "datasource": "Loki",
+          "id": 1,
+          "title": "HTTP Request Rate",
+          "type": "timeseries",
+          "datasource": "Prometheus",
           "targets": [
             {
-              "expr": "{job=\"user-service\"} |~ \"auth|login|register|token\"",
-              "legendFormat": ""
+              "expr": "sum(rate(http_server_requests_seconds_count{job=\"product-service\"}[1m])) by (uri)",
+              "refId": "A"
             }
           ],
-          "gridPos": { "x": 0, "y": 16, "w": 24, "h": 8 }
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
         },
         {
-          "id": 6,
-          "title": "Log Volume Over Time",
+          "id": 2,
+          "title": "Error Rate",
           "type": "timeseries",
           "datasource": "Loki",
           "targets": [
             {
-              "expr": "sum(rate({job=\"user-service\"}[1m]))",
-              "legendFormat": "log lines/sec"
+              "expr": "sum(rate({app=\"amazon\", service=\"product-service\", level=\"ERROR\"}[1m]))",
+              "refId": "A"
             }
           ],
-          "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+        },
+        {
+          "id": 3,
+          "title": "RabbitMQ Event Audit",
+          "type": "logs",
+          "datasource": "Loki",
+          "targets": [
+            {
+              "expr": "{app=\"amazon\", service=\"product-service\"} | json | routingKey != \"\"",
+              "refId": "A"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 }
+        },
+        {
+          "id": 4,
+          "title": "Feign Call Outcomes",
+          "type": "logs",
+          "datasource": "Loki",
+          "targets": [
+            {
+              "expr": "{app=\"amazon\", service=\"product-service\"} |= \"Feign call\"",
+              "refId": "A"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 }
+        },
+        {
+          "id": 5,
+          "title": "JVM Health (Heap Used)",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "jvm_memory_used_bytes{job=\"product-service\", area=\"heap\"}",
+              "refId": "A"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 }
+        },
+        {
+          "id": 6,
+          "title": "DB Connections",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "hikaricp_connections_active{job=\"product-service\"}",
+              "refId": "A"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 }
         }
       ]
     }
@@ -106,7 +156,8 @@ data:
       "panels": [
         {
           "title": "Request Rate",
-          "type": "graph",
+          "type": "timeseries",
+          "datasource": "Prometheus",
           "targets": [
             {
               "expr": "rate(http_server_requests_seconds_count{job=\"order-service\"}[1m])",
@@ -117,7 +168,8 @@ data:
         },
         {
           "title": "Error Rate",
-          "type": "graph",
+          "type": "timeseries",
+          "datasource": "Prometheus",
           "targets": [
             {
               "expr": "rate(http_server_requests_seconds_count{job=\"order-service\",status!~\"2..\"}[1m])",
@@ -125,17 +177,52 @@ data:
             }
           ],
           "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 }
-        },
+        }
+      ]
+    }
+  shipping-dashboard.json: |
+    {
+      "id": null,
+      "title": "Shipping Service Dashboard",
+      "tags": ["shipping-service"],
+      "timezone": "browser",
+      "schemaVersion": 38,
+      "version": 1,
+      "panels": [
         {
-          "title": "Latency (Average Response Time)",
-          "type": "graph",
+          "datasource": "Prometheus",
+          "title": "Shipping Request Rate",
+          "type": "timeseries",
           "targets": [
             {
-              "expr": "rate(http_server_requests_seconds_sum{job=\"order-service\"}[1m]) / rate(http_server_requests_seconds_count{job=\"order-service\"}[1m])",
-              "legendFormat": "avg latency (s)"
+              "expr": "sum(rate(http_server_requests_seconds_count{job=\"shipping-service\"}[5m])) by (uri)",
+              "refId": "A"
             }
           ],
-          "gridPos": { "x": 0, "y": 8, "w": 24, "h": 8 }
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+        }
+      ]
+    }
+  billing-dashboard.json: |
+    {
+      "id": null,
+      "title": "Billing Service Dashboard",
+      "tags": ["billing-service"],
+      "timezone": "browser",
+      "schemaVersion": 36,
+      "version": 1,
+      "panels": [
+        {
+          "title": "HTTP Request Rate",
+          "type": "timeseries",
+          "datasource": "Prometheus",
+          "targets": [
+            {
+              "expr": "rate(http_server_requests_seconds_count{job=\"billing-service\"}[5m])",
+              "legendFormat": "{{uri}} - {{status}}"
+            }
+          ],
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
         }
       ]
     }
