@@ -1,7 +1,5 @@
 package com.team14.amazon.product.service;
 
-import com.team14.amazon.product.adapter.ObjectArrayProductSalesAdapter;
-import com.team14.amazon.product.adapter.ObjectArrayTopProductAdapter;
 import com.team14.amazon.product.dto.LowStockAlertDTO;
 import com.team14.amazon.product.dto.ProductSalesDTO;
 import com.team14.amazon.product.dto.TopProductDTO;
@@ -37,9 +35,6 @@ public class ProductService {
     private final OrderServiceClient orderServiceClient;
     private final RabbitTemplate rabbitTemplate;
     private final List<EntityObserver> observers = new ArrayList<>();
-
-    private final ObjectArrayProductSalesAdapter salesAdapter = new ObjectArrayProductSalesAdapter();
-    private final ObjectArrayTopProductAdapter topProductAdapter = new ObjectArrayTopProductAdapter();
 
     public ProductService(ProductRepository productRepository,
                           ProductReviewRepository reviewRepository,
