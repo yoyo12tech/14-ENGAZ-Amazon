@@ -77,10 +77,6 @@ public class Order {
         }
 
         this.deliveredAt = null;
-
-        // if(this.orderedAt == null) {
-        // this.orderedAt = LocalDateTime.now();
-        // }
     }
 
     public Long getId() {
