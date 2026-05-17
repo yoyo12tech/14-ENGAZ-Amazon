@@ -1,23 +1,6 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: shipping-service-config
-  namespace: amazon
-data:
-  SPRING_DATASOURCE_URL: jdbc:postgresql://shipping-postgres:5432/amazondb-shipments
-  SPRING_DATASOURCE_USERNAME: postgres
-  SPRING_RABBITMQ_HOST: rabbitmq
-  SPRING_RABBITMQ_PORT: "5672"
-  SPRING_RABBITMQ_USERNAME: guest
-  SPRING_DATA_REDIS_HOST: redis
-  SPRING_DATA_REDIS_PORT: "6379"
-  SPRING_CASSANDRA_CONTACT_POINTS: cassandra
-  SPRING_CASSANDRA_PORT: "9042"
-  SPRING_CASSANDRA_LOCAL_DATACENTER: datacenter1
-  SPRING_CASSANDRA_KEYSPACE_NAME: amazonks
-  FEIGN_ORDER_SERVICE_URL: http://order-service:8080apiVersion: v1
-kind: ConfigMap
-metadata:
   name: shipping-service-configmap
   namespace: amazon
 data:
@@ -30,9 +13,14 @@ data:
   SPRING_DATA_REDIS_PORT: "6379"
   SPRING_DATA_REDIS_PASSWORD: redispass
   SPRING_RABBITMQ_HOST: rabbitmq
+  SPRING_RABBITMQ_PORT: "5672"
+  SPRING_RABBITMQ_USERNAME: guest
   SPRING_CASSANDRA_CONTACT_POINTS: cassandra
+  SPRING_CASSANDRA_PORT: "9042"
+  SPRING_CASSANDRA_LOCAL_DATACENTER: datacenter1
+  SPRING_CASSANDRA_KEYSPACE_NAME: amazonks
   FEIGN_ORDER_SERVICE_URL: http://order-service:8080
   LOKI_URL: http://loki.monitoring.svc.cluster.local:3100
   MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus,health,info
   MANAGEMENT_ENDPOINT_PROMETHEUS_ACCESS: unrestricted
-  
+  SPRING_PROFILES_ACTIVE: k8s
