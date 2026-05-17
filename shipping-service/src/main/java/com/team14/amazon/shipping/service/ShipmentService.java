@@ -1,6 +1,7 @@
 package com.team14.amazon.shipping.service;
 
 import com.team14.amazon.contracts.dto.ShipmentDTO;
+import com.team14.amazon.contracts.events.ShipmentCreatedEvent;
 import com.team14.amazon.contracts.feign.OrderServiceClient;
 import com.team14.amazon.shipping.adapter.CassandraRowAdapter;
 import com.team14.amazon.shipping.adapter.ObjectArrayDtoAdapter;
@@ -15,6 +16,8 @@ import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepo
 import com.team14.amazon.shipping.repository.mongo.ShipmentEventRepository;
 import feign.FeignException;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -29,6 +32,7 @@ import org.springframework.web.server.ResponseStatusException;
 import com.team14.amazon.shipping.observer.EntityObserver;
 import com.team14.amazon.shipping.observer.MongoEventLogger;
 import com.team14.amazon.shipping.repository.cassandra.ShipmentTrackingEventRepository;
+import com.team14.amazon.shipping.messaging.publishers.ShipmentEventPublisher;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -42,7 +46,6 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class ShipmentService {
-
     private final ShipmentRepository shipmentRepository;
     private final MongoEventLogger mongoEventLogger;
     private final List<EntityObserver> observers = new ArrayList<>();
@@ -231,7 +234,12 @@ public class ShipmentService {
         Shipment saved = shipmentRepository.save(shipment);
 
         // Publish shipment.created event
-        publisher.publishShipmentCreated(saved);
+        publisher.publishShipmentCreated(new ShipmentCreatedEvent(
+                saved.getId(),
+                saved.getOrderId(),
+                saved.getCarrier(),
+                saved.getTrackingNumber()
+        ));
 
         notifyObservers("SHIPMENT_CREATED", saved.getId(), Map.of(
                 "orderId", saved.getOrderId(),
