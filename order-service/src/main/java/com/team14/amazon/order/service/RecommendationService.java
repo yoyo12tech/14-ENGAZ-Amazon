@@ -1,48 +1,32 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.contracts.dto.ProductDTO;
+import com.team14.amazon.contracts.feign.ProductServiceClient;
 import com.team14.amazon.order.adapter.Neo4jRecordAdapter;
 import com.team14.amazon.order.dto.ProductRecommendationDTO;
-import com.team14.amazon.order.repository.ProductNodeRepository;
-import com.team14.amazon.order.repository.OrderRepository;
+import com.team14.amazon.order.repository.OrderGraphRepository;
+import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
-import com.team14.amazon.order.repository.OrderGraphRepository;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
- * S3-F12 — "Customers Also Bought" recommendations (§10.3.3).
+ * S3-F12 — "Customers Also Bought" recommendations (M3 refactor).
  *
- * Orchestrates:
- * b) seed-product 404 check in PostgreSQL
- * c) co-purchase graph traversal in Neo4j (undirected BOUGHT_TOGETHER)
- * d) enrichment + ACTIVE/exists filter against PostgreSQL
- * e) top-N truncation (default limit = 5)
- * f) Redis caching (5-min TTL via RedisConfig — §8.1 search format)
+ * M2 cross-service SQL removed:
+ *   - orderRepository.findProductById(seedProductId)   → ProductServiceClient.productExists()
+ *   - orderRepository.findProductById(candidateId)     → ProductServiceClient.getProductsBatch()
  *
- * Cache key: `order-service::S3-F12::&lt;productId&gt;::&lt;limit&gt;`
- * (Spring's
- *
- * @Cacheable concatenates value + key separator + key; the value already
- *            carries the service::feature prefix per RedisConfig).
- *
- *            Cache invalidation on co-purchase writes is owned by S3-F11
- *            (teammate),
- *            which calls
- *            {@code CacheEvictionService.evictRecommendationCache()} per
- *            the §4.4.4 NoSQL-writer → cached-reader rule.
- *
- *            No Observer/Factory here: this is a pure read endpoint — no events
- *            emitted,
- *            no PG/Mongo/Neo4j writes. ANALYTICS_VIEWED-style logging is not
- *            required
- *            by §10.3.3.
+ * The Neo4j traversal is unchanged. All enrichment and ACTIVE-filtering
+ * now uses Feign data from product-service instead of direct SQL.
  */
 @Service
 public class RecommendationService {
@@ -51,87 +35,108 @@ public class RecommendationService {
     private static final int DEFAULT_LIMIT = 5;
 
     private final OrderGraphRepository orderGraphRepository;
-    private final OrderRepository orderRepository;
-    private final Neo4jRecordAdapter neo4jRecordAdapter;
+    private final ProductServiceClient productServiceClient;
+    private final Neo4jRecordAdapter   neo4jRecordAdapter;
 
     public RecommendationService(OrderGraphRepository orderGraphRepository,
-                                 OrderRepository orderRepository,
+                                 ProductServiceClient productServiceClient,
                                  Neo4jRecordAdapter neo4jRecordAdapter) {
         this.orderGraphRepository = orderGraphRepository;
-        this.orderRepository = orderRepository;
-        this.neo4jRecordAdapter = neo4jRecordAdapter;
+        this.productServiceClient = productServiceClient;
+        this.neo4jRecordAdapter   = neo4jRecordAdapter;
     }
 
     @Cacheable(value = "order-service::S3-F12", key = "#productId + '::' + #limit")
     public List<ProductRecommendationDTO> getRecommendations(Long productId, int limit) {
 
-        // (b) Seed product must exist in PG → 404 otherwise.
-        // Reuses the existing native-SQL cross-service helper on OrderRepository.
-        Map<String, Object> seedRow = orderRepository.findProductById(productId);
-        if (seedRow == null || seedRow.isEmpty()) {
+        // ── (b) Seed product must exist → 404 otherwise ───────────────────────
+        log.info("Calling ProductServiceClient.productExists with args=[{}]", productId);
+        try {
+            Map<String, Boolean> existsResult = productServiceClient.productExists(productId);
+            log.info("ProductServiceClient.productExists returned successfully");
+            if (Boolean.FALSE.equals(existsResult.get("exists"))) {
+                throw new ResponseStatusException(HttpStatus.NOT_FOUND,
+                        "Product not found: " + productId);
+            }
+        } catch (ResponseStatusException rse) {
+            throw rse;
+        } catch (FeignException.NotFound e) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND,
                     "Product not found: " + productId);
+        } catch (FeignException e) {
+            log.warn("Feign call to product-service failed: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
+                    "Product service temporarily unavailable");
         }
 
         int effectiveLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
-        // (c) Neo4j traversal — soft dep: empty list on any failure (logged in repo).
+        // ── (c) Neo4j traversal (unchanged from M2) ───────────────────────────
         List<Map<String, Object>> rows = orderGraphRepository.findCoPurchases(productId);
-        // (d, e) Enrich from PG; drop seed itself, missing rows, and non-ACTIVE
-        // products. Truncate as soon as we have `effectiveLimit` survivors.
+
+        // Collect candidate productIds from Neo4j result, excluding seed
+        List<Long> candidateIds = rows.stream()
+                .map(row -> neo4jRecordAdapter.adapt(row))
+                .map(ProductRecommendationDTO::getProductId)
+                .filter(id -> id != null && !id.equals(productId))
+                .collect(Collectors.toList());
+
+        if (candidateIds.isEmpty()) {
+            log.debug("[S3-F12] productId={} — no co-purchase candidates in Neo4j", productId);
+            return new ArrayList<>();
+        }
+
+        // ── (d) Batch Feign → product-service for enrichment ──────────────────
+        // Fetch up to 2×limit candidates to allow filtering of INACTIVE products
+        List<Long> batchIds = candidateIds.stream()
+                .limit((long) effectiveLimit * 2)
+                .collect(Collectors.toList());
+
+        log.info("Calling ProductServiceClient.getProductsBatch with args=[{}]", batchIds);
+        List<ProductDTO> products;
+        try {
+            products = productServiceClient.getProductsBatch(batchIds);
+            log.info("ProductServiceClient.getProductsBatch returned successfully");
+        } catch (FeignException e) {
+            log.warn("[S3-F12] Feign batch call to product-service failed: {}", e.getMessage());
+            return new ArrayList<>(); // soft failure — return empty rather than 500
+        }
+
+        // Index by productId for O(1) lookup
+        Map<Long, ProductDTO> productMap = products.stream()
+                .collect(Collectors.toMap(ProductDTO::id, p -> p));
+
+        // Build score map from Neo4j rows
+        Map<Long, Object> scoreMap = rows.stream()
+                .map(row -> neo4jRecordAdapter.adapt(row))
+                .filter(dto -> dto.getProductId() != null && !dto.getProductId().equals(productId))
+                .collect(Collectors.toMap(
+                        ProductRecommendationDTO::getProductId,
+                        dto -> dto.getScore(),
+                        (a, b) -> a));
+
+        // ── (e) Filter INACTIVE, enrich, trim to limit ────────────────────────
         List<ProductRecommendationDTO> result = new ArrayList<>();
-        for (Map<String, Object> row : rows) {
-            ProductRecommendationDTO dto = neo4jRecordAdapter.adapt(row);
+        for (Long candidateId : candidateIds) {
+            if (result.size() >= effectiveLimit) break;
 
-            if (dto.getProductId() == null || dto.getProductId().equals(productId)) {
-                continue; // exclude seed (defensive — Cypher already excludes)
-            }
+            ProductDTO product = productMap.get(candidateId);
+            if (product == null) continue;                  // not in batch (deleted)
+            if (!"ACTIVE".equalsIgnoreCase(product.status())) continue; // INACTIVE/OUT_OF_STOCK
 
-            Map<String, Object> pgRow;
-            try {
-                pgRow = orderRepository.findProductById(dto.getProductId());
-            } catch (Exception ex) {
-                log.warn("[S3-F12] PG enrichment failed for productId={}: {}",
-                        dto.getProductId(), ex.getMessage());
-                continue;   // skip this row, continue with next
-            }
-            if (pgRow == null || pgRow.isEmpty()) {
-                continue; // product deleted in PG
-            }
-            String status = pgRow.get("status") == null ? null : pgRow.get("status").toString();
-            if (!"ACTIVE".equalsIgnoreCase(status)) {
-                continue; // INACTIVE / OUT_OF_STOCK must not appear (§10.3.3 d)
-            }
-
-            dto.setName(asString(pgRow.get("name")));
-            dto.setCategory(asString(pgRow.get("category")));
-            dto.setBrand(asString(pgRow.get("brand")));
-            dto.setPrice(asDouble(pgRow.get("price")));
+            ProductRecommendationDTO dto = new ProductRecommendationDTO();
+            dto.setProductId(product.id());
+            dto.setName(product.name());
+            dto.setCategory(product.category());
+            dto.setBrand(product.brand());
+            dto.setPrice(product.price());
+            Object score = scoreMap.get(candidateId);
+            if (score instanceof Number n) dto.setScore(n.intValue());
             result.add(dto);
-
-            if (result.size() >= effectiveLimit)
-                break;
         }
 
         log.debug("[S3-F12] productId={} limit={} returned {} recommendations",
                 productId, effectiveLimit, result.size());
         return result;
-    }
-
-    // ── small coercion helpers (PG returns native types via JDBC native SQL) ───
-    private static String asString(Object v) {
-        return v == null ? null : v.toString();
-    }
-
-    private static Double asDouble(Object v) {
-        if (v == null)
-            return null;
-        if (v instanceof Number n)
-            return n.doubleValue();
-        try {
-            return Double.parseDouble(v.toString());
-        } catch (NumberFormatException e) {
-            return null;
-        }
     }
 }

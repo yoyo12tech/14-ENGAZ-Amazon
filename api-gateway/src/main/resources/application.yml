@@ -33,3 +33,7 @@ spring:
               uri: http://billing-service:8080
               predicates:
                 - Path=/api/transactions/**
+
+
+#jwt:
+#  secret: ${JWT_SECRET}

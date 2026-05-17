@@ -36,13 +36,10 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
 
 
-    @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
-    Optional<Double> getProductPrice(@Param("productId") Long productId);
 
 
-    @Modifying
-    @Query(value = "UPDATE products SET stock_quantity = stock_quantity + :quantity WHERE id = :productId", nativeQuery = true)
-    void restoreProductStock(@Param("productId") Long productId, @Param("quantity") Integer quantity);
+
+
 
 
     @Query(value = "SELECT * FROM orders o WHERE o.metadata ->> :key = :value", nativeQuery = true)
@@ -96,24 +93,14 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
             LocalDateTime startDate,
             LocalDateTime endDate
     );
-    @Query(value = "SELECT price FROM products WHERE id = :productId", nativeQuery = true)
-    Double findProductPriceById(@Param("productId") Long productId);
+
 
 
     //old code
-    @Query(value = "SELECT COUNT(*) > 0 FROM shipping_addresses WHERE id = :addressId", nativeQuery = true)
-    boolean existsShippingAddressById(@Param("addressId") Long addressId);
 
 
-    @Query(value = "SELECT * FROM products WHERE id = :productId", nativeQuery = true)
-    Map<String, Object> findProductById(@Param("productId") Long productId);
 
-    @Modifying
-    @Query(
-            value = "UPDATE products SET stock_quantity = stock_quantity - :qty WHERE id = :id AND stock_quantity >= :qty",
-            nativeQuery = true
-    )
-    int updateProductStock(@Param("id") Long id, @Param("qty") Integer qty);
+
 
 
 
@@ -236,6 +223,35 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean hasUserPurchasedProduct(@Param("userId") Long userId,
                                     @Param("productId") Long productId);
 
+
+
+    @Modifying
+    @Transactional
+    @Query("""
+    UPDATE Order o
+       SET o.shipmentId = :shipmentId
+     WHERE o.id = :orderId
+       AND o.shipmentId IS NULL
+""")
+    int updateShipmentId(@Param("orderId") Long orderId,
+                         @Param("shipmentId") Long shipmentId);
+
+
+
+
+
+
+    @Modifying
+    @Transactional
+    @Query("""
+    UPDATE Order o
+       SET o.status = :newStatus
+     WHERE o.id = :orderId
+       AND o.status = :expectedStatus
+""")
+    int updateOrderStatus(@Param("orderId") Long orderId,
+                          @Param("newStatus") OrderStatus newStatus,
+                          @Param("expectedStatus") OrderStatus expectedStatus);
 // ── S5-F12: items for an order ────────────────────────────────────────────────
 // (already returned by the JPA relationship — just need the controller endpoint)
 // Use findById and getOrderItems() from the entity instead of a native query
