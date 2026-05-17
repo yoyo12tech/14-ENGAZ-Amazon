@@ -1,9 +1,12 @@
 package com.team14.amazon.order.service;
 
+import com.team14.amazon.contracts.dto.ProductDTO;
+import com.team14.amazon.contracts.feign.ProductServiceClient;
 import com.team14.amazon.order.adapter.Neo4jRecordAdapter;
 import com.team14.amazon.order.dto.ProductRecommendationDTO;
 import com.team14.amazon.order.repository.ProductNodeRepository;
 import com.team14.amazon.order.repository.OrderRepository;
+import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -15,6 +18,7 @@ import com.team14.amazon.order.repository.OrderGraphRepository;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * S3-F12 — "Customers Also Bought" recommendations (§10.3.3).
@@ -51,62 +55,67 @@ public class RecommendationService {
     private static final int DEFAULT_LIMIT = 5;
 
     private final OrderGraphRepository orderGraphRepository;
-    private final OrderRepository orderRepository;
+    private final ProductServiceClient productServiceClient;
     private final Neo4jRecordAdapter neo4jRecordAdapter;
 
     public RecommendationService(OrderGraphRepository orderGraphRepository,
-                                 OrderRepository orderRepository,
+                                 ProductServiceClient productServiceClient,
                                  Neo4jRecordAdapter neo4jRecordAdapter) {
         this.orderGraphRepository = orderGraphRepository;
-        this.orderRepository = orderRepository;
+        this.productServiceClient = productServiceClient;
         this.neo4jRecordAdapter = neo4jRecordAdapter;
     }
 
     @Cacheable(value = "order-service::S3-F12", key = "#productId + '::' + #limit")
     public List<ProductRecommendationDTO> getRecommendations(Long productId, int limit) {
 
-        // (b) Seed product must exist in PG → 404 otherwise.
-        // Reuses the existing native-SQL cross-service helper on OrderRepository.
-        Map<String, Object> seedRow = orderRepository.findProductById(productId);
-        if (seedRow == null || seedRow.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND,
-                    "Product not found: " + productId);
+        // (b) Seed product must exist in PG → 404 otherwise. — §5 S3-F12 change 1
+        try {
+            productServiceClient.getProduct(productId);
+        } catch (FeignException.NotFound e) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Product not found: " + productId);
+        } catch (FeignException e) {
+            log.error("product-service unavailable for seed check: {}", e.getMessage());
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Product service unavailable");
         }
 
         int effectiveLimit = limit > 0 ? limit : DEFAULT_LIMIT;
 
         // (c) Neo4j traversal — soft dep: empty list on any failure (logged in repo).
         List<Map<String, Object>> rows = orderGraphRepository.findCoPurchases(productId);
-        // (d, e) Enrich from PG; drop seed itself, missing rows, and non-ACTIVE
-        // products. Truncate as soon as we have `effectiveLimit` survivors.
+
+        List<Long> candidateIds = rows.stream()
+                .map(row -> ((Number) row.get("productId")).longValue())
+                .filter(id -> !id.equals(productId))
+                .collect(Collectors.toList());
+
+        if (candidateIds.isEmpty()) {
+            return List.of();
+        }
+
+        // (d, e) Enrich from PG via Feign batch — §5 S3-F12 change 2
+        Map<Long, ProductDTO> productMap;
+        try {
+            List<ProductDTO> products = productServiceClient.getProductsBatch(candidateIds);
+            productMap = products.stream()
+                    .filter(p -> "ACTIVE".equalsIgnoreCase(p.status()))
+                    .collect(Collectors.toMap(ProductDTO::id, p -> p));
+        } catch (FeignException e) {
+            log.error("product-service unavailable for recommendation enrichment: {}", e.getMessage());
+            return List.of(); // soft dependency per §2.4 [cite: 31]
+        }
+
         List<ProductRecommendationDTO> result = new ArrayList<>();
         for (Map<String, Object> row : rows) {
+            Long candidateId = ((Number) row.get("productId")).longValue();
+            ProductDTO p = productMap.get(candidateId);
+            if (p == null) continue;
+
             ProductRecommendationDTO dto = neo4jRecordAdapter.adapt(row);
-
-            if (dto.getProductId() == null || dto.getProductId().equals(productId)) {
-                continue; // exclude seed (defensive — Cypher already excludes)
-            }
-
-            Map<String, Object> pgRow;
-            try {
-                pgRow = orderRepository.findProductById(dto.getProductId());
-            } catch (Exception ex) {
-                log.warn("[S3-F12] PG enrichment failed for productId={}: {}",
-                        dto.getProductId(), ex.getMessage());
-                continue;   // skip this row, continue with next
-            }
-            if (pgRow == null || pgRow.isEmpty()) {
-                continue; // product deleted in PG
-            }
-            String status = pgRow.get("status") == null ? null : pgRow.get("status").toString();
-            if (!"ACTIVE".equalsIgnoreCase(status)) {
-                continue; // INACTIVE / OUT_OF_STOCK must not appear (§10.3.3 d)
-            }
-
-            dto.setName(asString(pgRow.get("name")));
-            dto.setCategory(asString(pgRow.get("category")));
-            dto.setBrand(asString(pgRow.get("brand")));
-            dto.setPrice(asDouble(pgRow.get("price")));
+            dto.setName(p.name());
+            dto.setCategory(p.category());
+            dto.setBrand(p.brand());
+            dto.setPrice(p.price());
             result.add(dto);
 
             if (result.size() >= effectiveLimit)

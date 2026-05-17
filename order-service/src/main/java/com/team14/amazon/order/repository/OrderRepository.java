@@ -236,7 +236,26 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     boolean hasUserPurchasedProduct(@Param("userId") Long userId,
                                     @Param("productId") Long productId);
 
-// ── S5-F12: items for an order ────────────────────────────────────────────────
-// (already returned by the JPA relationship — just need the controller endpoint)
-// Use findById and getOrderItems() from the entity instead of a native query
+// ─── Saga Atomic Transitions ─────────────────────────────────────────────
+
+@Modifying
+@Transactional
+@Query("UPDATE Order o SET o.shipmentStatus = :shipmentStatus WHERE o.id = :orderId")
+int updateShipmentStatus(@Param("orderId") Long orderId, @Param("shipmentStatus") String shipmentStatus);
+
+@Modifying
+@Transactional
+@Query("UPDATE Order o SET o.shipmentId = :shipmentId WHERE o.id = :orderId")
+int updateShipmentId(@Param("orderId") Long orderId, @Param("shipmentId") Long shipmentId);
+@Modifying
+@Transactional
+@Query("UPDATE Order o SET o.status = :newStatus WHERE o.id = :orderId AND o.status IN :expectedStatuses")
+int updateStatusAtomic(@Param("orderId") Long orderId, 
+                       @Param("newStatus") OrderStatus newStatus, 
+                       @Param("expectedStatuses") List<OrderStatus> expectedStatuses);
+
+@Modifying
+@Transactional
+@Query("UPDATE Order o SET o.metadata = :metadata WHERE o.id = :orderId")
+int updateMetadata(@Param("orderId") Long orderId, @Param("metadata") Map<String, Object> metadata);
 }

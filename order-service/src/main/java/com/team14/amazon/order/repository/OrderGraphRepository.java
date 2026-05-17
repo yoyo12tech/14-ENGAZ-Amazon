@@ -1,5 +1,6 @@
 package com.team14.amazon.order.repository;
 
+import com.team14.amazon.contracts.dto.ProductDTO;
 import com.team14.amazon.order.model.OrderItem;
 import org.springframework.data.neo4j.core.Neo4jClient;
 import org.springframework.stereotype.Repository;
@@ -31,15 +32,15 @@ public class OrderGraphRepository {
     }
 
     // ─── Ensure Product Node ─────────────────────────────────────────────
-    public void ensureProductNode(Map<String, Object> product) {
+    public void ensureProductNode(ProductDTO product) {
         neo4jClient.query("""
                 MERGE (p:Product {productId: $id})
                 SET p.name = $name,
                     p.category = $category
                 """)
-                .bind(product.get("id")).to("id")
-                .bind(product.get("name")).to("name")
-                .bind(product.get("category")).to("category")
+                .bind(product.id()).to("id")
+                .bind(product.name()).to("name")
+                .bind(product.category()).to("category")
                 .run();
     }
 

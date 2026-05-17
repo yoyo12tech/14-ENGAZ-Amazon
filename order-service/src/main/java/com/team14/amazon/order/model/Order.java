@@ -32,6 +32,12 @@ public class Order {
     @Column(name = "shipping_address_id")
     private Long shippingAddressId;
 
+    @Column(name = "shipment_id")
+    private Long shipmentId;
+
+    @Column(name = "shipment_status")
+    private String shipmentStatus;
+
     @ColumnDefault("'PENDING'")
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
     @Column(name = "status", nullable = false)
@@ -101,6 +107,22 @@ public class Order {
 
     public void setShippingAddressId(Long shippingAddressId) {
         this.shippingAddressId = shippingAddressId;
+    }
+
+    public Long getShipmentId() {
+        return shipmentId;
+    }
+
+    public void setShipmentId(Long shipmentId) {
+        this.shipmentId = shipmentId;
+    }
+
+    public String getShipmentStatus() {
+        return shipmentStatus;
+    }
+
+    public void setShipmentStatus(String shipmentStatus) {
+        this.shipmentStatus = shipmentStatus;
     }
 
     public OrderStatus getStatus() {

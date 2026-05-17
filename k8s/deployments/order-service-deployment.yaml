@@ -18,23 +18,26 @@ spec:
           image: salvadorkiwi/order-service:latest
           ports:
             - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: order-service-configmap
+            - secretRef:
+                name: order-postgres-secret
           env:
-            - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://order-postgres:5432/amazondb-orders
-            - name: SPRING_DATASOURCE_USERNAME
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: order-postgres-secret
-                  key: POSTGRES_USER
-            - name: SPRING_DATASOURCE_PASSWORD
-              valueFrom:
-                secretKeyRef:
-                  name: order-postgres-secret
-                  key: POSTGRES_PASSWORD
-          volumeMounts:
-            - name: order-service-config
-              mountPath: /config
-      volumes:
-        - name: order-service-config
-          configMap:
-            name: order-service-configmap
+                  name: jwt-secret
+                  key: jwt-secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8080
+            initialDelaySeconds: 60
+            periodSeconds: 30
