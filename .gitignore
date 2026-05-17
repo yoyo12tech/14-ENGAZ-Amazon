@@ -53,4 +53,7 @@ docs/
 M3_description_sections/
 GEMINI.md
 git_constraints.txt
-
+M3_API_Testing_Guide.md
+testing_guide.md
+per_section_report/
+per_section_tests/
