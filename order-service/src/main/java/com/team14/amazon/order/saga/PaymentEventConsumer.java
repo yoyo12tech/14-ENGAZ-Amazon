@@ -1,283 +1,226 @@
-package com.team14.amazon.order.saga;
-
-import com.team14.amazon.contracts.events.*;
-import com.team14.amazon.order.config.OrderEventConfig;
-import com.team14.amazon.order.model.Order;
-import com.team14.amazon.order.model.OrderItem;
-import com.team14.amazon.order.model.OrderStatus;
-import com.team14.amazon.order.messaging.OrderEventPublisher;
-import com.team14.amazon.order.repository.OrderRepository;
-import jakarta.annotation.PostConstruct;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.messaging.handler.annotation.Header;
-import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
-
-/**
- * Consumes all 4 payment saga events from order.saga-feedback queue.
- *
- * Lives in saga/ package per spec §12 folder tree.
- *
- * Spec §5 RabbitMQ S3 Consumes:
- *   payment.initiated  → DELIVERED      → PAYMENT_PENDING
- *   payment.completed  → PAYMENT_PENDING → PAID
- *   payment.failed     → PAYMENT_PENDING → PAYMENT_FAILED + publish order.cancelled (compensation)
- *   payment.refunded   → PAYMENT_FAILED  → REFUNDED
- *
- * Idempotency (Critical Rule #5 — Approach 2):
- *   Every status transition uses updateOrderStatus(id, newStatus, expectedStatus).
- *   rowcount == 0 means the order is already in a different state (duplicate or
- *   out-of-order delivery) — log and skip, never throw.
- *
- * Compensation (payment.failed):
- *   When payment fails, order-service is responsible for publishing order.cancelled
- *   so that product-service restores stock, shipping-service cancels the shipment,
- *   and billing-service issues a refund.  This happens only when the atomic status
- *   transition succeeds (rowcount == 1) to avoid duplicate compensation.
- *
- * Do NOT call basicAck/basicNack. Spring auto-ACK + no-requeue + DLQ handles failures.
- */
-@Component
-public class PaymentEventConsumer {
-
-    private static final Logger log = LoggerFactory.getLogger(PaymentEventConsumer.class);
-
-    private final OrderRepository     orderRepository;
-    private final OrderEventPublisher eventPublisher;
-
-    public PaymentEventConsumer(OrderRepository orderRepository,
-                                OrderEventPublisher eventPublisher) {
-        this.orderRepository = orderRepository;
-        this.eventPublisher  = eventPublisher;
-    }
-
-    // =========================================================================
-    // payment.initiated → DELIVERED → PAYMENT_PENDING
-    // =========================================================================
-    @PostConstruct
-    public void init() {
-        System.out.println("🔥 PaymentEventConsumer LOADED");
-    }
-
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "paymentInitiatedListener"
-    )
-    @Transactional
-    public void onPaymentInitiated(
-            PaymentInitiatedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
-
-        if (!OrderEventConfig.ROUTING_PAYMENT_INITIATED.equals(routingKey)) return;
-
-        setupMdc(correlationId, event.orderId(), routingKey);
-        try {
-            log.info("Consuming {} for orderId={} transactionId={}",
-                    routingKey, event.orderId(), event.transactionId());
-
-            // Atomic idempotent transition: DELIVERED → PAYMENT_PENDING
-            int updated = orderRepository.updateOrderStatus(
-                    event.orderId(),
-                    OrderStatus.PAYMENT_PENDING, //law dah gably error lazm a3mlha beyh .name() y3ni a7welha leyh string
-                    OrderStatus.DELIVERED);
-
-            if (updated == 0) {
-                log.warn("Processed {} for orderId={} — not in DELIVERED state or already processed. Skipping.",
-                        routingKey, event.orderId());
-                return;
-            }
-
-            log.info("Order {} transitioning DELIVERED → PAYMENT_PENDING", event.orderId());
-            log.info("Processed {} for orderId={}", routingKey, event.orderId());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex;
-        } finally {
-            clearMdc();
-        }
-    }
-
-    // =========================================================================
-    // payment.completed → PAYMENT_PENDING → PAID
-    // =========================================================================
-
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "paymentCompletedListener"
-    )
-    @Transactional
-    public void onPaymentCompleted(
-            PaymentCompletedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
-
-        if (!OrderEventConfig.ROUTING_PAYMENT_COMPLETED.equals(routingKey)) return;
-
-        setupMdc(correlationId, event.orderId(), routingKey);
-        try {
-            log.info("Consuming {} for orderId={} transactionId={}",
-                    routingKey, event.orderId(), event.transactionId());
-
-            // Atomic idempotent transition: PAYMENT_PENDING → PAID
-            int updated = orderRepository.updateOrderStatus(
-                    event.orderId(),
-                    OrderStatus.PAID,
-                    OrderStatus.PAYMENT_PENDING);
-
-            if (updated == 0) {
-                log.warn("Processed {} for orderId={} — not in PAYMENT_PENDING state. Skipping.",
-                        routingKey, event.orderId());
-                return;
-            }
-
-            log.info("Order {} transitioning PAYMENT_PENDING → PAID", event.orderId());
-            log.info("Processed {} for orderId={}", routingKey, event.orderId());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex;
-        } finally {
-            clearMdc();
-        }
-    }
-
-    // =========================================================================
-    // payment.failed → PAYMENT_PENDING → PAYMENT_FAILED + compensation cascade
-    // =========================================================================
-
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "paymentFailedListener"
-    )
-    @Transactional
-    public void onPaymentFailed(
-            PaymentFailedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
-
-        if (!OrderEventConfig.ROUTING_PAYMENT_FAILED.equals(routingKey)) return;
-
-        setupMdc(correlationId, event.orderId(), routingKey);
-        try {
-            log.info("Consuming {} for orderId={} reason={}",
-                    routingKey, event.orderId(), event.reason());
-
-            // Atomic idempotent transition: PAYMENT_PENDING → PAYMENT_FAILED
-            int updated = orderRepository.updateOrderStatus(
-                    event.orderId(),
-                    OrderStatus.PAYMENT_FAILED,
-                    OrderStatus.PAYMENT_PENDING);
-
-            if (updated == 0) {
-                log.warn("Processed {} for orderId={} — not in PAYMENT_PENDING state. Skipping compensation.",
-                        routingKey, event.orderId());
-                return;
-            }
-
-            log.info("Order {} transitioning PAYMENT_PENDING → PAYMENT_FAILED", event.orderId());
-
-            // ── COMPENSATION CASCADE ───────────────────────────────────────────
-            // Publish order.cancelled so:
-            //   product-service  → restores stock (was deducted by order.placed)
-            //   shipping-service → cancels the shipment
-            //   billing-service  → refunds any completed payment (issues payment.refunded)
-            Order order = orderRepository.findById(event.orderId()).orElse(null);
-            if (order == null) {
-                log.error("Failed to process compensation for orderId={}: order not found after status update",
-                        event.orderId());
-                return;
-            }
-
-            List<OrderItemPayload> restoredItems = order.getOrderItems().stream()
-                    .map(item -> new OrderItemPayload(
-                            item.getProductId(),
-                            item.getQuantity(),
-                            item.getPriceAtPurchase()))
-                    .collect(Collectors.toList());
-
-            OrderCancelledEvent cancelEvent = new OrderCancelledEvent(
-                    event.orderId(),
-                    order.getUserId(),
-                    restoredItems,
-                    "payment_failed");
-
-            eventPublisher.publishOrderCancelled(cancelEvent);
-            log.info("Published order.cancelled (compensation) for orderId={}", event.orderId());
-            log.info("Processed {} for orderId={}", routingKey, event.orderId());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex;
-        } finally {
-            clearMdc();
-        }
-    }
-
-    // =========================================================================
-    // payment.refunded → PAYMENT_FAILED → REFUNDED
-    // =========================================================================
-
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "paymentRefundedListener"
-    )
-    @Transactional
-    public void onPaymentRefunded(
-            PaymentRefundedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
-
-        if (!OrderEventConfig.ROUTING_PAYMENT_REFUNDED.equals(routingKey)) return;
-
-        setupMdc(correlationId, event.orderId(), routingKey);
-        try {
-            log.info("Consuming {} for orderId={} refundAmount={}",
-                    routingKey, event.orderId(), event.refundAmount());
-
-            // Atomic idempotent transition: PAYMENT_FAILED → REFUNDED
-            int updated = orderRepository.updateOrderStatus(
-                    event.orderId(),
-                    OrderStatus.REFUNDED,
-                    OrderStatus.PAYMENT_FAILED);
-
-            if (updated == 0) {
-                log.warn("Processed {} for orderId={} — not in PAYMENT_FAILED state. Skipping.",
-                        routingKey, event.orderId());
-                return;
-            }
-
-            log.info("Order {} transitioning PAYMENT_FAILED → REFUNDED", event.orderId());
-            log.info("Processed {} for orderId={}", routingKey, event.orderId());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex;
-        } finally {
-            clearMdc();
-        }
-    }
-
-    // ── MDC helpers ───────────────────────────────────────────────────────────
-
-    private void setupMdc(String correlationId, Long orderId, String routingKey) {
-        if (correlationId != null) MDC.put("correlationId", correlationId);
-        if (orderId != null)       MDC.put("orderId", orderId.toString());
-        if (routingKey != null)    MDC.put("routingKey", routingKey);
-    }
-
-    private void clearMdc() {
-        MDC.remove("correlationId");
-        MDC.remove("orderId");
-        MDC.remove("routingKey");
-        MDC.remove("transactionId");
-    }
-}
+//package com.team14.amazon.order.saga;
+//
+//import com.fasterxml.jackson.databind.ObjectMapper;
+//import com.team14.amazon.contracts.events.*;
+//import com.team14.amazon.order.config.OrderEventConfig;
+//import com.team14.amazon.order.messaging.OrderEventPublisher;
+//import com.team14.amazon.order.model.Order;
+//import com.team14.amazon.order.model.OrderStatus;
+//import com.team14.amazon.order.repository.OrderRepository;
+//import jakarta.annotation.PostConstruct;
+//import org.slf4j.Logger;
+//import org.slf4j.LoggerFactory;
+//import org.slf4j.MDC;
+//import org.springframework.amqp.core.Message;
+//import org.springframework.amqp.rabbit.annotation.RabbitListener;
+//import org.springframework.stereotype.Component;
+//import org.springframework.transaction.annotation.Transactional;
+//
+//import java.util.List;
+//import java.util.stream.Collectors;
+//
+///**
+// * Consumes all 4 payment saga events from order.saga-feedback queue.
+// *
+// * FIX (Bug 1): Replaced 4 separate @RabbitListener methods (which competed
+// * for the same queue and caused only one to ever execute) with a SINGLE
+// * @RabbitListener that receives the raw Message and dispatches via switch
+// * on the routingKey — exactly the same pattern used by ShipmentEventConsumer
+// * and product-service's OrderEventListener.
+// *
+// * Root cause of the original bug:
+// *   Spring AMQP creates ONE SimpleMessageListenerContainer per queue name.
+// *   Multiple @RabbitListener methods on the same queue do NOT create multiple
+// *   containers — they register multiple handlers, but only one wins per message.
+// *   The routing-key guard (if !routingKey.equals(...) return;) means the wrong
+// *   handler returns early and drops the message without processing it.
+// */
+//@Component
+//public class PaymentEventConsumer {
+//
+//    private static final Logger log = LoggerFactory.getLogger(PaymentEventConsumer.class);
+//    private static final ObjectMapper MAPPER = new ObjectMapper();
+//
+//    private final OrderRepository     orderRepository;
+//    private final OrderEventPublisher eventPublisher;
+//
+//    public PaymentEventConsumer(OrderRepository orderRepository,
+//                                OrderEventPublisher eventPublisher) {
+//        this.orderRepository = orderRepository;
+//        this.eventPublisher  = eventPublisher;
+//    }
+//
+//    @PostConstruct
+//    public void init() {
+//        System.out.println("🔥 PaymentEventConsumer LOADED");
+//    }
+//
+//    // =========================================================================
+//    // SINGLE entry point — all payment events arrive here
+//    // =========================================================================
+//
+//    @RabbitListener(queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE)
+//    @Transactional
+//    public void onPaymentEvent(Message message) {
+//
+//
+//        String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+//        String corrId     = message.getMessageProperties().getHeader("X-Correlation-ID");
+//
+//        if (corrId     != null) MDC.put("correlationId", corrId);
+//        if (routingKey != null) MDC.put("routingKey",    routingKey);
+//        System.out.println("He tried to consume something in terms of PaymentEvents");
+//        System.out.println("The routingKey is " + routingKey);
+//        try {
+//            switch (routingKey != null ? routingKey : "") {
+//
+//                case OrderEventConfig.ROUTING_PAYMENT_INITIATED ->
+//                        handlePaymentInitiated(message);
+//
+//                case OrderEventConfig.ROUTING_PAYMENT_COMPLETED ->
+//                        handlePaymentCompleted(message);
+//
+//                case OrderEventConfig.ROUTING_PAYMENT_FAILED ->
+//                        handlePaymentFailed(message);
+//
+//                case OrderEventConfig.ROUTING_PAYMENT_REFUNDED ->
+//                        handlePaymentRefunded(message);
+//
+//                // Shipment events also arrive on this queue — ShipmentEventConsumer
+//                // handles them. We silently skip them here.
+//                case OrderEventConfig.ROUTING_SHIPMENT_CREATED,
+//                     OrderEventConfig.ROUTING_SHIPMENT_STATUS_CHANGED ->
+//                        log.debug("Skipping shipment event in PaymentEventConsumer: {}", routingKey);
+//
+//                default ->
+//                        log.warn("Unhandled routing key on payment saga queue: {}", routingKey);
+//            }
+//
+//        } catch (Exception e) {
+//            log.error("Failed to process {}: {}", routingKey, e.getMessage(), e);
+//            throw new RuntimeException(e); // rethrow → Spring retries → DLQ after max-attempts
+//        } finally {
+//            MDC.clear();
+//        }
+//    }
+//
+//    // =========================================================================
+//    // payment.initiated → DELIVERED → PAYMENT_PENDING
+//    // =========================================================================
+//
+//    private void handlePaymentInitiated(Message message) throws Exception {
+//        PaymentInitiatedEvent event = MAPPER.readValue(message.getBody(), PaymentInitiatedEvent.class);
+//
+//        log.info("Consuming payment.initiated for orderId={} transactionId={}",
+//                event.orderId(), event.transactionId());
+//
+//        int updated = orderRepository.updateOrderStatus(
+//                event.orderId(),
+//                OrderStatus.PAYMENT_PENDING,
+//                OrderStatus.DELIVERED);
+//
+//        if (updated == 0) {
+//            log.warn("payment.initiated: orderId={} not in DELIVERED state. Skipping.",
+//                    event.orderId());
+//            return;
+//        }
+//
+//        log.info("Order {} transitioning DELIVERED → PAYMENT_PENDING", event.orderId());
+//    }
+//
+//    // =========================================================================
+//    // payment.completed → PAYMENT_PENDING → PAID
+//    // =========================================================================
+//
+//    private void handlePaymentCompleted(Message message) throws Exception {
+//        PaymentCompletedEvent event = MAPPER.readValue(message.getBody(), PaymentCompletedEvent.class);
+//
+//        log.info("Consuming payment.completed for orderId={} transactionId={}",
+//                event.orderId(), event.transactionId());
+//
+//        int updated = orderRepository.updateOrderStatus(
+//                event.orderId(),
+//                OrderStatus.PAID,
+//                OrderStatus.PAYMENT_PENDING);
+//
+//        if (updated == 0) {
+//            log.warn("payment.completed: orderId={} not in PAYMENT_PENDING state. Skipping.",
+//                    event.orderId());
+//            return;
+//        }
+//
+//        log.info("Order {} transitioning PAYMENT_PENDING → PAID", event.orderId());
+//    }
+//
+//    // =========================================================================
+//    // payment.failed → PAYMENT_PENDING → PAYMENT_FAILED + compensation
+//    // =========================================================================
+//
+//    private void handlePaymentFailed(Message message) throws Exception {
+//        PaymentFailedEvent event = MAPPER.readValue(message.getBody(), PaymentFailedEvent.class);
+//
+//        log.info("Consuming payment.failed for orderId={} reason={}",
+//                event.orderId(), event.reason());
+//
+//        int updated = orderRepository.updateOrderStatus(
+//                event.orderId(),
+//                OrderStatus.PAYMENT_FAILED,
+//                OrderStatus.PAYMENT_PENDING);
+//
+//        if (updated == 0) {
+//            log.warn("payment.failed: orderId={} not in PAYMENT_PENDING state. Skipping compensation.",
+//                    event.orderId());
+//            return;
+//        }
+//
+//        log.info("Order {} transitioning PAYMENT_PENDING → PAYMENT_FAILED", event.orderId());
+//
+//        // Compensation cascade: publish order.cancelled so product/shipping/billing
+//        // can reverse their local state.
+//        Order order = orderRepository.findById(event.orderId()).orElse(null);
+//        if (order == null) {
+//            log.error("Compensation: orderId={} not found after status update. Cannot publish order.cancelled.",
+//                    event.orderId());
+//            return;
+//        }
+//
+//        List<OrderItemPayload> restoredItems = order.getOrderItems().stream()
+//                .map(item -> new OrderItemPayload(
+//                        item.getProductId(),
+//                        item.getQuantity(),
+//                        item.getPriceAtPurchase()))
+//                .collect(Collectors.toList());
+//
+//        eventPublisher.publishOrderCancelled(new OrderCancelledEvent(
+//                event.orderId(),
+//                order.getUserId(),
+//                restoredItems,
+//                "payment_failed"));
+//
+//        log.info("Published order.cancelled (compensation) for orderId={}", event.orderId());
+//    }
+//
+//    // =========================================================================
+//    // payment.refunded → PAYMENT_FAILED → REFUNDED
+//    // =========================================================================
+//
+//    private void handlePaymentRefunded(Message message) throws Exception {
+//        PaymentRefundedEvent event = MAPPER.readValue(message.getBody(), PaymentRefundedEvent.class);
+//
+//        log.info("Consuming payment.refunded for orderId={} refundAmount={}",
+//                event.orderId(), event.refundAmount());
+//
+//        int updated = orderRepository.updateOrderStatus(
+//                event.orderId(),
+//                OrderStatus.REFUNDED,
+//                OrderStatus.PAYMENT_FAILED);
+//
+//        if (updated == 0) {
+//            log.warn("payment.refunded: orderId={} not in PAYMENT_FAILED state. Skipping.",
+//                    event.orderId());
+//            return;
+//        }
+//
+//        log.info("Order {} transitioning PAYMENT_FAILED → REFUNDED", event.orderId());
+//    }
+//}
