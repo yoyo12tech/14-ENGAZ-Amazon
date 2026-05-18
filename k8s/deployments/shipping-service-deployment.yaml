@@ -15,7 +15,7 @@ spec:
     spec:
       containers:
         - name: shipping-service
-          image: shipping-service:latest
+          image: team14/shipping-service:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -25,20 +25,20 @@ spec:
             - secretRef:
                 name: shipping-postgres-secret
           env:
-            - name: SPRING_DATASOURCE_PASSWORD
+            - name: JWT_SECRET
               valueFrom:
                 secretKeyRef:
-                  name: shipping-postgres-secret
-                  key: POSTGRES_PASSWORD
+                  name: jwt-secret
+                  key: jwt-secret
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 180
+            initialDelaySeconds: 30
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 150
-            periodSeconds: 15
+            initialDelaySeconds: 60
+            periodSeconds: 30

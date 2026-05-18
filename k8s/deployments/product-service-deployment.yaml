@@ -15,8 +15,8 @@ spec:
     spec:
       containers:
       - name: product-service
-        image: product-service:latest
-        imagePullPolicy: Never
+        image: team14/product-service:latest
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8080
         envFrom:

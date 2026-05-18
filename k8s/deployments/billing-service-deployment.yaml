@@ -15,7 +15,8 @@ spec:
     spec:
       containers:
         - name: billing-service
-          image: billing-service:latest
+          image: team14/billing-service:latest
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
           envFrom:
@@ -23,6 +24,12 @@ spec:
                 name: billing-service-configmap
             - secretRef:
                 name: billing-postgres-secret
+          env:
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: jwt-secret
           readinessProbe:
             httpGet:
               path: /actuator/health
@@ -33,7 +40,5 @@ spec:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 45
-            periodSeconds: 15
-
-
+            initialDelaySeconds: 60
+            periodSeconds: 30

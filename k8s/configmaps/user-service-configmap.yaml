@@ -7,6 +7,7 @@ data:
   SPRING_DATASOURCE_URL: jdbc:postgresql://user-postgres:5432/amazondb-users
   SPRING_DATASOURCE_USERNAME: postgres
   SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+  SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
   SPRING_DATA_REDIS_HOST: redis
   SPRING_DATA_REDIS_PORT: "6379"
   SPRING_DATA_REDIS_PASSWORD: redispass
@@ -15,3 +16,5 @@ data:
   FEIGN_BILLING_SERVICE_URL: http://billing-service:8080
   FEIGN_PRODUCT_SERVICE_URL: http://product-service:8080
   FEIGN_SHIPPING_SERVICE_URL: http://shipping-service:8080
+  MANAGEMENT_HEALTH_MONGO_ENABLED: "false"
+  SPRING_PROFILES_ACTIVE: k8s

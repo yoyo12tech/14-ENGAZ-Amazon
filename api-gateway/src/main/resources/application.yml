@@ -35,5 +35,16 @@ spring:
                 - Path=/api/transactions/**
 
 
-#jwt:
-#  secret: ${JWT_SECRET}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+  endpoint:
+    health:
+      show-details: never
+  health:
+    livenessState:
+      enabled: true
+    readinessState:
+      enabled: true

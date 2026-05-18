@@ -4,6 +4,7 @@ metadata:
   name: order-service
   namespace: amazon
 spec:
+  type: ClusterIP
   selector:
     app: order-service
   ports:

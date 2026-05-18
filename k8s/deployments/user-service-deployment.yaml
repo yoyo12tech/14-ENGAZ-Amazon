@@ -3,8 +3,6 @@ kind: Deployment
 metadata:
   name: user-service
   namespace: amazon
-  labels:
-    app: user-service
 spec:
   replicas: 1
   selector:
@@ -14,11 +12,6 @@ spec:
     metadata:
       labels:
         app: user-service
-      annotations:
-        # Prometheus scrape annotations — Prometheus will auto-discover this pod
-        prometheus.io/scrape: "true"
-        prometheus.io/path: "/actuator/prometheus"
-        prometheus.io/port: "8080"
     spec:
       containers:
         - name: user-service
@@ -26,41 +19,26 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
-              name: http
           envFrom:
             - configMapRef:
                 name: user-service-configmap
+            - secretRef:
+                name: user-postgres-secret
           env:
-            - name: SPRING_DATASOURCE_USERNAME
-              value: postgres
-            - name: SPRING_DATASOURCE_PASSWORD
-              value: postgres
-            - name: SPRING_DATA_REDIS_PASSWORD
-              value: redispass
-            - name: SPRING_RABBITMQ_USERNAME
-              value: guest
-            - name: SPRING_RABBITMQ_PASSWORD
-              value: guest
             - name: JWT_SECRET
-              value: "bXlTdXBlclNlY3JldEtleUZvckpXVEF1dGhlbnRpY2F0aW9u"
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-secret
+                  key: jwt-secret
           readinessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 20
+            initialDelaySeconds: 30
             periodSeconds: 10
-            failureThreshold: 3
           livenessProbe:
             httpGet:
               path: /actuator/health
               port: 8080
-            initialDelaySeconds: 40
-            periodSeconds: 15
-            failureThreshold: 5
-          resources:
-            requests:
-              cpu: "250m"
-              memory: "512Mi"
-            limits:
-              cpu: "500m"
-              memory: "1Gi"
+            initialDelaySeconds: 60
+            periodSeconds: 30

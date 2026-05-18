@@ -7,9 +7,10 @@ data:
   SPRING_DATASOURCE_URL: jdbc:postgresql://order-postgres:5432/amazondb-orders
   SPRING_DATASOURCE_USERNAME: postgres
   SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+  SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
   SPRING_NEO4J_URI: bolt://neo4j:7687
   SPRING_NEO4J_AUTHENTICATION_USERNAME: neo4j
-  SPRING_NEO4J_AUTHENTICATION_PASSWORD: neo4jpass
+  SPRING_NEO4J_AUTHENTICATION_PASSWORD: password
   SPRING_DATA_REDIS_HOST: redis
   SPRING_DATA_REDIS_PORT: "6379"
   SPRING_DATA_REDIS_PASSWORD: redispass
@@ -18,3 +19,5 @@ data:
   FEIGN_PRODUCT_SERVICE_URL: http://product-service:8080
   FEIGN_SHIPPING_SERVICE_URL: http://shipping-service:8080
   FEIGN_BILLING_SERVICE_URL: http://billing-service:8080
+  MANAGEMENT_HEALTH_MONGO_ENABLED: "false"
+  SPRING_PROFILES_ACTIVE: k8s

@@ -7,6 +7,7 @@ data:
   SPRING_DATASOURCE_URL: jdbc:postgresql://product-postgres:5432/amazondb-products
   SPRING_DATASOURCE_USERNAME: postgres
   SPRING_DATA_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
+  SPRING_MONGODB_URI: mongodb://root:rootpass@mongo:27017/amazonmongo?authSource=admin
   SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
   SPRING_DATA_REDIS_HOST: redis
   SPRING_DATA_REDIS_PORT: "6379"
@@ -14,3 +15,8 @@ data:
   SPRING_RABBITMQ_HOST: rabbitmq
   FEIGN_ORDER_SERVICE_URL: http://order-service:8080
   FEIGN_USER_SERVICE_URL: http://user-service:8080
+  SPRING_MAIN_LAZY_INITIALIZATION: "true"
+  SPRING_ELASTICSEARCH_SOCKET_TIMEOUT: "60s"
+  SPRING_ELASTICSEARCH_CONNECTION_TIMEOUT: "30s"
+  MANAGEMENT_HEALTH_MONGO_ENABLED: "false"
+  SPRING_PROFILES_ACTIVE: k8s
