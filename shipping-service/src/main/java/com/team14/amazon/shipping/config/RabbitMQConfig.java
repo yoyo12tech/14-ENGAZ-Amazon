@@ -1,3 +1,4 @@
+/*
 package com.team14.amazon.shipping.config;
 
 import org.springframework.amqp.core.*;
@@ -64,3 +65,5 @@ public class RabbitMQConfig {
         return t;
     }
 }
+
+ */
