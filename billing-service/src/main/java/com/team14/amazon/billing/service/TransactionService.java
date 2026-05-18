@@ -9,6 +9,8 @@ import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.contracts.feign.OrderServiceClient;
 import com.team14.amazon.contracts.feign.ProductServiceClient;
@@ -69,6 +71,7 @@ public class TransactionService {
     private final ShippingServiceClient shippingServiceClient;
     private final UserServiceClient userServiceClient;
     private final PaymentEventPublisher paymentEventPublisher;
+    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
             TransactionVoucherRepository transactionVoucherRepository,
@@ -394,8 +397,9 @@ public class TransactionService {
         existing.setTransactionDetails(details);
 
         Transaction saved = transactionRepository.save(existing);
-
+        log.info("Transaction {} saved with status={}", saved.getId(), saved.getStatus());
         paymentEventPublisher.publishCompleted(new PaymentCompletedEvent(saved.getId(), orderId, saved.getUserId(), saved.getAmount()));
+        log.info("Published payment.completed for orderId={}", orderId);
         cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
