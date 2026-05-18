@@ -13,8 +13,7 @@ import java.util.Optional;
 @Repository
 public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
 
-    @Query(value = "SELECT * FROM products WHERE id = :productId", nativeQuery = true)
-    Map<String, Object> findProductById(@Param("productId") Long productId);
+
 
 
 
