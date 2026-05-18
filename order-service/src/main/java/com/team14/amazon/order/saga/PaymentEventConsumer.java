@@ -7,6 +7,7 @@ import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
 import com.team14.amazon.order.messaging.OrderEventPublisher;
 import com.team14.amazon.order.repository.OrderRepository;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
@@ -60,6 +61,10 @@ public class PaymentEventConsumer {
     // =========================================================================
     // payment.initiated → DELIVERED → PAYMENT_PENDING
     // =========================================================================
+    @PostConstruct
+    public void init() {
+        System.out.println("🔥 PaymentEventConsumer LOADED");
+    }
 
     @RabbitListener(
             queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,

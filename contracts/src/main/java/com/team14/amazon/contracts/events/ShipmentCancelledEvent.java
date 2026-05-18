@@ -1,3 +1,6 @@
 package com.team14.amazon.contracts.events;
 
-public record ShipmentCancelledEvent(Long shipmentId, Long orderId) {}
+import java.io.Serializable;
+
+public record ShipmentCancelledEvent
+        (Long shipmentId, Long orderId) implements Serializable {}
