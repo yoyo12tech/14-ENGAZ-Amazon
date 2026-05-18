@@ -22,7 +22,7 @@ public class DataSeeder implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) {
-        if (!userRepository.existsByRole(UserRole.ADMIN)) {
+        if (userRepository.findByEmail("admin@amazon.com").isEmpty()) {
             User admin = new User();
             admin.setName("Admin User");
             admin.setEmail("admin@amazon.com");

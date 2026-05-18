@@ -20,14 +20,18 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
+import com.team14.amazon.product.messaging.publishers.ProductEventPublisher;
 import com.team14.amazon.contracts.feign.OrderServiceClient;
 import com.team14.amazon.contracts.dto.ProductSalesAggregateDTO;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+
+import org.slf4j.MDC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ProductService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductService.class);
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
 
     private final ProductRepository productRepository;
     private final ProductReviewRepository reviewRepository;
@@ -35,7 +39,7 @@ public class ProductService {
     private final ElasticsearchIndexService esIndexService;
     private final CacheInvalidationService cacheInvalidationService;
     private final OrderServiceClient orderServiceClient;
-    private final RabbitTemplate rabbitTemplate;
+    private final ProductEventPublisher eventPublisher;
     private final List<EntityObserver> observers = new ArrayList<>();
 
     private final ObjectArrayProductSalesAdapter salesAdapter = new ObjectArrayProductSalesAdapter();
@@ -47,14 +51,14 @@ public class ProductService {
                           ElasticsearchIndexService esIndexService,
                           CacheInvalidationService cacheInvalidationService,
                           OrderServiceClient orderServiceClient,
-                          RabbitTemplate rabbitTemplate) {
+                          ProductEventPublisher eventPublisher) {
         this.productRepository = productRepository;
         this.reviewRepository  = reviewRepository;
         this.mongoEventLogger  = mongoEventLogger;
         this.esIndexService    = esIndexService;
         this.cacheInvalidationService = cacheInvalidationService;
         this.orderServiceClient = orderServiceClient;
-        this.rabbitTemplate = rabbitTemplate;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostConstruct
@@ -83,7 +87,12 @@ public class ProductService {
     // @Cacheable on service — NOT on controller (controller wraps in ResponseEntity)
     @Cacheable(value = "product-service::product", key = "#id")
     public Optional<Product> getProductById(Long id) {
-        return productRepository.findById(id);
+        MDC.put("productId", id.toString());
+        try {
+            return productRepository.findById(id);
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     public List<com.team14.amazon.contracts.dto.ProductDTO> getProductsBatch(List<Long> ids) {
@@ -105,127 +114,159 @@ public class ProductService {
         if (product.getTotalRatings() == null)  product.setTotalRatings(0);
 
         Product saved = productRepository.save(product);
-
-        // Observer
-        notifyObservers("PRODUCT_CREATED", productPayload(saved.getId(),
-                Map.of("name", saved.getName(), "source", "CRUD")));
-
-        // ES auto-index (source=auto_crud_create per M2 §10.2.2 step d)
-        esIndexService.indexProduct(saved);
-
-        // Invalidate feature caches (new product affects search, top-rated, low-stock)
-        cacheInvalidationService.invalidateProductCaches(saved.getId());
-
-        return saved;
-    }
-
-    public Optional<Product> updateProduct(Long id, Product upd) {
-        return productRepository.findById(id).map(e -> {
-            e.setName(upd.getName()); e.setDescription(upd.getDescription());
-            e.setPrice(upd.getPrice()); e.setCategory(upd.getCategory());
-            e.setBrand(upd.getBrand()); e.setStockQuantity(upd.getStockQuantity());
-            e.setStatus(upd.getStatus()); e.setSpecifications(upd.getSpecifications());
-            if (upd.getRating() != null)       e.setRating(upd.getRating());
-            if (upd.getTotalRatings() != null) e.setTotalRatings(upd.getTotalRatings());
-            Product saved = productRepository.save(e);
-
+        MDC.put("productId", saved.getId().toString());
+        try {
             // Observer
-            notifyObservers("PRODUCT_UPDATED", productPayload(saved.getId(),
+            notifyObservers("PRODUCT_CREATED", productPayload(saved.getId(),
                     Map.of("name", saved.getName(), "source", "CRUD")));
 
-            // ES auto-index (source=auto_crud_update)
+            // ES auto-index (source=auto_crud_create per M2 §10.2.2 step d)
             esIndexService.indexProduct(saved);
 
-            // Cache invalidation
+            // Invalidate feature caches (new product affects search, top-rated, low-stock)
             cacheInvalidationService.invalidateProductCaches(saved.getId());
 
             return saved;
-        });
+        } finally {
+            MDC.remove("productId");
+        }
+    }
+
+    public Optional<Product> updateProduct(Long id, Product upd) {
+        MDC.put("productId", id.toString());
+        try {
+            return productRepository.findById(id).map(e -> {
+                e.setName(upd.getName()); e.setDescription(upd.getDescription());
+                e.setPrice(upd.getPrice()); e.setCategory(upd.getCategory());
+                e.setBrand(upd.getBrand()); e.setStockQuantity(upd.getStockQuantity());
+                e.setStatus(upd.getStatus()); e.setSpecifications(upd.getSpecifications());
+                if (upd.getRating() != null)       e.setRating(upd.getRating());
+                if (upd.getTotalRatings() != null) e.setTotalRatings(upd.getTotalRatings());
+                Product saved = productRepository.save(e);
+
+                // Observer
+                notifyObservers("PRODUCT_UPDATED", productPayload(saved.getId(),
+                        Map.of("name", saved.getName(), "source", "CRUD")));
+
+                // ES auto-index (source=auto_crud_update)
+                esIndexService.indexProduct(saved);
+
+                // Cache invalidation
+                cacheInvalidationService.invalidateProductCaches(saved.getId());
+
+                return saved;
+            });
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     public boolean deleteProduct(Long id) {
-        if (productRepository.existsById(id)) {
-            productRepository.deleteById(id);
+        MDC.put("productId", id.toString());
+        try {
+            if (productRepository.existsById(id)) {
+                productRepository.deleteById(id);
 
-            // Observer: PRODUCT_DELETED (not INDEXED) — M2 §10.2.2 step d
-            notifyObservers("PRODUCT_DELETED", productPayload(id, Map.of("source", "CRUD")));
+                // Observer: PRODUCT_DELETED (not INDEXED) — M2 §10.2.2 step d
+                notifyObservers("PRODUCT_DELETED", productPayload(id, Map.of("source", "CRUD")));
 
-            // ES: remove from index
-            esIndexService.deleteFromIndex(id);
+                // ES: remove from index
+                esIndexService.deleteFromIndex(id);
 
-            // Cache invalidation
-            cacheInvalidationService.invalidateProductCaches(id);
+                // Cache invalidation
+                cacheInvalidationService.invalidateProductCaches(id);
 
-            return true;
+                return true;
+            }
+            return false;
+        } finally {
+            MDC.remove("productId");
         }
-        return false;
     }
 
     public boolean deductStock(Long id, Integer quantity) {
-        return productRepository.findById(id).map(p -> {
-            if (p.getStockQuantity() < quantity) {
-                throw new IllegalArgumentException("Insufficient stock");
-            }
-            p.setStockQuantity(p.getStockQuantity() - quantity);
-            Product saved = productRepository.save(p);
-            notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_DEDUCT")));
-            esIndexService.indexProduct(saved);
-            cacheInvalidationService.invalidateProductCaches(saved.getId());
-            return true;
-        }).orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
+        MDC.put("productId", id.toString());
+        try {
+            return productRepository.findById(id).map(p -> {
+                if (p.getStockQuantity() < quantity) {
+                    throw new IllegalArgumentException("Insufficient stock");
+                }
+                p.setStockQuantity(p.getStockQuantity() - quantity);
+                Product saved = productRepository.save(p);
+                notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_DEDUCT")));
+                esIndexService.indexProduct(saved);
+                cacheInvalidationService.invalidateProductCaches(saved.getId());
+                return true;
+            }).orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     public void restoreStock(Long id, Integer quantity) {
-        productRepository.findById(id).ifPresentOrElse(p -> {
-            p.setStockQuantity(p.getStockQuantity() + quantity);
-            Product saved = productRepository.save(p);
-            notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_RESTORE")));
-            esIndexService.indexProduct(saved);
-            cacheInvalidationService.invalidateProductCaches(saved.getId());
-        }, () -> {
-            throw new NoSuchElementException("Product not found: " + id);
-        });
+        MDC.put("productId", id.toString());
+        try {
+            productRepository.findById(id).ifPresentOrElse(p -> {
+                p.setStockQuantity(p.getStockQuantity() + quantity);
+                Product saved = productRepository.save(p);
+                notifyObservers("STOCK_UPDATED", productPayload(saved.getId(), Map.of("newStock", saved.getStockQuantity(), "source", "FEIGN_RESTORE")));
+                esIndexService.indexProduct(saved);
+                cacheInvalidationService.invalidateProductCaches(saved.getId());
+            }, () -> {
+                throw new NoSuchElementException("Product not found: " + id);
+            });
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     // S2-F4
     public Product discontinueProduct(Long id) {
-        Product p = productRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
-        if (orderServiceClient.getPendingOrderCountForProduct(id) > 0)
-            throw new IllegalStateException("Product appears in pending orders");
-        ProductStatus oldStatus = p.getStatus();
-        p.setStatus(ProductStatus.INACTIVE);
-        Product saved = productRepository.save(p);
+        MDC.put("productId", id.toString());
+        try {
+            Product p = productRepository.findById(id)
+                    .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
+            if (orderServiceClient.getPendingOrderCountForProduct(id) > 0)
+                throw new IllegalStateException("Product appears in pending orders");
+            ProductStatus oldStatus = p.getStatus();
+            p.setStatus(ProductStatus.INACTIVE);
+            Product saved = productRepository.save(p);
 
-        notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
-                Map.of("newStatus", "INACTIVE", "source", "CRUD")));
-        
-        rabbitTemplate.convertAndSend("product.events", "product.discontinued",
-                Map.of("productId", saved.getId(), "oldStatus", oldStatus.name(), "newStatus", "INACTIVE"));
-        log.info("Published product.discontinued for productId={}", saved.getId());
+            notifyObservers("STATUS_CHANGED", productPayload(saved.getId(),
+                    Map.of("newStatus", "INACTIVE", "source", "CRUD")));
+            
+            eventPublisher.publishProductDiscontinued(saved.getId(), oldStatus.name(), "INACTIVE");
 
-        esIndexService.indexProduct(saved); // status changed → re-index
-        cacheInvalidationService.invalidateProductCaches(saved.getId());
+            esIndexService.indexProduct(saved); // status changed → re-index
+            cacheInvalidationService.invalidateProductCaches(saved.getId());
 
-        return saved;
+            return saved;
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     // S2-F2
     public Optional<Product> updateSpecifications(Long id, Map<String, Object> incoming) {
-        return productRepository.findById(id).map(p -> {
-            Map<String, Object> existing = p.getSpecifications();
-            if (existing == null) existing = new HashMap<>();
-            existing.putAll(incoming);
-            p.setSpecifications(existing);
-            Product saved = productRepository.save(p);
+        MDC.put("productId", id.toString());
+        try {
+            return productRepository.findById(id).map(p -> {
+                Map<String, Object> existing = p.getSpecifications();
+                if (existing == null) existing = new HashMap<>();
+                existing.putAll(incoming);
+                p.setSpecifications(existing);
+                Product saved = productRepository.save(p);
 
-            notifyObservers("SPECIFICATIONS_UPDATED", productPayload(saved.getId(),
-                    Map.of("keys", incoming.keySet(), "source", "CRUD")));
-            esIndexService.indexProduct(saved);
-            cacheInvalidationService.invalidateProductCaches(saved.getId());
+                notifyObservers("SPECIFICATIONS_UPDATED", productPayload(saved.getId(),
+                        Map.of("keys", incoming.keySet(), "source", "CRUD")));
+                esIndexService.indexProduct(saved);
+                cacheInvalidationService.invalidateProductCaches(saved.getId());
 
-            return saved;
-        });
+                return saved;
+            });
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     // ── M1 feature GETs — @Cacheable on service layer ───────────────────────
@@ -243,23 +284,29 @@ public class ProductService {
     @Cacheable(value = "product-service::S2-F3",
             key = "#id + '_' + #startDate + '_' + #endDate")
     public ProductSalesDTO getProductSalesSummary(Long id, LocalDate startDate, LocalDate endDate) {
-        Product p = productRepository.findById(id)
-                .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
-        
-        ProductSalesAggregateDTO agg = orderServiceClient.getProductSales(id, startDate.toString(), endDate.toString());
-        
-        if (agg == null) {
-            return ProductSalesDTO.builder().productId(id).name(p.getName())
-                    .totalUnitsSold(0L).totalRevenue(0.0).averageSellingPrice(0.0).build();
+        long startMs = System.currentTimeMillis();
+        MDC.put("productId", id.toString());
+        try {
+            Product p = productRepository.findById(id)
+                    .orElseThrow(() -> new NoSuchElementException("Product not found: " + id));
+            
+            ProductSalesAggregateDTO agg = orderServiceClient.getProductSales(id, startDate.toString(), endDate.toString());
+            
+            ProductSalesDTO result;
+            if (agg == null) {
+                result = new ProductSalesDTO(id, p.getName(), 0L, 0.0, 0.0);
+            } else {
+                result = new ProductSalesDTO(id, p.getName(), agg.totalUnitsSold(), agg.totalRevenue(), agg.averageSellingPrice());
+            }
+
+            long elapsed = System.currentTimeMillis() - startMs;
+            if (elapsed > 1000) {
+                log.warn("Slow getProductSalesSummary took {}ms", elapsed);
+            }
+            return result;
+        } finally {
+            MDC.remove("productId");
         }
-        
-        return ProductSalesDTO.builder()
-                .productId(id)
-                .name(p.getName())
-                .totalUnitsSold(agg.totalUnitsSold())
-                .totalRevenue(agg.totalRevenue())
-                .averageSellingPrice(agg.averageSellingPrice())
-                .build();
     }
 
     // S2-F5
@@ -273,19 +320,25 @@ public class ProductService {
     // S2-F6
     @Cacheable(value = "product-service::S2-F6", key = "#limit")
     public List<TopProductDTO> getTopRatedProducts(int limit) {
+        long startMs = System.currentTimeMillis();
         int n = limit > 0 ? limit : 10;
         List<Product> candidates = productRepository.findTopRatedCandidates(
                 org.springframework.data.domain.PageRequest.of(0, n * 2));
                 
         List<TopProductDTO> result = new ArrayList<>();
         for (Product p : candidates) {
-            long sales = orderServiceClient.getUnitsSold(p.getId());
-            result.add(TopProductDTO.builder()
-                    .productId(p.getId())
-                    .name(p.getName())
-                    .rating(p.getRating())
-                    .totalSales(sales)
-                    .build());
+            MDC.put("productId", p.getId().toString());
+            try {
+                long sales = orderServiceClient.getUnitsSold(p.getId());
+                result.add(TopProductDTO.builder()
+                        .productId(p.getId())
+                        .name(p.getName())
+                        .rating(p.getRating())
+                        .totalSales(sales)
+                        .build());
+            } finally {
+                MDC.remove("productId");
+            }
         }
         
         result.sort((a, b) -> {
@@ -296,6 +349,11 @@ public class ProductService {
         
         if (result.size() > n) {
             result = result.subList(0, n);
+        }
+
+        long elapsed = System.currentTimeMillis() - startMs;
+        if (elapsed > 1000) {
+            log.warn("Slow getTopRatedProducts took {}ms", elapsed);
         }
         return result;
     }

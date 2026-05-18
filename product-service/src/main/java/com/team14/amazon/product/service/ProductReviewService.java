@@ -12,24 +12,26 @@ import org.springframework.data.rest.webmvc.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.team14.amazon.product.dto.VerifyReviewRequest;
+import com.team14.amazon.contracts.feign.UserServiceClient;
+import com.team14.amazon.contracts.feign.OrderServiceClient;
+import com.team14.amazon.product.messaging.publishers.ProductEventPublisher;
+import com.team14.amazon.contracts.dto.UserDTO;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
-
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import com.team14.amazon.contracts.feign.UserServiceClient;
-import com.team14.amazon.contracts.feign.OrderServiceClient;
-import com.team14.amazon.contracts.dto.UserDTO;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.slf4j.MDC;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 public class ProductReviewService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ProductReviewService.class);
+    private static final Logger log = LoggerFactory.getLogger(ProductReviewService.class);
 
     private final ProductReviewRepository reviewRepository;
     private final ProductRepository productRepository;
@@ -38,7 +40,7 @@ public class ProductReviewService {
     private final List<EntityObserver> observers = new ArrayList<>();
     private final UserServiceClient userServiceClient;
     private final OrderServiceClient orderServiceClient;
-    private final RabbitTemplate rabbitTemplate;
+    private final ProductEventPublisher eventPublisher;
 
     public ProductReviewService(ProductReviewRepository reviewRepository,
                                 ProductRepository productRepository,
@@ -46,14 +48,14 @@ public class ProductReviewService {
                                 @Qualifier("mongoEventLogger") EntityObserver mongoEventLogger,
                                 UserServiceClient userServiceClient,
                                 OrderServiceClient orderServiceClient,
-                                RabbitTemplate rabbitTemplate) {
+                                ProductEventPublisher eventPublisher) {
         this.reviewRepository = reviewRepository;
         this.productRepository = productRepository;
         this.cacheInvalidationService = cacheInvalidationService;
         this.mongoEventLogger = mongoEventLogger;
         this.userServiceClient = userServiceClient;
         this.orderServiceClient = orderServiceClient;
-        this.rabbitTemplate = rabbitTemplate;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostConstruct
@@ -103,169 +105,198 @@ public class ProductReviewService {
     }
 
     public Optional<ProductReview> getReviewByProductAndId(Long productId, Long reviewId) {
-        return reviewRepository.findByIdAndProductId(reviewId, productId);
+        MDC.put("productId", productId.toString());
+        try {
+            return reviewRepository.findByIdAndProductId(reviewId, productId);
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     public ProductReview createReview(ProductReview review) {
-        ProductReview saved = reviewRepository.save(review);
-        Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
-        cacheInvalidationService.invalidateProductCaches(productId);
-        return saved;
+        Long productId = review.getProduct() != null ? review.getProduct().getId() : null;
+        if (productId != null) MDC.put("productId", productId.toString());
+        try {
+            ProductReview saved = reviewRepository.save(review);
+            cacheInvalidationService.invalidateProductCaches(productId);
+            return saved;
+        } finally {
+            if (productId != null) MDC.remove("productId");
+        }
     }
 
     public Optional<ProductReview> updateReview(Long id, ProductReview updatedReview) {
         return reviewRepository.findById(id).map(existing -> {
-            existing.setRating(updatedReview.getRating());
-            existing.setTitle(updatedReview.getTitle());
-            existing.setComment(updatedReview.getComment());
-            existing.setVerified(updatedReview.getVerified());
-            existing.setMetadata(updatedReview.getMetadata());
-            ProductReview saved = reviewRepository.save(existing);
-            Long productId = saved.getProduct() != null ? saved.getProduct().getId() : null;
-            cacheInvalidationService.invalidateReviewCaches(id, productId);
-            return saved;
+            Long productId = existing.getProduct() != null ? existing.getProduct().getId() : null;
+            if (productId != null) MDC.put("productId", productId.toString());
+            try {
+                existing.setRating(updatedReview.getRating());
+                existing.setTitle(updatedReview.getTitle());
+                existing.setComment(updatedReview.getComment());
+                existing.setVerified(updatedReview.getVerified());
+                existing.setMetadata(updatedReview.getMetadata());
+                ProductReview saved = reviewRepository.save(existing);
+                cacheInvalidationService.invalidateReviewCaches(id, productId);
+                return saved;
+            } finally {
+                if (productId != null) MDC.remove("productId");
+            }
         });
     }
 
     public boolean deleteReview(Long id, Long productId) {
-        if (reviewRepository.existsById(id)) {
-            reviewRepository.deleteById(id);
-            cacheInvalidationService.invalidateReviewCaches(id, productId);
-            return true;
+        MDC.put("productId", productId.toString());
+        try {
+            if (reviewRepository.existsById(id)) {
+                reviewRepository.deleteById(id);
+                cacheInvalidationService.invalidateReviewCaches(id, productId);
+                return true;
+            }
+            return false;
+        } finally {
+            MDC.remove("productId");
         }
-        return false;
     }
 
     public List<ProductReview> getReviewsByProductId(Long productId) {
-        return reviewRepository.findByProductId(productId);
+        MDC.put("productId", productId.toString());
+        try {
+            return reviewRepository.findByProductId(productId);
+        } finally {
+            MDC.remove("productId");
+        }
     }
 
     // ─── S2-F7: Add Product Review with Rating Recalculation (Transactional) ────
     @Transactional
     public ProductReview addReviewWithRatingRecalculation(Long productId, ProductReview review) {
-
-        // 1. Find product — 404 if not found
-        Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
-
-        // 2. Verify user exists via Feign
+        MDC.put("productId", productId.toString());
         try {
-            userServiceClient.getUser(review.getUserId());
-        } catch (Exception e) {
-            throw new IllegalArgumentException("User not found with id: " + review.getUserId());
+            // 1. Find product — 404 if not found
+            Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + productId));
+
+            // 2. Verify user exists via Feign
+            try {
+                userServiceClient.getUser(review.getUserId());
+            } catch (Exception e) {
+                throw new IllegalArgumentException("User not found with id: " + review.getUserId());
+            }
+
+            // 3. Verify user has a DELIVERED order containing this product via Feign
+            boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
+            if (!hasPurchased) {
+                throw new IllegalArgumentException("User must purchase the product before reviewing it.");
+            }
+
+            // 4. Validate rating 1–5 — 400 if invalid
+            if (review.getRating() == null || review.getRating() < 1 || review.getRating() > 5) {
+                throw new IllegalArgumentException("Rating must be between 1 and 5.");
+            }
+
+            // 5. Create and save the review
+            review.setProduct(product);
+            ProductReview savedReview = reviewRepository.saveAndFlush(review);
+
+            // 6. Recalculate running average rating on product
+            int newTotalRatings = product.getTotalRatings() + 1;
+            double newRating = ((product.getRating() * product.getTotalRatings()) + review.getRating())
+                    / (double) newTotalRatings;
+
+            product.setTotalRatings(newTotalRatings);
+            product.setRating(newRating);
+
+            // 7. Save updated product and return the created review payload
+            productRepository.save(product);
+            cacheInvalidationService.invalidateProductCaches(productId);
+
+            notifyObservers("REVIEW_ADDED", reviewPayload(
+                    productId,
+                    savedReview.getId(),
+                    savedReview.getUserId(),
+                    Map.of("rating", savedReview.getRating())
+            ));
+
+            eventPublisher.publishProductReviewAdded(productId, savedReview.getId(), savedReview.getUserId(), savedReview.getRating());
+            eventPublisher.publishProductRated(productId, newRating, newTotalRatings);
+
+            return savedReview;
+        } finally {
+            MDC.remove("productId");
         }
-
-        // 3. Verify user has a DELIVERED order containing this product via Feign
-        boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
-        if (!hasPurchased) {
-            throw new IllegalArgumentException("User must purchase the product before reviewing it.");
-        }
-
-        // 4. Validate rating 1–5 — 400 if invalid
-        if (review.getRating() == null || review.getRating() < 1 || review.getRating() > 5) {
-            throw new IllegalArgumentException("Rating must be between 1 and 5.");
-        }
-
-        // 5. Create and save the review
-        review.setProduct(product);
-        ProductReview savedReview = reviewRepository.saveAndFlush(review);
-
-        // 6. Recalculate running average rating on product
-        int newTotalRatings = product.getTotalRatings() + 1;
-        double newRating = ((product.getRating() * product.getTotalRatings()) + review.getRating())
-                / (double) newTotalRatings;
-
-        product.setTotalRatings(newTotalRatings);
-        product.setRating(newRating);
-
-        // 7. Save updated product and return the created review payload
-        productRepository.save(product);
-        cacheInvalidationService.invalidateProductCaches(productId);
-
-        notifyObservers("REVIEW_ADDED", reviewPayload(
-                productId,
-                savedReview.getId(),
-                savedReview.getUserId(),
-                Map.of("rating", savedReview.getRating())
-        ));
-
-        rabbitTemplate.convertAndSend("product.events", "product.review-added",
-                Map.of("productId", productId, "reviewId", savedReview.getId(), "userId", savedReview.getUserId(), "rating", savedReview.getRating()));
-        log.info("Published product.review-added for productId={}", productId);
-        rabbitTemplate.convertAndSend("product.events", "product.rated",
-                Map.of("productId", productId, "newAverage", newRating, "totalRatings", newTotalRatings));
-        log.info("Published product.rated for productId={}", productId);
-
-        return savedReview;
     }
 
     // ─── S2-F8: Verify Product Review (Transactional + Relationship) ─────────────
 
     @Transactional
     public Product verifyReview(Long productId, Long reviewId, VerifyReviewRequest request) {
-
-        // 1. Ensure product exists — 404 if not found
-        productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + productId));
-
-        // 2. Find review — 404 if not found
-        ProductReview review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Review not found with id: " + reviewId));
-
-        // 3. Verify the review belongs to this product — 400 if not
-        if (!review.getProduct().getId().equals(productId)) {
-            throw new IllegalArgumentException(
-                    "Review " + reviewId + " does not belong to product " + productId);
-        }
-
-        // 4. Verify the reviewer actually purchased this product via Feign
-        boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
-        if (!hasPurchased) {
-            throw new IllegalArgumentException(
-                    "Reviewer (userId=" + review.getUserId() +
-                            ") has no delivered order for this product.");
-        }
-
-        // 5. Verify the verifiedBy user is an ADMIN via Feign
+        MDC.put("productId", productId.toString());
         try {
-            UserDTO verifier = userServiceClient.getUser(request.verifiedBy());
-            if (!"ADMIN".equals(verifier.role())) {
-                throw new SecurityException("User " + request.verifiedBy() + " is not an admin.");
+            // 1. Ensure product exists — 404 if not found
+            productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Product not found with id: " + productId));
+
+            // 2. Find review — 404 if not found
+            ProductReview review = reviewRepository.findById(reviewId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Review not found with id: " + reviewId));
+
+            // 3. Verify the review belongs to this product — 400 if not
+            if (!review.getProduct().getId().equals(productId)) {
+                throw new IllegalArgumentException(
+                        "Review " + reviewId + " does not belong to product " + productId);
             }
-        } catch (SecurityException se) {
-            throw se;
-        } catch (Exception e) {
-            throw new SecurityException("User " + request.verifiedBy() + " not found or error checking role.");
+
+            // 4. Verify the reviewer actually purchased this product via Feign
+            boolean hasPurchased = orderServiceClient.hasUserPurchasedProduct(review.getUserId(), productId);
+            if (!hasPurchased) {
+                throw new IllegalArgumentException(
+                        "Reviewer (userId=" + review.getUserId() +
+                                ") has no delivered order for this product.");
+            }
+
+            // 5. Verify the verifiedBy user is an ADMIN via Feign
+            try {
+                UserDTO verifier = userServiceClient.getUser(request.verifiedBy());
+                if (!"ADMIN".equals(verifier.role())) {
+                    throw new SecurityException("User " + request.verifiedBy() + " is not an admin.");
+                }
+            } catch (SecurityException se) {
+                throw se;
+            } catch (Exception e) {
+                throw new SecurityException("User " + request.verifiedBy() + " not found or error checking role.");
+            }
+
+            // 6. Set verified = true
+            review.setVerified(true);
+
+            // 7. Update JSONB metadata with verifiedAt and verifiedBy
+            java.util.Map<String, Object> metadata = review.getMetadata();
+            if (metadata == null) {
+                metadata = new HashMap<>();
+            }
+            metadata.put("verifiedAt", Instant.now().toString());
+            metadata.put("verifiedBy", request.verifiedBy());
+            review.setMetadata(metadata);
+
+            // 8. Save the review
+            ProductReview savedReview = reviewRepository.save(review);
+            cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
+
+            notifyObservers("REVIEW_VERIFIED", reviewPayload(
+                    productId,
+                    savedReview.getId(),
+                    savedReview.getUserId(),
+                    Map.of("verifiedBy", request.verifiedBy())
+            ));
+
+            // 9. Reload the product with all its reviews and return
+            return productRepository.findById(productId)
+                    .orElseThrow(() -> new ResourceNotFoundException(
+                            "Product not found with id: " + productId));
+        } finally {
+            MDC.remove("productId");
         }
-
-        // 6. Set verified = true
-        review.setVerified(true);
-
-        // 7. Update JSONB metadata with verifiedAt and verifiedBy
-        java.util.Map<String, Object> metadata = review.getMetadata();
-        if (metadata == null) {
-            metadata = new HashMap<>();
-        }
-        metadata.put("verifiedAt", Instant.now().toString());
-        metadata.put("verifiedBy", request.verifiedBy());
-        review.setMetadata(metadata);
-
-        // 8. Save the review
-        ProductReview savedReview = reviewRepository.save(review);
-        cacheInvalidationService.invalidateReviewCaches(reviewId, productId);
-
-        notifyObservers("REVIEW_VERIFIED", reviewPayload(
-                productId,
-                savedReview.getId(),
-                savedReview.getUserId(),
-                Map.of("verifiedBy", request.verifiedBy())
-        ));
-
-        // 9. Reload the product with all its reviews and return
-        return productRepository.findById(productId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Product not found with id: " + productId));
     }
 }

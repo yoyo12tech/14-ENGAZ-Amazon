@@ -18,11 +18,30 @@ spec:
           image: grafana/grafana:10.4.2
           ports:
             - containerPort: 3000
+          env:
+            - name: GF_SECURITY_ADMIN_USER
+              value: admin
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              value: admin
           volumeMounts:
             - name: dashboards
-              mountPath: /var/lib/grafana/dashboards
+              mountPath: /etc/grafana/provisioning/dashboards
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
+            - name: storage
+              mountPath: /var/lib/grafana
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: 3000
+            initialDelaySeconds: 60
+            periodSeconds: 30
       volumes:
         - name: dashboards
           configMap:
@@ -30,17 +49,6 @@ spec:
         - name: datasources
           configMap:
             name: grafana-datasources
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: grafana
-  namespace: monitoring
-spec:
-  selector:
-    app: grafana
-  ports:
-    - port: 3000
-      targetPort: 3000
-      protocol: TCP
-  type: ClusterIP
+        - name: storage
+          persistentVolumeClaim:
+            claimName: grafana-pvc
