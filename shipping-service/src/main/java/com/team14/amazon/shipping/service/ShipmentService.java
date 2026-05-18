@@ -232,7 +232,7 @@ public class ShipmentService {
         shipment.setLastUpdate(LocalDateTime.now());
 
         Shipment saved = shipmentRepository.save(shipment);
-
+        System.out.println("He entreeddddd inside zeft shipping");
         // Publish shipment.created event
         publisher.publishShipmentCreated(new ShipmentCreatedEvent(
                 saved.getId(),
@@ -248,6 +248,11 @@ public class ShipmentService {
         ));
         return saved;
      }
+
+
+
+
+
     @Cacheable(value = "shipping-service::S4-F1", key = "#orderId")
     public Shipment getLatestShipmentForOrder(Long orderId){
         // S4-F1: Replace direct order-existence check with Feign call to order-service

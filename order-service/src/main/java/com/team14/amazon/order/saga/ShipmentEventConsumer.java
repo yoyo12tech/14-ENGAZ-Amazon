@@ -1,5 +1,6 @@
 package com.team14.amazon.order.saga;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.team14.amazon.contracts.events.ShipmentCreatedEvent;
 import com.team14.amazon.contracts.events.ShipmentStatusChangedEvent;
 import com.team14.amazon.order.config.OrderEventConfig;
@@ -8,33 +9,18 @@ import com.team14.amazon.order.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
+import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.messaging.handler.annotation.Header;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-/**
- * Consumes shipment events from order.saga-feedback queue.
- *
- * Lives in saga/ package per spec §12 folder tree.
- *
- * Spec §5 RabbitMQ S3 Consumes:
- *   shipment.created       → store shipmentId on the Order
- *   shipment.status-changed → mirror shipment status in order metadata
- *
- * Idempotency (Critical Rule #5):
- *   shipment.created     → updateShipmentId() uses WHERE shipment_id IS NULL
- *                          so a duplicate event is a no-op (rowcount == 0).
- *   shipment.status-changed → metadata update is last-write-wins; replaying
- *                             the same event sets the same value — harmless.
- *
- * Do NOT call basicAck/basicNack — Spring auto-ACK handles it.
- * On exception after max-attempts=3 → message routes to DLQ automatically.
- */
+import jakarta.annotation.PostConstruct;
+
 @Component
 public class ShipmentEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(ShipmentEventConsumer.class);
+    private static final ObjectMapper MAPPER = new ObjectMapper();
 
     private final OrderRepository orderRepository;
 
@@ -42,105 +28,105 @@ public class ShipmentEventConsumer {
         this.orderRepository = orderRepository;
     }
 
-    // =========================================================================
-    // shipment.created → store shipmentId on the Order
-    // =========================================================================
+    // =========================================================
+    // Startup check
+    // =========================================================
 
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "shipmentCreatedListener"
-    )
+    @PostConstruct
+    public void init() {
+        System.out.println("🔥 ShipmentEventConsumer LOADED");
+    }
+
+    // =========================================================
+    // SINGLE ENTRY POINT (like your product service style)
+    // =========================================================
+
+    @RabbitListener(queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE)
     @Transactional
-    public void onShipmentCreated(
-            ShipmentCreatedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
+    public void onShipmentEvent(Message message) {
 
-        // Route guard — this listener receives all messages on the queue;
-        // only process the ones with the correct routing key.
-        if (!OrderEventConfig.ROUTING_SHIPMENT_CREATED.equals(routingKey)) return;
+        String routingKey = message.getMessageProperties().getReceivedRoutingKey();
+        String corrId = message.getMessageProperties().getHeader("X-Correlation-ID");
 
-        setupMdc(correlationId, event.orderId(), routingKey);
+        if (corrId != null) MDC.put("correlationId", corrId);
+        if (routingKey != null) MDC.put("routingKey", routingKey);
+
         try {
-            log.info("Consuming {} for orderId={} shipmentId={}",
-                    routingKey, event.orderId(), event.shipmentId());
+            switch (routingKey != null ? routingKey : "") {
 
-            // Idempotent: updateShipmentId uses WHERE shipment_id IS NULL
-            int updated = orderRepository.updateShipmentId(event.orderId(), event.shipmentId());
+                case OrderEventConfig.ROUTING_SHIPMENT_CREATED ->
+                        handleShipmentCreated(message);
 
-            if (updated == 0) {
-                log.warn("Processed {} for orderId={} — shipmentId already set or order not found. Skipping.",
-                        routingKey, event.orderId());
-                return;
+                case OrderEventConfig.ROUTING_SHIPMENT_STATUS_CHANGED ->
+                        handleShipmentStatusChanged(message);
+
+                default ->
+                        log.warn("Unhandled routing key on shipment saga queue: {}", routingKey);
             }
 
-            log.info("Processed {} for orderId={} shipmentId={}",
-                    routingKey, event.orderId(), event.shipmentId());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex; // rethrow → Spring retries → DLQ after max-attempts
+        } catch (Exception e) {
+            log.error("Failed to process {}: {}", routingKey, e.getMessage(), e);
+            throw new RuntimeException(e);
         } finally {
-            clearMdc();
+            MDC.clear();
         }
     }
 
-    // =========================================================================
-    // shipment.status-changed → mirror latest shipment status in order metadata
-    // =========================================================================
+    // =========================================================
+    // shipment.created
+    // =========================================================
 
-    @RabbitListener(
-            queues = OrderEventConfig.SAGA_FEEDBACK_QUEUE,
-            id     = "shipmentStatusChangedListener"
-    )
-    @Transactional
-    public void onShipmentStatusChanged(
-            ShipmentStatusChangedEvent event,
-            @Header(value = "amqp_receivedRoutingKey", required = false) String routingKey,
-            @Header(value = "X-Correlation-ID", required = false) String correlationId) {
+    private void handleShipmentCreated(Message message) throws Exception {
 
-        if (!OrderEventConfig.ROUTING_SHIPMENT_STATUS_CHANGED.equals(routingKey)) return;
+        ShipmentCreatedEvent event =
+                MAPPER.readValue(message.getBody(), ShipmentCreatedEvent.class);
 
-        setupMdc(correlationId, event.orderId(), routingKey);
-        try {
-            log.info("Consuming {} for orderId={} newStatus={}",
-                    routingKey, event.orderId(), event.newStatus());
+        log.info("Consuming shipment.created for orderId={} shipmentId={}",
+                event.orderId(), event.shipmentId());
+        System.out.println("This is what i recived as the event :"+event);
 
-            Order order = orderRepository.findById(event.orderId()).orElse(null);
-            if (order == null) {
-                log.warn("Processed {} for orderId={} — order not found. Skipping.",
-                        routingKey, event.orderId());
-                return;
-            }
 
-            // Mirror shipment status into metadata for fast S3-F1 / dashboard queries
-            order.getMetadata().put("latestShipmentStatus", event.newStatus());
-            order.getMetadata().put("latestShipmentId",     event.shipmentId());
-            orderRepository.save(order);
-
-            log.info("Processed {} for orderId={} shipmentStatus={}",
-                    routingKey, event.orderId(), event.newStatus());
-
-        } catch (Exception ex) {
-            log.error("Failed to process {}: {}", routingKey, ex.getMessage(), ex);
-            throw ex;
-        } finally {
-            clearMdc();
+        int updated = orderRepository.updateShipmentId(
+                event.orderId(),
+                event.shipmentId()
+        );
+        System.out.println("THIS IS THE UPDATED INTEGER  :"+updated);
+        if (updated == 0) {
+            log.warn("shipment.created ignored (already processed or missing order) orderId={}",
+                    event.orderId());
+            return;
         }
+
+        log.info("Processed shipment.created for orderId={} shipmentId={}",
+                event.orderId(), event.shipmentId());
     }
 
-    // ── MDC helpers ───────────────────────────────────────────────────────────
+    // =========================================================
+    // shipment.status-changed
+    // =========================================================
 
-    private void setupMdc(String correlationId, Long orderId, String routingKey) {
-        if (correlationId != null) MDC.put("correlationId", correlationId);
-        if (orderId != null)       MDC.put("orderId", orderId.toString());
-        if (routingKey != null)    MDC.put("routingKey", routingKey);
-    }
+    private void handleShipmentStatusChanged(Message message) throws Exception {
 
-    private void clearMdc() {
-        MDC.remove("correlationId");
-        MDC.remove("orderId");
-        MDC.remove("routingKey");
-        MDC.remove("shipmentId");
+        ShipmentStatusChangedEvent event =
+                MAPPER.readValue(message.getBody(), ShipmentStatusChangedEvent.class);
+
+        log.info("Consuming shipment.status-changed for orderId={} status={}",
+                event.orderId(), event.newStatus());
+
+        Order order = orderRepository.findById(event.orderId()).orElse(null);
+
+        if (order == null) {
+            log.warn("Order not found for shipment.status-changed orderId={}",
+                    event.orderId());
+            return;
+        }
+
+        order.getMetadata().put("latestShipmentStatus", event.newStatus());
+        order.getMetadata().put("latestShipmentId", event.shipmentId());
+
+        orderRepository.save(order);
+
+        log.info("Processed shipment.status-changed for orderId={} status={}",
+                event.orderId(), event.newStatus());
     }
 }

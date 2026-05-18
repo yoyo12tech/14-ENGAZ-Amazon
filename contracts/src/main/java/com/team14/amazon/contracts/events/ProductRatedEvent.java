@@ -1,3 +1,6 @@
 package com.team14.amazon.contracts.events;
 
-public record ProductRatedEvent(Long productId, Double newAverage, Integer totalRatings) {}
+import java.io.Serializable;
+
+public record ProductRatedEvent
+        (Long productId, Double newAverage, Integer totalRatings) implements Serializable {}
