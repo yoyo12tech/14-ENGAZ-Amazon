@@ -29,10 +29,10 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         final String finalCorrelationId = correlationId;
-        // Bypass JWT validation for auth endpoints
+        // Bypass JWT validation for auth endpoints and health endpoints
         if (path.startsWith("/api/auth/")
              || path.equals("/actuator/prometheus")
-                    || path.equals("/actuator/health")){
+             || path.endsWith("/health")) {
             ServerWebExchange mutated = exchange.mutate()
                     .request(r -> r.header("X-Correlation-ID", finalCorrelationId))
                     .build();
