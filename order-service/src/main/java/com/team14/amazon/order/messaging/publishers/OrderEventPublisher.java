@@ -1,4 +1,4 @@
-package com.team14.amazon.order.messaging;
+package com.team14.amazon.order.messaging.publishers;
 
 import com.team14.amazon.contracts.events.OrderCancelledEvent;
 import com.team14.amazon.contracts.events.OrderCompletedEvent;

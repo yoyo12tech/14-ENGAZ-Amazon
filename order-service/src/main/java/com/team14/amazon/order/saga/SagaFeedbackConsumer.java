@@ -6,7 +6,7 @@ import com.team14.amazon.contracts.events.*;
 import com.team14.amazon.order.config.OrderEventConfig;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderStatus;
-import com.team14.amazon.order.messaging.OrderEventPublisher;
+import com.team14.amazon.order.messaging.publishers.OrderEventPublisher;
 import com.team14.amazon.order.repository.OrderRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
