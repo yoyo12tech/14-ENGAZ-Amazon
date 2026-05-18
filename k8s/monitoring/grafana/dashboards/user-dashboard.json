@@ -39,7 +39,12 @@
           "legendFormat": "requests/sec"
         }
       ],
-      "gridPos": { "x": 0, "y": 0, "w": 8, "h": 8 }
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      }
     },
     {
       "id": 102,
@@ -52,7 +57,12 @@
           "legendFormat": "errors/sec"
         }
       ],
-      "gridPos": { "x": 8, "y": 0, "w": 8, "h": 8 }
+      "gridPos": {
+        "x": 8,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      }
     },
     {
       "id": 103,
@@ -65,12 +75,25 @@
           "legendFormat": "avg latency (s)"
         }
       ],
-      "gridPos": { "x": 16, "y": 0, "w": 8, "h": 8 }
+      "gridPos": {
+        "x": 16,
+        "y": 0,
+        "w": 8,
+        "h": 8
+      }
     },
     {
       "id": 1,
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
       "options": {
         "dedupStrategy": "none",
         "enableLogDetails": true,
@@ -83,7 +106,10 @@
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "editorMode": "code",
           "expr": "{app=\"amazon\", service=\"user-service\"}",
           "queryType": "range",
@@ -95,15 +121,33 @@
     },
     {
       "id": 2,
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "single", "sort": "none" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "editorMode": "code",
           "expr": "count_over_time({app=\"amazon\", service=\"user-service\", level=\"ERROR\"}[1m])",
           "queryType": "range",
@@ -115,15 +159,33 @@
     },
     {
       "id": 3,
-      "datasource": { "type": "loki", "uid": "loki" },
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 16 },
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
       "options": {
-        "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true },
-        "tooltip": { "mode": "single", "sort": "none" }
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
       },
       "targets": [
         {
-          "datasource": { "type": "loki", "uid": "loki" },
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
           "editorMode": "code",
           "expr": "count_over_time({app=\"amazon\", service=\"user-service\"} |= \"deactivate\" [5m])",
           "queryType": "range",
@@ -140,11 +202,16 @@
       "datasource": "Loki",
       "targets": [
         {
-          "expr": "{job=\"user-service\"} |~ \"auth|login|register|token\"",
+          "expr": "{app=\"amazon\", service=\"user-service\"} |~ \"auth|login|register|token\"",
           "legendFormat": ""
         }
       ],
-      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 }
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 8
+      }
     },
     {
       "id": 106,
@@ -153,19 +220,32 @@
       "datasource": "Loki",
       "targets": [
         {
-          "expr": "sum(rate({job=\"user-service\"}[1m]))",
+          "expr": "sum(rate({app=\"amazon\", service=\"user-service\"}[1m]))",
           "legendFormat": "log lines/sec"
         }
       ],
-      "gridPos": { "x": 0, "y": 32, "w": 24, "h": 8 }
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 24,
+        "h": 8
+      }
     }
   ],
   "refresh": "5s",
   "schemaVersion": 38,
   "style": "dark",
-  "tags": ["amazon", "user-service"],
-  "templating": { "list": [] },
-  "time": { "from": "now-1h", "to": "now" },
+  "tags": [
+    "amazon",
+    "user-service"
+  ],
+  "templating": {
+    "list": []
+  },
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
   "timepicker": {},
   "timezone": "browser",
   "title": "User Service Dashboard",

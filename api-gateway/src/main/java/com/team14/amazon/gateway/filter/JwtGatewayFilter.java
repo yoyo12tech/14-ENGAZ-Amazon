@@ -29,7 +29,7 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
         }
 
         final String finalCorrelationId = correlationId;
-        // Bypass JWT validation for auth endpoints
+        // Bypass JWT validation for auth endpoints and health endpoints
         if (path.startsWith("/api/auth/")
                 || path.contains("/health")
                 || path.contains("/actuator")){
