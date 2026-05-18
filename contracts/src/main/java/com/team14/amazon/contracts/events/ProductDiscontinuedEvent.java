@@ -1,3 +1,6 @@
 package com.team14.amazon.contracts.events;
 
-public record ProductDiscontinuedEvent(Long productId, String oldStatus, String newStatus) {}
+import java.io.Serializable;
+
+public record ProductDiscontinuedEvent
+        (Long productId, String oldStatus, String newStatus) implements Serializable {}

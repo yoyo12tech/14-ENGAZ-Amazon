@@ -8,7 +8,7 @@ import org.springframework.cloud.openfeign.EnableFeignClients;
 import com.team14.amazon.contracts.feign.OrderServiceClient;
 
 @SpringBootApplication
-@EnableFeignClients(basePackages = "com.team14.amazon.contracts.feign")
+@EnableFeignClients(basePackages = {"com.team14.amazon.shipping", "com.team14.amazon.contracts.feign"})
 @EntityScan("com.team14.amazon.shipping.model")
 @EnableCaching
 public class ShippingServiceApplication {

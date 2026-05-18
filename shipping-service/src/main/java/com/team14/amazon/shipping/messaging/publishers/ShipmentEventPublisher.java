@@ -27,6 +27,8 @@ public class ShipmentEventPublisher {
     }
 
     public void publishShipmentCreated(ShipmentCreatedEvent event) {
+        System.out.println("He did publish ittttttttttttttttttttttttttttttttttttttttttttttttttttttttttt");
+
         log.info("Publishing shipment.created: shipmentId={} orderId={}", event.shipmentId(), event.orderId());
         rabbitTemplate.convertAndSend("shipment.events", "shipment.created", event);
     }

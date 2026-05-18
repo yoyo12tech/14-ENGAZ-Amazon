@@ -1,6 +1,8 @@
 package com.team14.amazon.billing.config;
 
 import org.springframework.amqp.core.*;
+import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
+import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +12,11 @@ public class PaymentEventConfig {
     @Bean
     public TopicExchange paymentEventsExchange() {
         return new TopicExchange("payment.events");
+    }
+
+    @Bean
+    public TopicExchange orderEventsExchange() {
+        return new TopicExchange("order.events");
     }
 
     @Bean
@@ -38,17 +45,21 @@ public class PaymentEventConfig {
     }
 
     @Bean
-    public Binding orderCompletedBinding() {
-        return BindingBuilder.bind(paymentSagaListenerQueue())
-                .to(new TopicExchange("order.events"))
+    public Binding orderCompletedBinding(Queue paymentSagaListenerQueue, TopicExchange orderEventsExchange) {
+        return BindingBuilder.bind(paymentSagaListenerQueue)
+                .to(orderEventsExchange)
                 .with("order.completed");
     }
 
     @Bean
-    public Binding orderCancelledBinding() {
-        return BindingBuilder.bind(paymentSagaListenerQueue())
-                .to(new TopicExchange("order.events"))
+    public Binding orderCancelledBinding(Queue paymentSagaListenerQueue, TopicExchange orderEventsExchange) {
+        return BindingBuilder.bind(paymentSagaListenerQueue)
+                .to(orderEventsExchange)
                 .with("order.cancelled");
     }
-}
 
+    @Bean
+    public MessageConverter jsonMessageConverter() {
+        return new Jackson2JsonMessageConverter();
+    }
+}

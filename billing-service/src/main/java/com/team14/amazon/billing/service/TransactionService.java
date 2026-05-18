@@ -9,13 +9,14 @@ import com.team14.amazon.billing.repository.TransactionRepository;
 import com.team14.amazon.billing.dto.UserTransactionSummaryDTO;
 import com.team14.amazon.billing.repository.TransactionVoucherRepository;
 import com.team14.amazon.billing.repository.VoucherRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.team14.amazon.billing.cache.BillingCacheInvalidationService;
 import com.team14.amazon.contracts.feign.OrderServiceClient;
 import com.team14.amazon.contracts.feign.ProductServiceClient;
 import com.team14.amazon.contracts.feign.ShippingServiceClient;
 import com.team14.amazon.contracts.feign.UserServiceClient;
 import com.team14.amazon.contracts.dto.OrderDTO;
-import com.team14.amazon.billing.messaging.PaymentEventPublisher;
 import com.team14.amazon.contracts.events.PaymentCompletedEvent;
 import com.team14.amazon.contracts.events.PaymentFailedEvent;
 
@@ -45,6 +46,7 @@ import com.team14.amazon.billing.dto.TransactionDetailsDTO;
 import com.team14.amazon.billing.dto.CategoryRevenueDTO;
 import com.team14.amazon.billing.dto.LifecycleEventDTO;
 import com.team14.amazon.billing.exception.ConflictException;
+import com.team14.amazon.billing.messaging.publishers.PaymentEventPublisher;
 import com.team14.amazon.contracts.dto.OrderDetailsDTO;
 import com.team14.amazon.contracts.dto.OrderItemDTO;
 import com.team14.amazon.contracts.dto.ProductDTO;
@@ -69,6 +71,7 @@ public class TransactionService {
     private final ShippingServiceClient shippingServiceClient;
     private final UserServiceClient userServiceClient;
     private final PaymentEventPublisher paymentEventPublisher;
+    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
 
     public TransactionService(TransactionRepository transactionRepository, VoucherRepository voucherRepository,
             TransactionVoucherRepository transactionVoucherRepository,
@@ -371,7 +374,7 @@ public class TransactionService {
             details.put("simulateFailure", true);
             existing.setTransactionDetails(details);
             Transaction saved = transactionRepository.save(existing);
-
+            log.info("Transaction {} saved with status={}", saved.getId(), saved.getStatus());
             paymentEventPublisher.publishFailed(new PaymentFailedEvent(saved.getId(), orderId, "SIMULATED_FAILURE"));
             cacheInvalidationService.evictTransactionCaches(saved.getId());
             return saved;
@@ -394,8 +397,9 @@ public class TransactionService {
         existing.setTransactionDetails(details);
 
         Transaction saved = transactionRepository.save(existing);
-
-        paymentEventPublisher.publishCompleted(new PaymentCompletedEvent(saved.getId(), orderId, saved.getUserId(), saved.getAmount()));
+        log.info("Transaction {} saved with status={}", saved.getId(), saved.getStatus());
+        paymentEventPublisher.publishCompleted(
+                new PaymentCompletedEvent(saved.getId(), orderId, saved.getUserId(), saved.getAmount()));
         cacheInvalidationService.evictTransactionCaches(saved.getId());
         return saved;
     }
@@ -697,7 +701,7 @@ public class TransactionService {
 //        if (auth == null || !auth.isAuthenticated()) {
 //            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Unauthorized");
 //        }
-//
+        //
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Transaction not found"));
 
@@ -709,10 +713,10 @@ public class TransactionService {
 //        } catch (NumberFormatException e) {
 //             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid user ID in token");
 //        }
-//
+        //
 //        boolean isAdmin = auth.getAuthorities().stream()
 //                .anyMatch(a -> a.getAuthority().equals("ROLE_ADMIN"));
-//
+        //
 //        if (!transaction.getUserId().equals(uid) && !isAdmin) {
 //            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Forbidden: You do not own this transaction");
 //        }
@@ -798,7 +802,7 @@ public class TransactionService {
         } else if (tsObj instanceof Integer) {
             timestamp = LocalDateTime.ofInstant(Instant.ofEpochMilli(((Integer) tsObj).longValue()), ZoneId.systemDefault());
         }
-        
+
         // details can be a nested Document or a Map — copy to plain HashMap so Jackson can serialize/deserialize it cleanly from Redis cache
         Map<String, Object> details = null;
         Object detailsObj = d.get("details");
