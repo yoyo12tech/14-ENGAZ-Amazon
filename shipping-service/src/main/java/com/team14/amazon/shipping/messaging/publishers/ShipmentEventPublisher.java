@@ -33,9 +33,9 @@ public class ShipmentEventPublisher {
         rabbitTemplate.convertAndSend("shipment.events", "shipment.created", event);
     }
 
-    public void publishShipmentStatusChanged(Shipment s) {
-        publishShipmentStatusChanged(new ShipmentStatusChangedEvent(s.getId(), s.getOrderId(), s.getStatus().name()));
-    }
+//    public void publishShipmentStatusChanged(Shipment s) {
+//        publishShipmentStatusChanged(new ShipmentStatusChangedEvent(s.getId(), s.getOrderId(), s.getStatus().name()));
+//    }
 
     public void publishShipmentStatusChanged(ShipmentStatusChangedEvent event) {
         log.info("Publishing shipment.status-changed: shipmentId={} orderId={} newStatus={}",
@@ -43,9 +43,6 @@ public class ShipmentEventPublisher {
         rabbitTemplate.convertAndSend("shipment.events", "shipment.status-changed", event);
     }
 
-    public void publishShipmentCancelled(Shipment s) {
-        publishShipmentCancelled(new ShipmentCancelledEvent(s.getId(), s.getOrderId()));
-    }
 
     public void publishShipmentCancelled(ShipmentCancelledEvent event) {
         log.info("Publishing shipment.cancelled: shipmentId={} orderId={}",

@@ -29,8 +29,7 @@ public class OrderEventConsumer {
             Shipment.Status.PROCESSING,
             Shipment.Status.SHIPPED,
             Shipment.Status.IN_TRANSIT,
-            Shipment.Status.OUT_FOR_DELIVERY
-    );
+            Shipment.Status.OUT_FOR_DELIVERY);
 
     private final ShipmentRepository shipmentRepository;
     private final ShipmentEventPublisher shipmentEventPublisher;
