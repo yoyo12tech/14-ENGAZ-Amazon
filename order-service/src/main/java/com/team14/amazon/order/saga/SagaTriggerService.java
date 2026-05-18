@@ -6,7 +6,7 @@ import com.team14.amazon.contracts.feign.ProductServiceClient;
 import com.team14.amazon.contracts.feign.ShippingServiceClient;
 import com.team14.amazon.contracts.feign.UserServiceClient;
 import com.team14.amazon.order.config.CacheEvictionService;
-import com.team14.amazon.order.messaging.OrderEventPublisher;
+import com.team14.amazon.order.messaging.publishers.OrderEventPublisher;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;

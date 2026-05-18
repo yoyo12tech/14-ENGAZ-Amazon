@@ -45,40 +45,11 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     @Query(value = "SELECT * FROM orders o WHERE o.metadata ->> :key = :value", nativeQuery = true)
     List<Order> findByMetadata(@Param("key") String key, @Param("value") String value);
 
-    // =========================
-    // Shipment update
-    // =========================
-    @Modifying
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    @Query(value = """
-        UPDATE shipments
-        SET status = 'DELIVERED',
-            actual_delivery = :deliveredAt
-        WHERE order_id = :orderId
-    """, nativeQuery = true)
-    int markShipmentDelivered(@Param("orderId") Long orderId,
-                              @Param("deliveredAt") LocalDateTime deliveredAt);
-
-    // =========================
-    // Transaction insert
-    // =========================
-    @Modifying
-    @Query(value = """
-        INSERT INTO transactions (order_id, user_id, amount, status, created_at, method)
-        VALUES (:orderId, :userId, :amount, :status, :createdAt, :method)
-    """, nativeQuery = true)
-    int createTransaction(@Param("orderId") Long orderId,
-                          @Param("userId") Long userId,
-                          @Param("amount") BigDecimal amount,
-                          @Param("status") String status,
-                          @Param("createdAt") LocalDateTime createdAt,
-                          @Param("method") String method);
 
 
 
-//    @Query("SELECT o FROM Order o WHERE o.orderedAt BETWEEN :startDate AND :endDate")
-//    List<Order> findOrdersBetween(@Param("startDate") LocalDateTime startDate,
-//                                  @Param("endDate") LocalDateTime endDate);
+
+
 
 
 

@@ -1,10 +1,7 @@
 package com.team14.amazon.order.service;
 
 import com.team14.amazon.contracts.dto.ProductDTO;
-import com.team14.amazon.contracts.dto.ShippingAddressDTO;
-import com.team14.amazon.contracts.dto.UserDTO;
 import com.team14.amazon.contracts.events.OrderCancelledEvent;
-import com.team14.amazon.contracts.events.OrderCompletedEvent;
 import com.team14.amazon.contracts.events.OrderItemPayload;
 import com.team14.amazon.contracts.events.OrderPlacedEvent;
 import com.team14.amazon.contracts.feign.ProductServiceClient;
@@ -12,7 +9,7 @@ import com.team14.amazon.contracts.feign.ShippingServiceClient;
 import com.team14.amazon.contracts.feign.UserServiceClient;
 import com.team14.amazon.order.config.CacheEvictionService;
 import com.team14.amazon.order.dto.*;
-import com.team14.amazon.order.messaging.OrderEventPublisher;
+import com.team14.amazon.order.messaging.publishers.OrderEventPublisher;
 import com.team14.amazon.order.model.Order;
 import com.team14.amazon.order.model.OrderItem;
 import com.team14.amazon.order.model.OrderStatus;
@@ -31,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
