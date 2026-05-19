@@ -1,31 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <configuration>
 
-    <springProperty scope="context" name="appName" source="spring.application.name" defaultValue="billing-service"/>
-
+    <!-- ── Console appender ─────────────────────────────────────────────── -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%-5level","service":"${appName}","traceId":"%X{correlationId}","logger":"%logger{36}","message":"%replace(%msg){'\"','\\\"'}"}%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %-5level [billing-service] [corrId=%X{correlationId:-}] %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
 
-    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/billing-service.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/billing-service.%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>7</maxHistory>
-        </rollingPolicy>
-        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
-            <pattern>{"timestamp":"%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ}","level":"%-5level","service":"${appName}","traceId":"%X{correlationId}","logger":"%logger{36}","message":"%replace(%msg){'\"','\\\"'}"}%n</pattern>
-        </encoder>
+    <!-- ── Loki4J appender — pushes logs to Grafana Loki ─────────────────── -->
+    <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
+        <http>
+            <url>http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push</url>
+        </http>
+        <format>
+            <label>
+                <pattern>app=amazon,service=billing-service,level=%level,env=k8s</pattern>
+            </label>
+            <message>
+                <pattern>{ "timestamp": "%d{ISO8601}", "level": "%level", "service": "billing-service", "thread": "%thread", "logger": "%logger{36}", "correlationId": "%X{correlationId:-}", "userId": "%X{userId:-}", "orderId": "%X{orderId:-}", "transactionId": "%X{transactionId:-}", "routingKey": "%X{routingKey:-}", "message": "%msg" }</pattern>
+            </message>
+            <sortByTime>true</sortByTime>
+        </format>
     </appender>
+
+    <springProfile name="k8s">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!k8s">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
 
     <logger name="com.team14.amazon.billing" level="INFO"/>
     <logger name="org.springframework.web" level="WARN"/>
     <logger name="org.hibernate.SQL" level="WARN"/>
-
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-    </root>
 
 </configuration>

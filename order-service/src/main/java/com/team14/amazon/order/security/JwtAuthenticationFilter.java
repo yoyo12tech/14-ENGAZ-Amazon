@@ -49,7 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Public endpoints — skip chain entirely
         if (HttpMethod.OPTIONS.matches(request.getMethod())
                 || path.contains("/health")
-                || "/error".equals(path)) {
+                || "/error".equals(path)
+                || path.startsWith("/actuator")) {
             filterChain.doFilter(request, response);
             return;
         }

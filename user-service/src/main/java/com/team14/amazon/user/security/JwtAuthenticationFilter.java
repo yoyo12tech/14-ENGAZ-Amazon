@@ -32,7 +32,8 @@
                throws ServletException, IOException {
 
            String path = request.getServletPath();
-           if (path.contains("/api/auth/register") || path.contains("/api/auth/login") || path.contains("/health")) {
+           if (path.contains("/api/auth/register") || path.contains("/api/auth/login")
+                   || path.contains("/health") || path.startsWith("/actuator")) {
                filterChain.doFilter(request, response);
                return;
            }

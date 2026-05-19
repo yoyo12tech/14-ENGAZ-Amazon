@@ -20,14 +20,3 @@ data:
         access: proxy
         url: http://loki.monitoring.svc.cluster.local:3100
         editable: true
-  dashboards.yaml: |
-    apiVersion: 1
-    providers:
-      - name: Amazon Dashboards
-        orgId: 1
-        folder: Amazon
-        type: file
-        disableDeletion: false
-        editable: true
-        options:
-          path: /etc/grafana/provisioning/dashboards

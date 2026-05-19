@@ -1,4 +1,4 @@
-﻿apiVersion: v1
+apiVersion: v1
 kind: ConfigMap
 metadata:
   name: grafana-dashboards
@@ -6,6 +6,17 @@ metadata:
   labels:
     grafana_dashboard: "1"
 data:
+  dashboards.yaml: |
+    apiVersion: 1
+    providers:
+      - name: Amazon Dashboards
+        orgId: 1
+        folder: Amazon
+        type: file
+        disableDeletion: false
+        editable: true
+        options:
+          path: /etc/grafana/provisioning/dashboards
   user-dashboard.json: |
     {
       "annotations": {

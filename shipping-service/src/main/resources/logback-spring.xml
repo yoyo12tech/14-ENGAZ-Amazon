@@ -4,7 +4,7 @@
     <!-- ── Console appender ─────────────────────────────────────────────── -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [${spring.application.name:-shipping-service}] [%t] %logger{36} : %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [shipping-service] [%t] %logger{36} : %msg%n</pattern>
         </encoder>
     </appender>
 
@@ -18,32 +18,25 @@
                 <pattern>app=amazon,service=shipping-service,level=%level,env=k8s</pattern>
             </label>
             <message>
-                <pattern>
-                    {
-                      "timestamp": "%d{ISO8601}",
-                      "level": "%level",
-                      "service": "shipping-service",
-                      "thread": "%thread",
-                      "logger": "%logger{36}",
-                      "correlationId": "%X{correlationId:-}",
-                      "shipmentId": "%X{shipmentId:-}",
-                      "orderId": "%X{orderId:-}",
-                      "routingKey": "%X{routingKey:-}",
-                      "message": "%msg"
-                    }
-                </pattern>
+                <pattern>{ "timestamp": "%d{ISO8601}", "level": "%level", "service": "shipping-service", "thread": "%thread", "logger": "%logger{36}", "correlationId": "%X{correlationId:-}", "shipmentId": "%X{shipmentId:-}", "orderId": "%X{orderId:-}", "routingKey": "%X{routingKey:-}", "message": "%msg" }</pattern>
             </message>
             <sortByTime>true</sortByTime>
         </format>
     </appender>
 
-    <!-- ── Root logger ───────────────────────────────────────────────────── -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="LOKI"/>
-    </root>
+    <springProfile name="k8s">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="LOKI"/>
+        </root>
+    </springProfile>
 
-    <!-- ── Reduce Hibernate noise ────────────────────────────────────────── -->
+    <springProfile name="!k8s">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
     <logger name="org.hibernate.SQL" level="WARN"/>
     <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
 
