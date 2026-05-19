@@ -24,7 +24,7 @@ spec:
             - name: GF_SECURITY_ADMIN_PASSWORD
               value: admin
           volumeMounts:
-            - name: dashboards
+            - name: dashboard-jsons
               mountPath: /etc/grafana/provisioning/dashboards
             - name: datasources
               mountPath: /etc/grafana/provisioning/datasources
@@ -43,7 +43,7 @@ spec:
             initialDelaySeconds: 60
             periodSeconds: 30
       volumes:
-        - name: dashboards
+        - name: dashboard-jsons
           configMap:
             name: grafana-dashboards
         - name: datasources

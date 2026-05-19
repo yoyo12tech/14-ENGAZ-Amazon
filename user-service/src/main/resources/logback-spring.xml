@@ -4,22 +4,23 @@
     <!-- ── Console appender (local dev) ─────────────────────────────────── -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
-            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [${spring.application.name:-user-service}] [corrId=%X{correlationId:-none}] [%t] %logger{36} : %msg%n</pattern>
+            <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSZ} %5p [user-service] [corrId=%X{correlationId:-none}] [%t] %logger{36} : %msg%n</pattern>
         </encoder>
     </appender>
 
-    <!-- ── Loki4J appender — pushes structured JSON logs to Grafana Loki ── -->
+    <!-- ── Loki4J 2.x appender — pushes structured JSON logs to Grafana Loki ── -->
     <appender name="LOKI" class="com.github.loki4j.logback.Loki4jAppender">
         <http>
             <url>http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push</url>
         </http>
         <format>
             <label>
-                <pattern>app=amazon,service=${spring.application.name:-user-service},level=%level,env=k8s</pattern>
+                <pattern>app=amazon,service=user-service,level=%level,env=k8s</pattern>
             </label>
             <message>
-                <pattern>{ "timestamp": "%d{ISO8601}", "level": "%level", "service": "${spring.application.name:-user-service}", "thread": "%thread", "logger": "%logger{36}", "correlationId": "%X{correlationId:-}", "userId": "%X{userId:-}", "routingKey": "%X{routingKey:-}", "message": "%msg" }</pattern>
+                <pattern>{ "timestamp": "%d{ISO8601}", "level": "%level", "service": "user-service", "thread": "%thread", "logger": "%logger{36}", "correlationId": "%X{correlationId:-}", "userId": "%X{userId:-}", "routingKey": "%X{routingKey:-}", "message": "%msg" }</pattern>
             </message>
+            <sortByTime>true</sortByTime>
         </format>
     </appender>
 
